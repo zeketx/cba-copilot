@@ -4,7 +4,7 @@ CBA Copilot answers questions about the 2023 NBA Collective Bargaining Agreement
 
 A wrong cap answer can change a trade. The validator drops any claim whose passage id is missing from the retrieved set. When retrieval is thin, or every claim is dropped, the response is a refusal rather than a guess.
 
-The public repository at `zeketx/document-copilot` was not available on 2026-10-29. The structure follows the public project [daveebbelaar/document-copilot](https://github.com/daveebbelaar/document-copilot), cut down to this one agreement. SEC filing code is not in this repo.
+CBA Copilot is a sibling of document-copilot, cut to this one agreement. SEC filing code is not in this repo.
 
 ## Architecture
 
@@ -26,7 +26,7 @@ The demo you can run today stops before Supabase. It searches a small in-memory 
 
 ## v1
 
-v1 is one corpus, the July 2023 CBA, in force from 1 July 2023 through the 2029-30 season. The app has a chat shell, citation chips that open the official PDF, and a draft glossary. It does not ingest the full 676-page PDF yet, and it does not call a paid model.
+v1 is one corpus, the July 2023 CBA, in force from 1 July 2023 through the 2029-30 season. The app has a chat shell, citation chips that open the whole source at the anchored passage, and a draft glossary. It does not ingest the full 676-page PDF yet, and it does not call a paid model.
 
 ## Later
 

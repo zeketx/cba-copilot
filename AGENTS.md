@@ -7,7 +7,7 @@ Read this before editing the repo.
 - Backend: Python 3.12, FastAPI, PydanticAI, SQLAlchemy, Alembic
 - Frontend: Vite, React, TypeScript, Tailwind, pnpm
 - Database, when the owner creates it: a new Supabase project, pgvector, and Postgres full text
-- Models, when live calls are enabled: OpenAI `text-embedding-3-small` at 1536 dimensions, chat `gpt-5.5`, grounding `gpt-4.1-mini`
+- Models, when live calls are enabled: `ANSWER_PROVIDER` is `openai`, `google`, or `openrouter`. The OpenAI chat default is `gpt-4o`. Embeddings are `text-embedding-3-small` at 1536 dimensions. Google uses `GEMINI_API_KEY`. OpenRouter uses `OPENROUTER_API_KEY`.
 
 The offline default uses a hash embedder and an overlap drafter. Do not call OpenAI or create a Supabase project from an agent session.
 

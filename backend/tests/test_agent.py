@@ -49,7 +49,7 @@ def test_stand_in_model_unknown_citation_becomes_a_refusal() -> None:
 
 def test_live_clients_refuse_before_a_call() -> None:
     try:
-        refuse_live_model("gpt-5.5")
+        refuse_live_model("gpt-4o")
     except RuntimeError as exc:
         assert "disabled" in str(exc)
     else:

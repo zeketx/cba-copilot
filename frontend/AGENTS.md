@@ -8,7 +8,7 @@ Vite, React, TypeScript, Tailwind. pnpm only. No Next.js.
 
 The glossary is `definitions/definitions.yaml`. Import it. Do not copy the entries into a second file.
 
-Citation chips open the official PDF url already stored on the citation. Definition links add `pdf_page_offset` from `data/corpus.json` to the printed page.
+Citation chips open the whole source in `FilingViewer`, scrolled to a span or element anchor with the passage highlighted and the surrounding sections still in the document. Definition links add `pdf_page_offset` from `data/corpus.json` to the printed page.
 
 ## Checks
 

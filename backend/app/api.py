@@ -13,6 +13,7 @@ from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import Chunk, CitedAnswer, Refusal
 from app.pipeline import answer_question
+from app.source_view import ElementPlacement, SpanPlacement, render_source
 
 
 class AskRequest(BaseModel):
@@ -23,10 +24,13 @@ class PublicCitation(BaseModel):
     article_number: int | None
     article_title: str
     section: str
+    page_or_section: str
     page_start: int | None
     page_end: int | None
     source_url: str
     excerpt: str
+    source_html: str
+    placement: SpanPlacement | ElementPlacement
 
 class PublicClaim(BaseModel):
     text: str
@@ -49,28 +53,41 @@ def _excerpt(text: str, limit: int = 420) -> str:
         return trimmed
     return trimmed[: limit - 3] + "..."
 
-def _citation(chunk: Chunk) -> PublicCitation:
+def _page_or_section(chunk: Chunk) -> str:
+    if chunk.page_start is None:
+        return chunk.section
+    if chunk.page_end is None or chunk.page_end == chunk.page_start:
+        return f"{chunk.section}, p. {chunk.page_start}"
+    return f"{chunk.section}, pp. {chunk.page_start}-{chunk.page_end}"
+
+
+def _citation(chunk: Chunk, corpus: list[Chunk]) -> PublicCitation:
+    source_html, placement = render_source(chunk, corpus)
     return PublicCitation(
         passage_id=chunk.id,
         article_number=chunk.article_number,
         article_title=chunk.article_title,
         section=chunk.section,
+        page_or_section=_page_or_section(chunk),
         page_start=chunk.page_start,
         page_end=chunk.page_end,
         source_url=chunk.source_url,
         excerpt=_excerpt(chunk.text),
+        source_html=source_html,
+        placement=placement,
     )
 
 def to_public(
     response: CitedAnswer | Refusal,
     passages: dict[str, Chunk],
+    corpus: list[Chunk],
 ) -> PublicAnswer | PublicRefusal:
     if isinstance(response, Refusal):
         return PublicRefusal(reason=response.reason, message=response.message)
     claims: list[PublicClaim] = []
     for claim in response.claims:
         citations = [
-            _citation(passages[passage_id])
+            _citation(passages[passage_id], corpus)
             for passage_id in claim.passage_ids
             if passage_id in passages
         ]
@@ -86,7 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="CBA Copilot", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=settings.allowed_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
@@ -106,7 +123,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             top_k=settings.retrieval_top_k,
             rrf_k=settings.retrieval_rrf_k,
         )
-        return to_public(result, by_id)
+        return to_public(result, by_id, list(by_id.values()))
 
     @app.get("/api/definitions")
     def definitions() -> dict[str, object]:

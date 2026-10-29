@@ -1,6 +1,6 @@
 # Architecture
 
-CBA Copilot is a smaller sibling of document-copilot. One agreement replaces the SEC corpus. The modules that stay are the ones a cited answer needs.
+CBA Copilot is a sibling of document-copilot. One agreement replaces the SEC corpus. The modules that stay are the ones a cited answer needs.
 
 ## Data
 
@@ -30,4 +30,4 @@ It does not extract the 676-page PDF. It does not call OpenAI. It does not open 
 
 ## Shape that lost
 
-One function that retrieved, drafted, and validated in a single module would have hidden less. The sibling's split, ingest, retrieval, agent, and grounding, keeps each check unit-testable and matches the repo the next change will sit beside. The public surface is `answer_question`, `chunk_markdown`, and `reciprocal_rank_fusion`.
+One function that retrieved, drafted, and validated in a single module would have hidden less. The split into ingest, retrieval, the agent, and grounding keeps each check unit-testable and matches document-copilot. The public surface is `answer_question`, `chunk_markdown`, and `reciprocal_rank_fusion`.

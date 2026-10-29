@@ -75,7 +75,11 @@ def test_ask_endpoint_answers_and_refuses() -> None:
     assert answer.status_code == 200
     body = answer.json()
     assert body["kind"] == "answer"
-    assert body["claims"][0]["citations"][0]["source_url"].endswith("#page=214")
+    citation = body["claims"][0]["citations"][0]
+    assert citation["source_url"].endswith("#page=214")
+    assert citation["placement"]["kind"] == "span"
+    assert citation["source_html"].count("<section>") > 1
+    assert citation["placement"]["start_id"] in citation["source_html"]
 
     refusal = client.post(
         "/api/ask",

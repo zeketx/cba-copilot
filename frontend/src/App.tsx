@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { CitationChip } from "@/components/chat/CitationChip";
-import { PdfPageSheet } from "@/components/chat/PdfPageSheet";
+import { SourcePanel } from "@/components/chat/SourcePanel";
 import { Button } from "@/components/ui/button";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
 import { loadDefinitions } from "@/lib/definitions";
@@ -134,7 +134,7 @@ export function App() {
             </div>
           </form>
         </main>
-        <PdfPageSheet citation={active} onClose={() => setActive(null)} />
+        <SourcePanel citation={active} onClose={() => setActive(null)} />
         <DefinitionsSidebar
           status={glossary.status}
           entries={glossary.entries}

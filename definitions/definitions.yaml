@@ -27,7 +27,7 @@ entries:
     citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2(e)(1)", page_start: 186, page_end: 186, verified: true}
 
   - term: Minimum team salary
-    definition: "The minimum team salary is the floor a team must reach for a salary cap year. Article I defines it as the minimum set under Article VII, Section 2(b)."
+    definition: "The minimum team salary is the floor a team must reach for a salary cap year. Article I, Section 1(ll) defines that floor and says the amount is determined under Article VII, Section 2(b). On printed page 176, Section 2(b) is the salary-cap operating rule, and Section 2(c) is titled Operation of Minimum Team Salary. That is the section where a short team pays the NBA the difference."
     citation: {article: 1, article_title: Definitions, section: "1(ll)", page_start: 5, page_end: 5, verified: true}
 
   - term: Room

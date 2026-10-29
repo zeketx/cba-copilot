@@ -1,12 +1,17 @@
+import { readPlacement, type FilingPlacement } from "@/lib/citation";
+
 export type PublicCitation = {
   passageId: string;
   articleNumber: number | null;
   articleTitle: string;
   section: string;
+  pageOrSection: string;
   pageStart: number | null;
   pageEnd: number | null;
   sourceUrl: string;
   excerpt: string;
+  sourceHtml: string;
+  placement: FilingPlacement;
 };
 
 export type PublicClaim = {
@@ -38,10 +43,13 @@ type WireCitation = {
   article_number: number | null;
   article_title: string;
   section: string;
+  page_or_section: string;
   page_start: number | null;
   page_end: number | null;
   source_url: string;
   excerpt: string;
+  source_html: string;
+  placement: unknown;
 };
 
 export type WireResponse =
@@ -61,10 +69,13 @@ function citationFromWire(citation: WireCitation): PublicCitation {
     articleNumber: citation.article_number,
     articleTitle: citation.article_title,
     section: citation.section,
+    pageOrSection: citation.page_or_section,
     pageStart: citation.page_start,
     pageEnd: citation.page_end,
     sourceUrl: citation.source_url,
     excerpt: citation.excerpt,
+    sourceHtml: citation.source_html,
+    placement: readPlacement(citation.placement),
   };
 }
 
