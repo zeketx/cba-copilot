@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cba-copilot-backend"
+version = "0.1.0"
+description = "Cited, refusal-first Q&A over the 2023 NBA Collective Bargaining Agreement."
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.14",
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "pgvector>=0.3",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.10",
+    "pydantic-ai>=1.0",
+    "pydantic-settings>=2.6",
+    "pyyaml>=6",
+    "sqlalchemy>=2.0",
+    "uvicorn>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "ingest", "evals"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["app", "ingest", "evals", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

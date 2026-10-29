@@ -1,0 +1,63 @@
+- id: second-apron-trade
+  question: What can't a second-apron team do in a trade?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "2(e)"
+      verified: true
+      note: "Article VII Section 2(e)(4) rows H, I, and J, printed pages 190-191."
+
+- id: bird-vs-early-bird
+  question: Bird vs. Early Bird rights in plain English.
+  expect: answer
+  match: all
+  articles:
+    - article: 1
+      section_contains: "1(yy)"
+      verified: true
+      note: "Qualifying Veteran Free Agent, Article I Section 1(yy), printed page 7."
+    - article: 1
+      section_contains: "1(t)"
+      verified: true
+      note: "Early Qualifying Veteran Free Agent, Article I Section 1(t), printed page 3."
+
+- id: sixty-five-game
+  question: The 65-game minimum for awards and which awards it covers.
+  expect: answer
+  match: any
+  articles:
+    - article: 29
+      section_contains: "6"
+      verified: true
+      note: "Article XXIX Section 6, printed pages 432-433."
+
+- id: taxpayer-mle-second-apron
+  question: How the taxpayer mid-level exception changes above the second apron.
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(f)"
+      verified: true
+      note: "Article VII Section 6(f) and Section 2(e) row K, printed pages 191 and 237."
+
+- id: cap-inclusions
+  question: What counts toward the cap vs. what doesn't.
+  expect: answer
+  match: all
+  articles:
+    - article: 1
+      section_contains: "1(lll)"
+      verified: true
+      note: "Salary definition, Article I Section 1(lll), printed page 9."
+    - article: 7
+      section_contains: "4 Team Salary"
+      verified: true
+      note: "Team Salary and the two-way exclusion, Article VII Section 4(j), printed page 225."
+
+- id: outside-cba
+  question: How many timeouts may an NHL coach call during a playoff overtime?
+  expect: refusal
+  match: any
+  articles: []
