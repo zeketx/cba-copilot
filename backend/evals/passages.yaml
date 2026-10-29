@@ -1,0 +1,115 @@
+- id: apron-trades
+  article_number: 7
+  article_title: Basketball Related Income, Salary Cap, and Apron Levels
+  section: "2(e)(4) Transaction Restrictions Table"
+  page_start: 190
+  page_end: 191
+  text: >
+    A team may not acquire a player using an Aggregated Standard Traded
+    Player Exception if that trade would put Apron Team Salary over the
+    Second Apron Level. A team may not pay cash to another team in a trade
+    if that payment would put it over the Second Apron Level. A team may
+    not take a player back in a Traded Player Exception that came from a
+    contract signed and traded under Section 8(e)(1) if that trade would
+    put it over the Second Apron Level.
+
+- id: bird
+  article_number: 1
+  article_title: Definitions
+  section: "1(yy) Qualifying Veteran Free Agent (Bird)"
+  page_start: 7
+  page_end: 7
+  text: >
+    A Qualifying Veteran Free Agent, the status readers call Bird rights,
+    played under one or more player contracts covering some or all of each
+    of the three preceding seasons, either exclusively with his prior team
+    or changing teams in that span only by trade, by waiver assignment in
+    the first of those seasons, or by signing with that prior team in the
+    first of those seasons. Re-signing that player under the veteran free
+    agent exception can reach the maximum salary in Article II, Section 7.
+
+- id: early-bird
+  article_number: 1
+  article_title: Definitions
+  section: "1(t) Early Qualifying Veteran Free Agent (Early Bird)"
+  page_start: 3
+  page_end: 3
+  text: >
+    An Early Qualifying Veteran Free Agent, the status readers call Early
+    Bird rights, played under contract for some or all of each of the two
+    preceding seasons with the same limits on how he changed teams. A new
+    contract with the prior team under the veteran free agent exception
+    must cover at least two seasons and is capped by the greater of 175
+    percent of the prior regular salary or 105 percent of the prior average
+    player salary.
+
+- id: non-bird
+  article_number: 1
+  article_title: Definitions
+  section: "1(rr) Non-Qualifying Veteran Free Agent (Non-Bird)"
+  page_start: 6
+  page_end: 6
+  text: >
+    A Non-Qualifying Veteran Free Agent is a veteran free agent who is
+    neither a Qualifying Veteran Free Agent nor an Early Qualifying Veteran
+    Free Agent. The veteran free agent exception for that player is the
+    greater of 120 percent of his prior regular salary, 120 percent of the
+    applicable minimum salary, or the qualifying offer if he is restricted.
+
+- id: awards-65
+  article_number: 29
+  article_title: Miscellaneous
+  section: "6 Games Played Requirement for Certain League Honors"
+  page_start: 432
+  page_end: 433
+  text: >
+    A player is not eligible for NBA Most Valuable Player, NBA Defensive
+    Player of the Year, NBA Most Improved Player, All-NBA Team, or NBA
+    All-Defensive Team honors unless he played in at least sixty-five (65)
+    Regular Season games, or played at least sixty-two games, suffered a
+    season-ending injury, and played in at least 85 percent of his team's
+    games before that injury. A game counts at 20 minutes, with two games
+    a season allowed at 15 minutes.
+
+- id: taxpayer-mle
+  article_number: 7
+  article_title: Basketball Related Income, Salary Cap, and Apron Levels
+  section: "6(f) Taxpayer Mid-Level Salary Exception"
+  page_start: 237
+  page_end: 238
+  text: >
+    A team may use the Taxpayer Mid-Level Salary Exception to sign one or
+    more contracts of up to two seasons once its Apron Team Salary is above
+    the First Apron Level. For 2023-24 the amount is 5 million dollars, and
+    later years scale that amount with the Salary Cap. Row K of the
+    Transaction Restrictions Table treats use of this exception as a Second
+    Apron Level transaction, so a team cannot use it when the signing would
+    put Apron Team Salary over the Second Apron Level. The dollar formula
+    itself does not shrink above the second apron. Availability does.
+
+- id: salary-definition
+  article_number: 1
+  article_title: Definitions
+  section: "1(lll) Salary"
+  page_start: 9
+  page_end: 9
+  text: >
+    Salary for a Salary Cap Year is the player's Compensation for that
+    season plus any other amount the agreement deems Salary. Those amounts
+    count toward the cap. Salary does not include Unlikely Bonuses, and it
+    does not include benefits the player received under the agreement.
+
+- id: team-salary
+  article_number: 7
+  article_title: Basketball Related Income, Salary Cap, and Apron Levels
+  section: "4 Team Salary, including 4(j) Two-Way Contracts"
+  page_start: 211
+  page_end: 225
+  text: >
+    Team Salary for a Salary Cap Year is the sum of salaries attributed to
+    a team's players plus other amounts computed under Article VII, minus
+    credit amounts computed under Article VII. Two-Way Player Salaries are
+    excluded from Team Salary. A team does not need Room or an exception to
+    sign a Two-Way Contract. Amounts earned under an Exhibit 10 bonus are
+    also excluded from Team Salary. Free agent amounts for a team's own
+    free agents are included in that team's Team Salary as cap holds.
