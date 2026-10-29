@@ -1,0 +1,16 @@
+---
+description: This repo uses Grok only, and the user hears about a stall in the same turn.
+alwaysApply: true
+---
+
+# Grok only, no silent stalls
+
+This rule wins over the user-level pstack model list while working in this repo.
+
+Use only these models for subagents: `grok-4.7-medium-fast`, `cursor-grok-4.6-medium-fast`, `cursor-grok-4.5-high-fast`. Default to `grok-4.7-medium-fast`. Do not spawn Claude, GPT, Composer, or any other family. If a playbook names another family, use Grok and say that in the same message to the user.
+
+Arena, architect, and review panels are one Grok pass. Do not fan out a draft per family.
+
+If the user asked for a file in the repo, write that file before the turn ends. A draft under `/tmp` is not the deliverable. If you cannot write it yet, say so in that same turn: what is blocked, what you already decided, and what the user can tell you to do instead. Do not wait for them to ask where the work went.
+
+If a model call fails because of credits or availability, say so immediately and continue on Grok. Do not retry the failed family.
