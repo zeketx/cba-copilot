@@ -1,0 +1,135 @@
+# DRAFT
+# Plain-English definitions for the owner to edit.
+# status DRAFT means this file is not product copy yet.
+# verified true means the citation was checked against the official July 2023
+# NBPA PDF on 2026-10-29. Printed page numbers are the numbers in the CBA,
+# not the PDF viewer index. The viewer page is the printed page plus 24.
+status: DRAFT
+entries:
+  - term: Salary cap
+    definition: "The salary cap is the maximum team salary for a salary cap year, before the exceptions in Article VII. Article VII, Section 2 sets the cap, and Section 6 lists the ways a team can go above it."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2", page_start: 169, page_end: 176, verified: true}
+
+  - term: Tax level
+    definition: "The tax level is the team-salary line, above the salary cap, past which a team pays the luxury tax. Article VII, Section 2(a) calculates it with the cap and the apron levels. In the agreement's 2023-24 example the tax level is $162.81 million."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2(a)", page_start: 169, page_end: 171, verified: true}
+
+  - term: First apron
+    definition: "The first apron is a team-salary line above the tax level. Crossing it, or using certain exceptions, shuts off transactions listed against the first apron in the Article VII, Section 2(e) table, including the bi-annual exception and the non-taxpayer mid-level exception."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2(a) and 2(e)", page_start: 171, page_end: 190, verified: true}
+
+  - term: Second apron
+    definition: "The second apron is the higher of the two apron lines. For 2023-24 the agreement's example sets it at the tax level plus $17.5 million. A team that would finish above it cannot do the second-apron rows in the transaction table, including aggregation, cash, a sign-and-trade incoming deal, and the taxpayer mid-level exception."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2(a) and 2(e)(4)", page_start: 171, page_end: 191, verified: true}
+
+  - term: Apron team salary
+    definition: "Apron team salary is the figure the apron rules use. It starts from team salary and adds back items the cap math leaves out, including performance bonuses excluded from a player's salary. Article VII, Section 2(e)(1) defines it."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2(e)(1)", page_start: 186, page_end: 186, verified: true}
+
+  - term: Minimum team salary
+    definition: "The minimum team salary is the floor a team must reach for a salary cap year. Article I defines it as the minimum set under Article VII, Section 2(b)."
+    citation: {article: 1, article_title: Definitions, section: "1(ll)", page_start: 5, page_end: 5, verified: true}
+
+  - term: Room
+    definition: "Room is the gap between a team's current team salary and the salary cap. The same word also covers the room a team has inside a listed exception, including the mid-level exceptions and the traded player exception."
+    citation: {article: 1, article_title: Definitions, section: "1(kkk)", page_start: 9, page_end: 9, verified: true}
+
+  - term: Salary
+    definition: "Salary, for a salary cap year, is the player's compensation for that season plus anything else the agreement treats as salary. It does not include unlikely bonuses. It does not include benefits paid under the agreement."
+    citation: {article: 1, article_title: Definitions, section: "1(lll)", page_start: 9, page_end: 9, verified: true}
+
+  - term: Team salary
+    definition: "Team salary is the sum of the salaries charged to a team's players for a salary cap year, plus other amounts Article VII adds, minus credit amounts Article VII subtracts. That total is what the cap, tax, and aprons measure, with the apron adjustments in Section 2(e)."
+    citation: {article: 1, article_title: Definitions, section: "1(uuu)", page_start: 11, page_end: 11, verified: true}
+
+  - term: Unlikely bonuses
+    definition: "Unlikely bonuses are incentive pay the agreement does not count in salary. They still show up in some exception limits, which often say salary plus unlikely bonuses. They are not part of the salary definition itself."
+    citation: {article: 1, article_title: Definitions, section: "1(lll)", page_start: 9, page_end: 9, verified: true}
+
+  - term: Cap hold
+    definition: "A cap hold is the free agent amount the agreement keeps on a team's books for its own free agent. Article VII, Section 4(d) includes that amount in the prior team's team salary. A qualifying veteran free agent whose prior salary was at least the estimated average player salary is held at 150 percent of his prior salary."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "4(d)", page_start: 217, page_end: 217, verified: true}
+
+  - term: Non-taxpayer mid-level exception
+    definition: "The non-taxpayer mid-level exception lets a team sign or acquire contracts, in total, up to 9.12 percent of that year's salary cap. Each contract can run up to four seasons. Using it is a first-apron transaction, and a team that already used the room mid-level exception that year cannot use this one."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(e)", page_start: 236, page_end: 237, verified: true}
+
+  - term: Taxpayer mid-level exception
+    definition: "The taxpayer mid-level exception is for a team whose apron team salary is already above the first apron. It covers contracts of up to two seasons, totaling $5 million in 2023-24 and that amount grown with the salary cap afterward. It does not get smaller above the second apron. A team simply cannot use it if the signing would finish above the second apron."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(f)", page_start: 237, page_end: 238, verified: true}
+
+  - term: Room mid-level exception
+    definition: "The room mid-level exception is for a team that is far enough under the cap that it cannot use the bi-annual, non-taxpayer mid-level, or taxpayer mid-level exceptions. It is worth 5.678 percent of the salary cap, on contracts of up to three seasons. Once a team uses it, those other three exceptions are closed for the rest of the year."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(g)", page_start: 238, page_end: 239, verified: true}
+
+  - term: Bi-annual exception
+    definition: "The bi-annual exception is worth 3.32 percent of the salary cap, on contracts of up to two seasons. A team cannot use it in two consecutive salary cap years, and cannot use it in a year when it uses the room mid-level exception. Using it is a first-apron transaction."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(d)", page_start: 235, page_end: 236, verified: true}
+
+  - term: Minimum player salary exception
+    definition: "The minimum player salary exception lets a team sign or acquire a contract of one or two seasons at the player's minimum salary, with no bonuses. A two-year deal must pay the minimum in the second season as well."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(i)", page_start: 240, page_end: 240, verified: true}
+
+  - term: Disabled player exception
+    definition: "The disabled player exception lets a team ask to sign or acquire a replacement when a player is disabled, under the rules in Article VII, Section 6(c). The team can renew the request for a later season if the injury is new or the same injury gets worse."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(c)", page_start: 232, page_end: 235, verified: true}
+
+  - term: Traded player exception
+    definition: "A traded player exception is the room a team creates by sending out salary in a trade. The standard version replaces one player with no more than 100 percent of his pre-trade salary plus $250,000. The aggregated, transition, and expanded versions have their own formulas in Section 6(j), and the apron table decides which versions a team can still use."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(j)", page_start: 240, page_end: 241, verified: true}
+
+  - term: Rookie scale contract
+    definition: "A rookie scale contract is the first uniform player contract between a first-round pick and the team that holds his draft rights. Article VIII sets the scale amount and the contract rules for that pick."
+    citation: {article: 1, article_title: Definitions, section: "1(jjj)", page_start: 9, page_end: 9, verified: true}
+
+  - term: Bird rights
+    definition: "Bird rights are the qualifying veteran free agent status. The player spent some or all of each of the last three seasons with his prior team, unless a move in that span was a trade, a waiver in the first of those seasons, or a signing with that team in the first season. His prior team can re-sign him up to the maximum salary in Article II, Section 7."
+    citation: {article: 1, article_title: Definitions, section: "1(yy)", page_start: 7, page_end: 7, verified: true}
+
+  - term: Early Bird rights
+    definition: "Early Bird rights are the early qualifying veteran free agent status. The clock is two seasons with the prior team, with the same narrow ways a player may have changed teams. The new contract with that team must run at least two seasons, and the first-year pay is capped at the greater of 175 percent of his prior regular salary or 105 percent of the prior average player salary."
+    citation: {article: 1, article_title: Definitions, section: "1(t)", page_start: 3, page_end: 3, verified: true}
+
+  - term: Non-Bird rights
+    definition: "Non-Bird rights are what a veteran free agent has when he is neither a qualifying nor an early qualifying veteran free agent. His prior team can re-sign him for the greater of 120 percent of his prior regular salary, 120 percent of his minimum salary, or the qualifying offer if he is restricted."
+    citation: {article: 1, article_title: Definitions, section: "1(rr)", page_start: 6, page_end: 6, verified: true}
+
+  - term: Veteran free agent exception
+    definition: "The veteran free agent exception is how a team re-signs its own free agent while over the cap. Bird, Early Bird, and Non-Bird players get different limits under Article VII, Section 6(b). It opens at 12:01 p.m. eastern time on the last day of the moratorium."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(b)", page_start: 231, page_end: 232, verified: true}
+
+  - term: Salary matching
+    definition: "Salary matching is the limit on salary a team can take back for the salary it sends out. Under the standard traded player exception the incoming salary can be no more than 100 percent of the outgoing salary plus $250,000. Teams under the cap can instead use their room plus $250,000, and cannot mix that with the other traded player exceptions in the same deal."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(j)(1)", page_start: 240, page_end: 241, verified: true}
+
+  - term: Salary aggregation
+    definition: "Aggregation means combining two or more outgoing contracts to bring back a larger contract. The aggregated standard traded player exception allows incoming salary up to 100 percent of the combined outgoing salaries plus $250,000, and the players must be acquired at the same time. A team cannot do that aggregation if it would finish above the second apron."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(j)(1)(ii)", page_start: 191, page_end: 240, verified: true}
+
+  - term: Cash in a trade
+    definition: "A team may pay or receive cash in trades during a salary cap year, up to 5.15 percent of that year's salary cap in each direction. Cash paid and cash received do not net. Paying cash is a second-apron transaction, so a team cannot do it if the payment would put apron team salary over the second apron."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "8(a)", page_start: 191, page_end: 260, verified: true}
+
+  - term: Sign-and-trade
+    definition: "A sign-and-trade is a veteran free agent signing with his prior team under an agreement that the contract will then be traded. Article VII, Section 8(e)(1) allows it, subject to the apron rules. Receiving a player that way through a traded player exception is a second-apron transaction."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "8(e)(1)", page_start: 191, page_end: 262, verified: true}
+
+  - term: Second-apron trade limits
+    definition: "A second-apron team cannot finish a trade that the transaction table marks at the second apron. That covers aggregating salaries, paying cash, and acquiring a player with a traded player exception that came from a sign-and-trade. The same table blocks the taxpayer mid-level exception at the second apron."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "2(e)(4)", page_start: 190, page_end: 191, verified: true}
+
+  - term: 65-game rule
+    definition: "To be eligible for most valuable player, defensive player of the year, most improved player, an All-NBA team, or an All-Defensive team, a player must play at least 65 regular season games. The alternative is 62 games plus a season-ending injury, if he played in at least 85 percent of his team's games before the injury. A game counts at 20 minutes, and two games a season can count at 15 minutes."
+    citation: {article: 29, article_title: Miscellaneous, section: "6", page_start: 432, page_end: 433, verified: true}
+
+  - term: Two-way contract
+    definition: "A two-way contract pays a player to play for both an NBA team and its G League team. Article II, Section 11 sets the salary at 50 percent of the zero-year minimum, prorated by the days left in the regular season. Article VII, Section 4(j) excludes that salary from team salary, so the team does not need cap room or an exception to sign it."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "4(j)", page_start: 225, page_end: 225, verified: true}
+
+  - term: Exhibit 10 bonus
+    definition: "An Exhibit 10 bonus is extra pay tied to that contract exhibit. Any amount a player earns under it is excluded from team salary."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "4(k)", page_start: 225, page_end: 225, verified: true}
+
+  - term: Non-aggregation of exceptions
+    definition: "A team cannot stack exceptions to pay a player more than one exception allows. If more than one exception is available, the team chooses which one to use. The traded player exception has its own aggregation rule, and this limit points to that section for the exception to the rule."
+    citation: {article: 7, article_title: "Basketball Related Income, Salary Cap, and Apron Levels", section: "6(m)", page_start: 247, page_end: 247, verified: true}
