@@ -1,168 +1,196 @@
-# Answer one CBA question with a citation or a refusal
+# CBA Copilot — build checklist
 
-This list is the MVP for [cba-copilot](https://github.com/zeketx/cba-copilot). You check a box only when the acceptance evidence is on this branch. Nothing here is built. `origin/main` at `a7c5a1d` has `README.md`, `LICENSE`, and `.cursor/`. It has no product code and no corpus file.
+Work top to bottom. A phase is done only when its exit check passes.
 
-The README proposes FastAPI, PydanticAI, Supabase, pgvector, and hybrid reciprocal rank fusion. That stack is a later choice. It is not a requirement for the first passing test.
+The pilot corpus is one official PDF of the 2023 NBA collective bargaining agreement. Record its URL, file hash, cover date, and the printed term before any answer is shown to a person. Do not commit the PDF. Unofficial markdown, fan sites, and salary-cap explainers are not sources. A later agreement, a side letter, or an amendment is a separate document. It stays in phase 12 until this corpus passes phase 10.
 
-A different folder, `/Users/ezekielmauricio/Documents/dev/github/public/cba-copilot`, is four commits ahead of `origin/main`. Those commits are unpushed and are not the baseline for these boxes.
+The README proposes FastAPI, PydanticAI, Supabase pgvector, and hybrid reciprocal rank fusion. That is the recommended build path for the file names below. It is the shape named in the README and the shape of the sibling checklist this list follows. It is not a closed decision. Write the choice in `docs/stack.md` before phase 2. If you replace a piece, the later phases use that note instead of the recommendation.
 
-## How to use this list
+The first user is not named. Recommendation: one person who must apply a printed rule and show a colleague the page. Email login is in this list so a second person cannot open the first person's threads.
 
-Work top to bottom. Do not start a task until the tasks it depends on are checked. Each acceptance line names the evidence that checks the box. A written plan is not that evidence.
+`/Users/ezekielmauricio/Documents/dev/github/public/cba-copilot` is four unpushed commits ahead of `origin/main`. Do not check boxes from that checkout. This branch does not contain that demo.
 
-## Decisions still open
+## 0. Already in the repo
 
-### Who asks the first question
+- [x] `README.md` names cited, refusal-first Q&A over the 2023 NBA CBA and proposes the stack above
+- [x] `LICENSE`
+- [x] `.cursor/settings.json` enables pstack
+- [x] `.cursor/rules/grok-only.mdc`
 
-This is not settled. Nobody has named the user.
+The sibling checklist also checks an architecture note, a client brief, setup guides, backend dependencies, env examples, and a download script in this phase. Those files are not on this branch. They are unchecked tasks in phase 1 and phase 2.
 
-Recommendation. The first user is one person who must apply a printed rule from the official agreement and show a colleague the page. The job in the product is a single question that ends in a cited answer, a request for a missing fact, or a refusal. A fan chat, a trade machine, and a multi-user office app are out of this list.
+## 1. Accounts and local corpus
 
-What would change the recommendation. Zeke names a different operator, or the first real session shows that the user arrives with a roster spreadsheet rather than a question about the text.
+- [ ] `docs/client-brief.md` states the user job as a recommendation until you name the person, the corpus rule above, what trust means (cite the passage or refuse), and what is out of the pilot
+- [ ] `docs/architecture.md` states the request path, the evidence record, and the trust rules. Mark the README stack as recommended, not chosen, until `docs/stack.md` exists
+- [ ] `docs/stack.md` either accepts the README proposal or names the replacement for the app server, the database, the embedding provider, the answer model, and the host. Record the embedding dimensions next to the model name
+- [ ] `docs/guides/supabase-setup.md`, `docs/guides/backend-setup.md`, and `docs/guides/frontend-setup.md` match `docs/stack.md`
+- [ ] `backend/pyproject.toml` and `frontend/package.json` exist for the chosen stack. The recommendation is Python 3.12, FastAPI, PydanticAI, Vite, React, TypeScript, and `pnpm`
+- [ ] `backend/.env.example` and `frontend/.env.example` list every required variable and no secret
+- [ ] Create the hosted database project named in `docs/stack.md` and turn on email auth. Disable confirm-email for local dev. Stop and ask before any paid project is created
+- [ ] Copy credentials into `backend/.env` and `frontend/.env`. The service role and `DATABASE_URL` stay backend-only. Use the direct session URL for migrations, not the transaction pooler
+- [ ] `data/download_cba.py` downloads the official PDF into `data/downloads/`. The PDF is gitignored. The script records the URL, the sha256, the cover date, and the printed term sentence in a gitignored manifest
+- [ ] Do not vendor an unofficial markdown conversion. If a helper file is downloaded later, the manifest says it is not the source of truth, and every chunk still points at the official PDF page
 
-### Which text is authoritative
+**Exit:** `docs/stack.md` and the brief exist, both env files are filled, and `data/downloads/` contains the official PDF plus a manifest with its hash. A second download does not commit the PDF.
 
-This is not settled. The README names the 2023 NBA CBA and does not attach a file, a hash, a page count, or a term clause.
+## 2. Boot both services
 
-Recommendation. One official PDF is the whole corpus. Record its URL, file hash, cover date, and the clause that states its term before any answer is shown to a person. Side letters, later amendments, and a later CBA are separate documents. They stay out until someone adds them under their own hash. Unofficial markdown, fan sites, and salary-cap explainers are not sources.
+Backend (`docs/guides/backend-setup.md`):
 
-An unpushed local note describes a July 2023 PDF of 676 pages, in force from 1 July 2023 through the 2029-30 season, linked from the NBPA CBA page. This session did not open that PDF. Treat those details as unverified until the hash step records them.
+- [ ] `app/config.py` is the only settings module. The process fails at startup if a required variable is missing. No `os.getenv` in app code
+- [ ] `app/main.py` is the FastAPI app, with CORS from `ALLOWED_ORIGINS` and `GET /health`
+- [ ] `uv run uvicorn app.main:app --reload` returns 200 from `/health`
 
-What would change the recommendation. The official file's own cover or term clause disagrees with that note, or Zeke adds a named side letter as a second hashed document.
+Frontend (`docs/guides/frontend-setup.md`):
 
-## Evidence, before any stack
+- [ ] Vite React TypeScript app, React Router, and the UI kit named in `docs/stack.md`. The recommendation is Tailwind and shadcn/ui. `pnpm` only
+- [ ] `src/lib/env.ts` validates `VITE_API_BASE_URL` and the public auth settings named in `docs/stack.md`. The recommendation is `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- [ ] `src/lib/supabase.ts`, or the client named in `docs/stack.md`, creates the browser session
+- [ ] App shell with routes for sign-in and chat. `pnpm tsc --noEmit` and `pnpm lint` pass
 
-A passage is the only evidence record. Every passage has all of these fields. A passage that lacks any one of them is invalid.
+**Exit:** both processes run locally and the frontend can reach the backend health check.
 
-- Stable id.
-- Article number.
-- Article title.
-- Section as printed.
-- Printed page.
-- PDF viewer page.
-- Exact quote.
-- Source URL.
-- Order in the file.
+## 3. Schema
 
-A turn has the question text, the passage ids that were retrieved, and one outcome. The outcome is an answer, a clarification, or a refusal.
+Tables: `users`, `chat_threads`, `chat_messages`, `message_citations`, `source_documents`, `document_chunks`.
 
-An answer or a clarification has claims. Each claim has its own text and one or more passage ids. Every claim passage id has to be in the retrieved set.
+Recommendation, not a second schema. Signed-in users share the agreement. They do not share chats. Row policies keep each user on their own threads. Chunks are readable by every signed-in user.
 
-A refusal has a reason and an empty claim list. It still stores the retrieved passage ids. `no_support` stores an empty id list. The reasons in this list are `no_support`, `ambiguous`, `missing_inputs`, and `citation_mismatch`. There is no `outside_corpus` reason until a task defines one.
+- [ ] SQLAlchemy models in `app/database/models/`
+- [ ] `alembic init`. `alembic/env.py` imports that metadata and reads `settings.DATABASE_URL`
+- [ ] First migration in `alembic/versions/`, written from the models, with explicit SQL for:
+  - [ ] `create extension if not exists vector`
+  - [ ] an embedding column whose dimension is the number in `docs/stack.md`
+  - [ ] generated `tsvector` on chunk text
+  - [ ] HNSW index on the embedding
+  - [ ] GIN indexes for full-text and JSON metadata
+  - [ ] RLS so a user can only read and write their own chats, and can read the shared chunks
+- [ ] `uv run alembic upgrade head` against the database named in `docs/stack.md`
+- [ ] Chunk metadata can store the article number, the article title, the section as printed, the printed page, the PDF viewer page, the source URL, the order in the file, and the character offsets of the quote
 
-Code reads passages in this order.
+**Exit:** `\dt` shows those tables, `vector` is installed, and a second `upgrade head` is a no-op.
 
-1. By article number and section as printed.
-2. By printed page.
-3. By words in the quote.
-4. By the previous and next section in the same article, when a quote points at another section.
-5. By meaning of the question, only after the word lookup above has a passing test.
+## 4. Auth
 
-No step sends model-written query language to a database.
+- [ ] Email sign-up and sign-in in the SPA. The session stays in the shared auth client
+- [ ] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
+- [ ] Reject a missing or invalid token with 401 before any retrieval or model call
+- [ ] Create a `users` row for the signed-in user
+- [ ] 403 when an authenticated user opens another user's thread
 
-## Checklist
+**Exit:** a signed-in request reaches a protected route. A request with no token gets 401.
 
-### 1. Freeze the evidence record
+## 5. Chat shell with a stubbed answer
 
-Depends on the two decisions above staying explicit. You can start this task with the recommendations. You cannot show an answer to a person until both decisions name a real user job and a hashed file.
+This is the first end-to-end product slice. The assistant text can be a fixed string. The transport, the saved thread, and the UI state should be real.
 
-- [ ] Put three fixture passages in one file. Use fake quotes you write for the test. Do not copy the official agreement into git.
-- [ ] Reject a fixture that omits any required field from the list above.
+- [ ] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag
+- [ ] `src/lib/api.ts` lists threads, creates a thread, and loads messages
+- [ ] Thread list and new chat in the SPA. Only the current user's threads
+- [ ] `POST /chat/stream` accepts `{ threadId, messages }` in the chat-UI message shape named in `docs/stack.md`. The recommendation is the AI SDK UI message shape
+- [ ] Stream a stubbed assistant reply in that same event format
+- [ ] The chat hook points at FastAPI with the access token. The recommendation is `useChat` and `DefaultChatTransport`
+- [ ] After a successful run, persist the user message and the assistant message
+- [ ] Reload shows the same thread history
 
-Acceptance. A test loads the three passages. It fails when any one required field is removed from a fourth passage. The fields are the id, the article number, the article title, the section as printed, the printed page, the viewer page, the quote, the source URL, and the order in the file.
+**Exit:** sign in, send a message, watch it stream, refresh, and see it still there. A second user cannot open that thread.
 
-### 2. Find a passage without a model
+## 6. Ingestion
 
-Depends on task 1.
+- [ ] Parse the official PDF into text that keeps the source URL, the printed page, and the viewer page. Measure the offset between those two page numbers from the file. Do not assume an offset
+- [ ] Upsert one `source_documents` row with that text, the source URL, the hash, the cover date, and the printed term (`uv run python -m ingestion` from `backend/`). A second run updates the same row
+- [ ] Unit tests for the source-document load, with no network
+- [ ] Chunk by article and section. Keep a section whole when it crosses a page. A page marker does not start a chunk. Store the article number, the article title, the section as printed, the chunk index, the token count, both page numbers, and the source offsets (`chunk_agreement` in `ingestion/chunk.py`)
+- [ ] When a chunk tells the reader to apply another section, store that target on the chunk so retrieval can load the neighbor
+- [ ] Embed chunks with the model and dimensions in `docs/stack.md`
+- [ ] Upsert `document_chunks` (text, embedding, metadata). `search_vector` is generated by the database. A second `uv run python -m ingestion` does not add duplicate chunks
+- [ ] Unit tests for chunking and the chunk insert, with no network (`uv run pytest tests/ingestion -q` from `backend/`)
 
-- [ ] Look up a passage by article number and section as printed.
-- [ ] Look up a passage by printed page.
-- [ ] Look up a passage by words in the quote.
-- [ ] Return no passages for a question that shares no words with the fixtures.
+**Exit:** the official PDF is queryable as rows in `source_documents` and `document_chunks`, with embeddings, both page numbers, and a populated `search_vector`. The PDF file is still gitignored.
 
-Acceptance. One test returns the expected passage id for a known article and section. A second test returns that same id for its printed page. A third test returns an empty list for a nonsense question. None of the tests call a network.
+## 7. Hybrid retrieval
 
-### 3. Answer, clarify, or refuse
+Keep this independent of the answer model so it can be tested with fixed inputs.
 
-Depends on task 2.
+- [ ] Embed the user query with the same model as the chunks
+- [ ] Semantic search on `document_chunks.embedding`
+- [ ] Lexical search on `document_chunks.search_vector`
+- [ ] Fuse the two ranked lists in Python with reciprocal rank fusion. The sibling uses `k=60`. Use that value unless `docs/stack.md` sets another one (`reciprocal_rank_fusion`)
+- [ ] Load the winning chunks, the previous and next section in the same article, a section targeted by a cross-reference, and the source-document metadata (`DocumentStore`)
+- [ ] Bounded operations only: `search_sections`, `read_chunk`, `read_surrounding_chunks`. No model-written SQL
+- [ ] Unit tests for fusion and for no hits (`tests/retrieval/`). A live check after ingestion returns the section you name, with its article, section, printed page, and viewer page
 
-- [ ] Build one function from a question and the retrieved passages to a turn.
-- [ ] Drop any claim whose passage id is not in the retrieved set. If one valid claim remains, the outcome stays an answer and keeps only that claim. If none remain, the outcome is a refusal with reason `citation_mismatch` and the retrieved ids.
-- [ ] Refuse with `no_support` and an empty id list when retrieval returns nothing. The refusal has no claim.
-- [ ] Return a clarification when the question omits a fact the fixture marks as required, such as the season. Every claim passage id on that clarification is in the retrieved set.
+**Exit:** a fixture question returns the fixture passage. A question with no shared words returns no passages. Neither test calls a network.
 
-Acceptance. One test drops a bad claim, keeps one valid claim, and stays an answer. A second test refuses with `citation_mismatch` and an empty claim list when every claim cites a missing id. A third test asserts that a `no_support` refusal has no claim text and no passage ids. A fourth test omits the season, expects a clarification, and checks that every claim passage id was retrieved.
+## 8. Grounded agent
 
-### 4. More than one clause
+- [ ] `GroundedAnswer` and `Citation` join the retrieved passage on `chunk_id`. A citation carries the article number, the article title, the section as printed, both page numbers, and the quote
+- [ ] The turn is an answer, a clarification, or a refusal. A refusal has a reason and no claims. It may still store the retrieved passage ids. The reasons are `no_support`, `ambiguous`, `missing_inputs`, and `citation_mismatch`
+- [ ] `DocumentAgentDeps` carries `user_id`, `thread_id`, and this turn's retrieved passages
+- [ ] The agent instructions require four behaviors. Answer only from retrieved passages. Cite every factual claim. Ask which season or effective date the user means when more than one passage applies and the question names neither. Refuse when the passages do not state the conclusion, including a number whose inputs are not all in the question or the quotes, and a choice between two clauses when neither says it controls
+- [ ] `chat/orchestrator.py` streams one turn and persists it only after the validator accepts it
+- [ ] The validator drops a claim whose passage id was not retrieved. If one valid claim remains, keep the answer and drop the bad claim. If none remain, refuse with `citation_mismatch`
+- [ ] A failed validation returns a controlled error, and nothing is stored as a successful answer
+- [ ] Stream text deltas first, then citation parts. Map auth, missing thread, retrieval, and grounding failures to 401, 403, 404, 422, and 502
+- [ ] Tests, with no network and with fake quotes you write yourself. A citation must match a retrieved chunk. No hits are `no_support` with no claim. A missing season is a clarification whose claim ids were retrieved. An exception sentence in the same passage must appear in the claim, not only the general rule. A cross-reference answer cites both sections. Two matching passages with no controlling language are `ambiguous`, with both ids stored and no claim. Inputs `2` and `10` on a fake "multiply" fixture yield `20` only when both inputs are present. A missing input is `missing_inputs` and no computed number. Those fixture numbers are not agreement figures
 
-Depends on task 3.
+**Exit:** one question you chose from `docs/client-brief.md` returns a cited answer through `POST /chat/stream`, and an off-corpus question returns `no_support`. The cited quote is contained in the retrieved passage.
 
-- [ ] Add a fixture whose quote tells the reader to apply another section, and include that other section as its own passage.
-- [ ] Return both passage ids when the answer uses both quotes.
-- [ ] Add one passage that contains a fake general rule and a fake exception sentence. A question about the exception case must quote the exception sentence, not only the general rule.
-- [ ] Refuse with `ambiguous` when two passages match and the fixtures do not say which one controls. Store both retrieved ids, leave the claim list empty, and do not pick a winner.
+## 9. Analyst UI
 
-Acceptance. The cross-reference test fails if either passage id is missing. The exception test fails if the claim text does not contain the fixture's exception sentence. The ambiguity test fails unless the reason is `ambiguous`, the claim list is empty, and both passage ids are stored on the turn.
+Analyst means the person named in `docs/client-brief.md`, not a role copied from another product.
 
-### 5. Dates and numbers
+- [ ] Render the answer, each citation (article, section, printed page, viewer page), and the underlying quote
+- [ ] One click opens the passage the claim came from, at the viewer page of the official PDF
+- [ ] Empty thread state, streaming state, and friendly errors for auth, network, and answer failure. A shared 502 is not labeled as a grounding refusal
+- [ ] Rename and delete a chat from the sidebar
+- [ ] Render assistant answer Markdown. Citations and user bubbles stay plain text
+- [ ] Browser pass: sign in, ask, read a citation, open an old thread, rename, delete, sign out
 
-Depends on task 3. Task 4 can land beside this task only if it does not change the turn fields from task 3.
+**Exit:** a person can verify a claim from the citation without leaving the page.
 
-- [ ] Add two fixtures that state different seasons or different effective dates. If the question names one of them, the answer uses that passage and names it. If the question names neither, ask which one the user means.
-- [ ] For a calculation, compute only when every input is in the question or in a retrieved quote. Otherwise refuse with `missing_inputs`.
-- [ ] Keep calculation fixtures numeric and fake. The expected result is the arithmetic of those fake inputs. It is not a real cap figure, and it is not legal advice.
+## 10. Prove the brief
 
-Acceptance. A test with inputs `2` and `10` expects `20` and cites the fixture that states the operation. A test that omits one input expects `missing_inputs` and no computed number. A test whose quote is a definition expects the quote back and does not emit a number the quote does not contain. A test with two dated passages expects the named passage when the question names a date, and a clarification when it does not.
+Run these against the ingested PDF and record the result under `docs/phase10/runs/<timestamp>/`. Check a box only when the saved run shows the pass condition. Do not check a box from this plan. Do not paste a legal conclusion into the run as if the checklist had supplied it.
 
-### 6. Time and cost on the fixture path
+- [ ] One section contains the whole rule. Pass when every factual sentence cites that section and the quote contains the claim
+- [ ] The same section contains an exception. Pass when the claim includes the exception language, not only the general rule
+- [ ] A section points at another section. Pass when both sections are cited
+- [ ] The answer needs two passages that do not point at each other. Pass when both are cited, or the turn refuses
+- [ ] The rule depends on the season or the effective date. Pass when the answer names the passage it used, or asks which date the user means
+- [ ] The quote states an operation and the question supplies every input. Pass when the number is the operation in the quote applied to those inputs, and the quote is cited
+- [ ] The quote states an operation and one input is missing. Pass when the turn is `missing_inputs` and contains no computed number
+- [ ] The question asks what a term means. Pass when the answer quotes the definition and does not add a number the quote does not contain
+- [ ] The corpus has no passage for the question. Pass when the turn is `no_support` and has no factual claim
+- [ ] Two passages match and neither says it controls. Pass when the turn is `ambiguous`, cites both, and does not pick a winner
+- [ ] A draft claim cites a passage that does not contain the claim. Pass when that claim is dropped, and the turn refuses if no valid claim remains
 
-Depends on tasks 3, 4, and 5.
+**Exit:** each question either cites a retrieved passage that contains the claim, or refuses. No uncited factual claim.
 
-- [ ] Log the wall time of one fixture question and the count of model calls. The fixture path's count is zero.
-- [ ] Record the machine the time was measured on.
+## 11. Deploy
 
-Proposed threshold. A fixture question finishes in under 2 seconds on a laptop, with no network. This number is a proposal. It is not a measurement.
+The recommended host is Railway, one frontend service and one backend service, because that is the sibling's deploy shape. `docs/stack.md` can name another host before this phase starts.
 
-Acceptance. The log for the checked run shows the machine, the elapsed time, and zero model calls. Do not check this box from a guess.
+- [ ] Frontend service (Vite static build) and backend service (Uvicorn) on the host named in `docs/stack.md`
+- [ ] Backend env: database URL, auth URL, anon key, service role, direct `DATABASE_URL`, answer-model key, embedding settings, production `ALLOWED_ORIGINS`
+- [ ] Frontend env: API base URL, auth URL, anon key only
+- [ ] `alembic upgrade head` against the hosted database
+- [ ] Production email confirmation turned back on
+- [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list
+- [ ] README "Running locally" filled in
+- [ ] Smoke test on the deployed URL: sign in, ask one question, see an article, a section, and a page, reload history
 
-### 7. Choose a store and a drafter
+**Exit:** the smoke test passes on the hosted URL. The PDF is not in the deploy image and not in git.
 
-Depends on task 6.
+## 12. UI fine touches
 
-- [ ] Repeat the tests from tasks 1 through 5 against the store you pick. The README stack is allowed only if those tests pass unchanged.
-- [ ] If a paid model or a hosted database is required for that run, stop and ask Zeke before spending money.
-- [ ] Keep the official PDF out of git. Store the hash and the URL outside the PDF bytes.
+These wait until phase 11's exit passes. They are not part of the pilot exit.
 
-Acceptance. The same tests pass, the PDF is not in the commit, and any new dependency is named in the commit message with what it does that the fixture path could not do in a small module.
+- [ ] Citation chip copies the article, section, and page in one action
+- [ ] Keyboard focus reaches the open passage and returns to the claim
+- [ ] The thread list and the passage panel are usable at a narrow viewport
+- [ ] A second hashed agreement, or a side letter, can be added as its own document without mixing its pages into the 2023 file. Do not build the comparison until phase 10 has passed on each file
+- [ ] A transaction check that only cites the sections it used. Recommendation, not a pilot feature. Leave it until the brief says the user needs it
 
-### 8. Check one question against the hashed file
-
-Depends on task 7, and on the file decision being closed. The hash, the URL, the cover date, and the term clause have to be recorded from the file itself.
-
-- [ ] Zeke picks one question. Run it on the hashed PDF.
-- [ ] Write a transcript beside the download, not in git. Include the outcome, the article, the section, both pages, the quote, the passage ids, the hash, the URL, the cover date, and the term-clause quote.
-- [ ] A person confirms that the quote and the term clause appear on the named pages of that file.
-
-Acceptance. The gitignored transcript exists, and a committed note records the hash, the article, the section, both page numbers, and the outcome type. The commit does not add the PDF or the official sentences. Do not check this box from a plan.
-
-## Question categories
-
-These are the risks to test. They are not sample answers, and they do not cite a real article. The fixture for each one is named in the tasks above.
-
-- One section contains the whole rule. Task 2.
-- The same section contains an exception. Task 4.
-- A section points at another section. Task 4.
-- The answer needs two passages. Task 4.
-- The rule depends on the season or the effective date. Task 5.
-- The quote states an operation and the question supplies every input. Task 5.
-- The quote states an operation and one input is missing. Task 5.
-- The question asks what a term means, and no number is required. Task 5.
-- The corpus has no passage for the question. Task 3, reason `no_support`.
-- Two passages match and neither says it controls. Task 4, reason `ambiguous`.
-- A draft claim cites a passage that does not contain the claim. Task 3, reason `citation_mismatch`.
-
-Proposed threshold. Each category has one passing fixture before a person sees an answer drawn from the official PDF. Task 8 is that first look at the file. Do not treat a percentage of legal accuracy as a gate. This plan did not grade legal conclusions.
-
-## Not in this list
-
-Leave these out until the checklist above is checked. Accounts, saved chats, a trade checker, a comparison across CBA editions, a glossary product, scraping fan sites, and deploying a hosted service are not required to answer one question with a citation or a refusal.
+**Exit:** the named pilot user can use the hosted app for a working session, ask one question, and verify the citation. There is no agreed hour-saved target.

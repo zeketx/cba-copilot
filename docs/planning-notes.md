@@ -1,50 +1,71 @@
-# Why this checklist is shaped this way
+# Why the checklist follows the sibling build list
 
-This note explains the choices in [TODO.md](TODO.md). The checklist itself is the how-to. Nothing in that list is built on `origin/main`.
+[TODO.md](TODO.md) replaces the shorter plan. That shorter plan was rejected. The requested format is the live build checklist at [docs/todos.md on main](https://github.com/zeketx/document-copilot/blob/abaa5e6f211fde14ac9c4ffb40f965bf93cade96/docs/todos.md).
 
-## What the repo actually contains
+The file blob is `f000f55f1cc4857b0367845299484dec7982ae49`. The last commit on `main` that changed it is `abaa5e6f211fde14ac9c4ffb40f965bf93cade96` (2026-10-25, "Record the brief retest and show the model the full chunk."). This note was written from that GitHub file. The local `document-copilot` checkout was not fetched or edited. It is 37 commits behind `origin/main`.
 
-`origin/main` is `a7c5a1d`. Its tracked files are `README.md`, `LICENSE`, `.cursor/settings.json`, and `.cursor/rules/grok-only.mdc`. The README is one sentence. It proposes cited, refusal-first Q&A over the 2023 NBA CBA, and it names FastAPI, PydanticAI, Supabase pgvector, and hybrid reciprocal rank fusion. Local `.cursor/settings.json` on that commit has `plugins.pstack.enabled` set to true.
+## Headings in the reference
 
-`/Users/ezekielmauricio/Documents/dev/github/public/cba-copilot` is a separate checkout of the same remote. Its `main` is four commits ahead of `origin/main`, author Cursor Agent, dated 2026-10-29, and those commits are unpushed. They contain an offline demo and extra docs. This branch does not use that demo as the baseline, and this session did not modify that checkout.
+The reference title is `# Document Copilot — build checklist`.
 
-`zeketx/document-copilot` is a different product. It was not edited.
+The phase headings are:
 
-## OpenCode did not produce a draft
+- `## 0. Already in the repo`
+- `## 1. Accounts and local corpus`
+- `## 2. Boot both services`
+- `## 3. Schema`
+- `## 4. Auth`
+- `## 5. Chat shell with a stubbed answer`
+- `## 6. Ingestion`
+- `## 7. Hybrid retrieval`
+- `## 8. Grounded agent`
+- `## 9. Analyst UI`
+- `## 10. Prove the brief`
+- `## 11. Deploy`
+- `## 12. UI fine touches`
 
-The CLI is `/Users/ezekielmauricio/.opencode/bin/opencode`, version `opencode v2.2.4`. `opencode service status` reported `http://127.0.0.1:49374`. PIDs 34465 (`opencode serve --service`) and 23981 (the desktop TUI on `ttys000`) were still running after these calls. The saved default model was left at `opencode/deepseek-v4.1-flash-free`. No `--model`, `--continue`, `--standalone`, or `--auto` flag was passed. The password in the service config was not read.
+Each phase from 1 through 12 ends with a bold exit line. Phase 3 nests the migration SQL. Tasks name files and commands. Phase 10 is a list of proof questions. The reference also has a results log for questions that were already run. This CBA list does not invent that log.
 
-The first call passed `--server http://127.0.0.1:49374` and a UUID session id. It failed before a session existed. The error said the server requires a password in `OPENCODE_PASSWORD`.
+The sibling architecture and client brief were read only to see how the checklist points at them. Their SEC requirements are not copied. Architecture headings used for that reading start at Purpose, High-Level Architecture, Architectural Goals, Stack, System Boundaries, Request Flow, Frontend Chat Layer, Backend LLM Layer, Retrieval Strategy, Supabase and FastAPI Communication, Streaming Contract, Data Model, Schema Management, Grounding and Citation Policy, Error Handling, Configuration, Deployment Shape, Implementation Sequence, and Non-Goals. The brief headings start at The client, How Driftwood makes money, How they add value, The problem, What they want, Example analyst questions, What "trust" means here, Constraints, Out of scope (explicitly), and Definition of done.
 
-The second call omitted `--server`, so the local client could use the already running service. It failed because the session id did not start with `ses`.
+## How the phases map
 
-The third call used session `ses_c9443b8b90144de08d92b640724546e8`, agent `plan`, and `--format json`. The server started the session and then returned `provider.free-limit`, HTTP 429. The message said the free usage limit was reached.
+| Reference phase | CBA phase | What changed |
+| --- | --- | --- |
+| 0. Already in the repo | Same heading | Only README, LICENSE, pstack, and the Grok rule are checked. The sibling's guides and app scaffold are still tasks. |
+| 1. Accounts and local corpus | Same heading | The corpus is one official PDF, hashed and gitignored. `docs/stack.md` records the stack choice before phase 2. |
+| 2. Boot both services | Same heading | Health check and both apps. Names follow `docs/stack.md`. |
+| 3. Schema | Same heading | Shared agreement, private chats. Metadata is article, section, and both page numbers. |
+| 4. Auth | Same heading | Email session, 401, and 403. The user is still a recommendation. |
+| 5. Chat shell with a stubbed answer | Same heading | Stub text, real thread, real stream. |
+| 6. Ingestion | Same heading | Chunk by article and section. Measure the printed-page offset from the file. |
+| 7. Hybrid retrieval | Same heading | Same two searches and fusion. Neighbors include a cross-reference target. `k=60` is the sibling default, not a measured CBA constant. |
+| 8. Grounded agent | Same heading | Answer, clarification, or refusal. Missing inputs and ambiguity are reasons. Fixture arithmetic uses fake inputs. |
+| 9. Analyst UI | Same heading | Analyst means the person in the brief. The citation shows article, section, and page. |
+| 10. Prove the brief | Same heading | Eleven proof types, all unchecked. No pasted legal conclusion and no timing log. |
+| 11. Deploy | Same heading | Host and smoke test stay in the list. Railway is the recommendation, not a purchase. |
+| 12. UI fine touches | Same heading | Small UI tasks, then a second hashed document and a transaction check. Those last two wait until the pilot exit. |
 
-A fourth call, session `ses_ed5c9e391def4836a3512f21a386cfc3`, asked for a one-word reply and got the same 429. There is no OpenCode draft text to accept or reject. The model was not switched, and no new provider or paid plan was added.
+## Decisions that are still recommendations
 
-## Independent review
+The first user is one person who must show a colleague the printed page. You can name someone else in the brief.
 
-One Cursor review used `grok-4.7-medium-fast` as a fresh `generalPurpose` agent, id `bc-c91257d8-a600-5200-abae-d8910f0765b8`. `poteto-agent` was not in the available agent list. The repo rule and the request both limit Cursor helpers to one Grok pass, so there was no multi-family panel. The reviewer did not see an OpenCode draft, because none exists. The reviewer read the checklist and returned accepts and rejects. No numeric score was asked for or used.
+The authoritative text is one official 2023 PDF. Its hash, cover date, and term are recorded from the file during phase 1. A 676-page July 2023 description exists only in the unpushed checkout and was not opened for this rewrite.
 
-Accepted from that review, and now in the checklist.
+The README stack is the recommended path so the tasks can name files. `docs/stack.md` is the place to reject a piece before phase 2. OpenAI, 1536 dimensions, Railway, and `k=60` are sibling defaults named as recommendations. They are not agreed CBA requirements.
 
-- The evidence record stays ahead of any store or drafter. The reviewer would not scrap that sequence. A database or a model before the fixture tests would lock the README proposal too early.
-- Task 3 now accepts a clarification when the season is missing, and every claim id on it has to be retrieved.
-- A bad citation is dropped. One remaining valid claim stays an answer. A refusal with `citation_mismatch` happens only when every claim is bad.
-- An `ambiguous` refusal stores both passage ids and an empty claim list.
-- The load test fails when any required passage field is removed. Task 2 looks up a printed page with no network.
-- Task 4 has a same-section exception fixture. Task 5 accepts the dated-passage case in both directions.
-- `outside_corpus` was removed until a task defines it. Lookup is by article number and section as printed.
-- Task 8 is the first check against the hashed PDF. The official sentences stay in a gitignored transcript. The commit records the hash, the location, and the outcome type.
+There is no agreed saved-hours target.
 
-That last limit is narrower than the review's wording. The review asked for the quote in the transcript. The transcript has the quote. Git does not, because this public repo should not gain official agreement text in the same step that refuses to commit the PDF.
+## OpenCode and the review
 
-No invented legal conclusion was found by the review. None was added after it.
+This checklist was not written by OpenCode.
 
-## Recommendations left open
+`opencode v2.2.4` was called once for this rewrite. `opencode service status` was `http://127.0.0.1:49374`. Session `ses_da8f6a9d59ed4bdb930ce7a35ac5756e`, agent `plan`, no `--model`, no `--continue`, no `--standalone`, no `--auto`. The server started the session and returned `provider.free-limit`, HTTP 429. The saved model was still `opencode/deepseek-v4.1-flash-free`. There was no second attempt and no model change. PIDs 34465 and 23981 were still running. An earlier rewrite attempt in this project failed the same way on sessions `ses_c9443b8b90144de08d92b640724546e8` and `ses_ed5c9e391def4836a3512f21a386cfc3`.
 
-The first user is a recommendation, not an interview. One person applies a printed rule and shows the page. Zeke can name someone else.
+One Cursor review used `grok-4.7-medium-fast`, agent `bc-3708ec08-aaf6-54b6-8b49-be29c762aa22`. It accepted the phase order, the exit lines, the nested migration boxes, and the unchecked phase 10 list. It rejected three lines, and those edits are in `TODO.md`.
 
-The authoritative text is a recommendation, not a verified download. One official PDF, hashed, is the corpus. The 676-page July 2023 description lives only in the unpushed checkout and was not opened here.
+- Phase 9 is titled `Analyst UI`, with one sentence that the word means the person in the brief.
+- The schema task no longer names a filing ticker or an accession number.
+- The intro no longer says phase 4 can be skipped. Phase order is the dependency.
 
-The proposed latency bar is under 2 seconds for a fixture question with zero model calls, on a laptop, with no network. That number is not a measurement.
+The review found no invented legal answer. The four checked boxes are the files on this branch.
