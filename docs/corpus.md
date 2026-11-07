@@ -2,7 +2,7 @@
 
 The only source of truth is the official 2023 NBA-NBPA Collective Bargaining Agreement linked from [nbpa.com/cba](https://nbpa.com/cba). It is 676 pages. It took effect on 1 July 2023 and runs through the 2029-30 season.
 
-`data/download_cba.py` reads that page and saves the PDF under `data/downloads/`. The PDF is gitignored. The license on the agreement is not a license to commit the file.
+`data/download_cba.py` reads that page and saves the PDF under `data/downloads/`. The PDF is gitignored. The license on the agreement is not a license to commit the file. The script also writes `data/downloads/manifest.json` with the fetched URL, the sha256 of the PDF bytes, the cover date, and the printed term. That manifest is gitignored.
 
 ## Optional markdown aid
 

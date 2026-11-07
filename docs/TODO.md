@@ -24,7 +24,7 @@ Checked boxes match `main`. The stack is in `AGENTS.md`. Corpus rules are in `do
 
 - [ ] Create the Supabase project in `docs/guides/supabase-setup.md` and stop before any paid project. v1 has no email auth
 - [ ] Copy credentials into `backend/.env`. The service role and `DATABASE_URL` stay backend-only. Use the direct session URL, not the transaction pooler
-- [ ] The download script records the URL, the sha256, the cover date, and the printed term in a gitignored manifest. `data/corpus.json` has the URL, the dates, and a printed-to-viewer offset of 24, and it has no hash
+- [x] The download script records the URL, the sha256, the cover date, and the printed term in a gitignored manifest. `data/corpus.json` has the URL, the dates, and a printed-to-viewer offset of 24, and it has no hash
 - [x] The unofficial markdown aid is not vendored. `data/download_markdown_aid.py` writes it only with `--i-accept-the-unofficial-aid`, and every chunk still needs the official PDF page
 
 **Exit:** `backend/.env` is filled, and `data/downloads/` contains the official PDF plus a manifest with its hash. A second download does not commit the PDF.
