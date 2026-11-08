@@ -35,14 +35,14 @@ Backend (`docs/guides/backend-setup.md`):
 
 - [x] `app/config.py` is the only settings module. The offline demo starts with an empty env. Live mode raises when `DATABASE_URL` or `SUPABASE_URL` is missing. App code does not call `os.getenv`
 - [x] `app/main.py` is the FastAPI app. CORS reads `ALLOWED_ORIGINS`. Health is `GET /api/health`
-- [ ] `uv run uvicorn app.main:app --reload` returns 200 from `/api/health`
+- [x] `uv run uvicorn app.main:app --host 127.0.0.1 --port 8011` returns 200 from `/api/health` with `{"ok":"true","mode":"fake"}`. Port 8000 was already taken by another local app, so this proof did not use 8000
 
 Frontend (`docs/guides/frontend-setup.md`):
 
 - [x] Vite, React, TypeScript, Tailwind, and shadcn/ui. pnpm only. One screen, no router. The dev server proxies `/api` to `http://127.0.0.1:8000`
-- [ ] `pnpm typecheck` and `pnpm lint` are recorded as passing
+- [x] `pnpm typecheck` and `pnpm lint` passed on 2026-11-08
 
-**Exit:** both processes run locally and the frontend can reach `/api/health`.
+**Exit:** both processes run locally and the frontend can reach `/api/health`. On 2026-11-08 the proof used backend port 8011 and frontend port 5174, because 8000 and 5173 were already in use. The committed Vite proxy still points at `http://127.0.0.1:8000`. The proxied health body was `{"ok":"true","mode":"fake"}`.
 
 ## 3. Schema
 
@@ -56,11 +56,12 @@ On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threa
   - [x] generated `tsvector` on chunk text
   - [x] HNSW index on the embedding
   - [x] GIN index on `search_vector`
-- [ ] GIN index on JSON metadata
-- [ ] Chat tables, and RLS once auth exists
+- [x] GIN index on JSON metadata, in `c0a2023b0002_chunk_pages_and_rls.py`. Not applied to the hosted database
+- [ ] Chat tables, and RLS for those tables once auth exists
+- [x] `source_documents` and `cba_chunks` enable row level security and revoke `anon` and `authenticated`. No row policy is created. Not applied to the hosted database
 - [ ] `uv run alembic upgrade head` against the hosted database
 - [x] A chunk can store the article number, the article title, the section, the page range, the source URL, the order in the file, and the token count
-- [ ] Store the printed page and the viewer page as separate fields, and store the character offsets of the quote
+- [x] Store the printed page and the viewer page as separate fields, and store the character offsets of the quote, in the model and in `c0a2023b0002`. Ingest does not fill them yet
 
 **Exit:** `\dt` shows the corpus tables and the chat tables, `vector` is installed, and a second `upgrade head` is a no-op.
 
@@ -81,6 +82,7 @@ v1 has no auth. These stay open.
 The demo screen posts one question and renders the reply. It does not save threads.
 
 - [x] The screen calls `POST /api/ask` with `{ question }` and renders each claim or a refusal
+- [x] The empty screen says fixture mode. It says replies use the checked-in demo passages and are not a live reading of the official PDF
 - [ ] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag
 - [ ] `src/lib/api.ts` lists threads, creates a thread, and loads messages
 - [ ] Thread list and new chat. Only the current user's threads

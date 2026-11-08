@@ -57,7 +57,7 @@ export function App() {
     <div className="flex h-full min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-rule px-4 py-3">
         <div>
-          <p className="text-xs tracking-wide text-muted uppercase">2023 NBA CBA</p>
+          <p className="text-xs tracking-wide text-muted uppercase">Fixture mode</p>
           <h1 className="font-serif text-2xl">CBA Copilot</h1>
         </div>
         <Button variant="ghost" className="md:hidden" onClick={() => setGlossaryOpen(true)}>
@@ -70,7 +70,8 @@ export function App() {
             {turns.length === 0 ? (
               <div className="mx-auto max-w-2xl">
                 <p className="font-serif text-xl leading-snug">
-                  Ask a cap question. Answers cite the 2023 CBA, or they refuse.
+                  Fixture mode. Replies use the checked-in demo passages. They are not a live
+                  reading of the official PDF, and they are not legal advice.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {SAMPLE_QUESTIONS.map((sample) => (
