@@ -22,8 +22,8 @@ Checked boxes match `main`. The stack is in `AGENTS.md`. Corpus rules are in `do
 
 ## 1. Accounts and local corpus
 
-- [ ] Create the Supabase project in `docs/guides/supabase-setup.md` and stop before any paid project. v1 has no email auth
-- [ ] Copy credentials into `backend/.env`. The service role and `DATABASE_URL` stay backend-only. Use the direct session URL, not the transaction pooler
+- [x] Create the Supabase project in `docs/guides/supabase-setup.md` and stop before any paid project. v1 has no email auth. The project is `nba-cba-copilot`, ref `wxfscyrhpqnbimjdqvyf`, region `us-east-2`. The public schema had no tables on 2026-11-08
+- [ ] Copy credentials into `backend/.env`. The service role and `DATABASE_URL` stay backend-only. Use the direct session URL, not the transaction pooler. `SUPABASE_URL` and `SUPABASE_ANON_KEY` are in the gitignored `backend/.env`. Still missing `SUPABASE_SERVICE_ROLE_KEY` and the database password for `DATABASE_URL`
 - [x] The download script records the URL, the sha256, the cover date, and the printed term in a gitignored manifest. `data/corpus.json` has the URL, the dates, and a printed-to-viewer offset of 24, and it has no hash
 - [x] The unofficial markdown aid is not vendored. `data/download_markdown_aid.py` writes it only with `--i-accept-the-unofficial-aid`, and every chunk still needs the official PDF page
 
