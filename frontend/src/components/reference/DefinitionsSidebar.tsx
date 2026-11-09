@@ -1,3 +1,4 @@
+import { Button } from "@/components/beautifui/Button";
 import { citationLabel, pdfPageUrl, type DefinitionEntry } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 
@@ -12,26 +13,26 @@ export function DefinitionsSidebar({ status, entries, open, onClose }: Definitio
   return (
     <aside
       className={cn(
-        "fixed inset-0 z-30 overflow-y-auto bg-paper p-4 md:static md:z-0 md:block md:w-80 md:border-l md:border-rule",
+        "fixed inset-0 z-30 overflow-y-auto bg-surface p-4 md:static md:z-0 md:block md:w-80 md:border-l md:border-line",
         open ? "block" : "hidden md:block",
       )}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs tracking-wide text-muted uppercase">{status}</p>
-          <h2 className="font-serif text-xl">Plain-English reference</h2>
+          <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">{status}</p>
+          <h2 className="text-lg font-semibold text-ink">Plain-English reference</h2>
         </div>
-        <button type="button" className="text-sm text-muted md:hidden" onClick={onClose}>
+        <Button type="button" variant="quiet" size="xs" className="md:hidden" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       <ul className="space-y-4">
         {entries.map((entry) => (
-          <li key={entry.term} className="border-b border-rule pb-4">
-            <h3 className="font-medium">{entry.term}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-ink">{entry.definition}</p>
+          <li key={entry.term} className="border-b border-line pb-4">
+            <h3 className="text-[13px] font-medium text-ink">{entry.term}</h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{entry.definition}</p>
             <a
-              className="mt-2 inline-block text-xs text-muted underline"
+              className="mt-2 inline-block text-[12px] text-ink-3 underline"
               href={pdfPageUrl(entry.citation.page_start)}
               target="_blank"
               rel="noreferrer"

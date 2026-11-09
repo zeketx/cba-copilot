@@ -11,14 +11,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "shadow-plugin": "^2.1.1",
     "tailwind-merge": "^2.6.0",
     "yaml": "^2.6.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

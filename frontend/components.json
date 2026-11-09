@@ -8,6 +8,9 @@
     "baseColor": "neutral",
     "cssVariables": false
   },
+  "registries": {
+    "@beautifului": "https://www.beautifului.dev/r/{name}.json"
+  },
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",

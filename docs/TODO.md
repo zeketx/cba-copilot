@@ -79,7 +79,7 @@ v1 has no auth. These stay open.
 
 ## 5. Chat shell
 
-The demo screen posts one question and renders the reply. It does not save threads.
+The demo screen posts one question and renders the reply. It does not save threads. The screen uses Beautiful UI (`https://www.beautifului.dev/`): the foundation theme, `Button`, `StreamText`, `ContextCards`, and `LoadingState`.
 
 - [x] The screen calls `POST /api/ask` with `{ question }` and renders each claim or a refusal
 - [x] The empty screen says fixture mode. It says replies use the checked-in demo passages and are not a live reading of the official PDF

@@ -18,4 +18,6 @@ pnpm typecheck
 pnpm build
 ```
 
-Add shadcn primitives with the CLI when a screen needs one. The local `Button` is the only hand-written primitive.
+The UI is [Beautiful UI](https://www.beautifului.dev/), MIT. Source is in `src/components/beautifui/` and the theme is `src/beautifui/foundation.css`. Pass content through props. Theme through the foundation tokens (`--ink`, `--surface`, `--accent`) rather than one-off colors.
+
+`shadow-plugin` is there because the foundation imports it. `class-variance-authority` is there because `Button` uses it. Add another primitive with `pnpm dlx shadcn@latest add https://www.beautifului.dev/r/<name>.json`, then move the CLI output into `src/` so the `@/` alias and `tsc` include it.

@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent } from "react";
+import { Button } from "@/components/beautifui/Button";
 import { FilingViewer } from "@/components/chat/FilingViewer";
 import type { PublicCitation } from "@/lib/types";
 
@@ -30,7 +31,7 @@ export function SourcePanel({
 
   return (
     <aside
-      className="source-panel fixed inset-0 z-20 flex min-h-0 bg-paper"
+      className="source-panel fixed inset-0 z-20 flex min-h-0 bg-surface"
       style={{ ["--source-width" as string]: `${width}px` }}
     >
       <button
@@ -44,14 +45,14 @@ export function SourcePanel({
         className="source-resize hidden"
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-rule px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div>
-          <p className="text-xs tracking-wide text-muted uppercase">Official source</p>
-          <h2 className="font-serif text-lg leading-snug">{citation.pageOrSection}</h2>
+          <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Official source</p>
+          <h2 className="text-base font-medium leading-snug text-ink">{citation.pageOrSection}</h2>
         </div>
-        <button type="button" onClick={onClose} className="text-sm text-muted hover:text-ink">
+        <Button type="button" variant="quiet" size="xs" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       <FilingViewer
         html={wrapDocument(citation.sourceHtml)}
@@ -62,7 +63,7 @@ export function SourcePanel({
         href={citation.sourceUrl}
         target="_blank"
         rel="noreferrer"
-        className="border-t border-rule px-4 py-2 text-xs text-muted underline"
+        className="border-t border-line px-4 py-2 text-[12px] text-ink-2 underline"
       >
         Open the official PDF page
       </a>
