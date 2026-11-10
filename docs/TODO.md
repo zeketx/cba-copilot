@@ -56,10 +56,11 @@ On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threa
   - [x] generated `tsvector` on chunk text
   - [x] HNSW index on the embedding
   - [x] GIN index on `search_vector`
-- [x] GIN index on JSON metadata, in `c0a2023b0002_chunk_pages_and_rls.py`. Not applied to the hosted database
-- [ ] Chat tables, and RLS for those tables once auth exists
-- [x] `source_documents` and `cba_chunks` enable row level security and revoke `anon` and `authenticated`. No row policy is created. Not applied to the hosted database
-- [ ] `uv run alembic upgrade head` against the hosted database
+- [x] GIN index on JSON metadata, in `c0a2023b0002_chunk_pages_and_rls.py`. Applied to the hosted database on 2026-11-09
+- [x] Chat tables in `c0a2023b0003_chat_tables.py`. Applied to the hosted database on 2026-11-09
+- [ ] Row policies for the chat tables once auth exists. The tables enable row level security and revoke `anon` and `authenticated`. No policy is created
+- [x] `source_documents` and `cba_chunks` enable row level security and revoke `anon` and `authenticated`. No row policy is created. Applied to the hosted database on 2026-11-09
+- [x] `uv run alembic upgrade head` against the hosted database. Head is `c0a2023b0003`. A second run on 2026-11-09 did not run another revision. `vector` is installed. The public tables are `source_documents`, `cba_chunks`, `users`, `chat_threads`, `chat_messages`, and `message_citations`
 - [x] A chunk can store the article number, the article title, the section, the page range, the source URL, the order in the file, and the token count
 - [x] Store the printed page and the viewer page as separate fields, and store the character offsets of the quote, in the model and in `c0a2023b0002`. Ingest does not fill them yet
 

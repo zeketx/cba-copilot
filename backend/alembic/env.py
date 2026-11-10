@@ -2,7 +2,15 @@ from logging.config import fileConfig
 
 from alembic import context
 from app.config import Settings
-from app.database.models import Base, CbaChunk, SourceDocument
+from app.database.models import (
+    Base,
+    CbaChunk,
+    ChatMessage,
+    ChatThread,
+    MessageCitation,
+    SourceDocument,
+    User,
+)
 from sqlalchemy import create_engine, pool
 
 config = context.config
@@ -11,7 +19,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-if {CbaChunk.__tablename__, SourceDocument.__tablename__} - set(target_metadata.tables):
+registered = {
+    CbaChunk.__tablename__,
+    ChatMessage.__tablename__,
+    ChatThread.__tablename__,
+    MessageCitation.__tablename__,
+    SourceDocument.__tablename__,
+    User.__tablename__,
+}
+if registered - set(target_metadata.tables):
     raise RuntimeError("CBA models are not registered on metadata")
 
 

@@ -53,4 +53,6 @@ uv run alembic upgrade head
 
 The migration creates the `vector` extension, `source_documents`, `cba_chunks`, a generated `search_vector` column, an HNSW index on `embedding`, and a GIN index on `search_vector`.
 
+`uv run alembic upgrade head` also creates `users`, `chat_threads`, `chat_messages`, and `message_citations`, enables row level security, and creates no policies.
+
 Do not create these tables by hand in the dashboard.
