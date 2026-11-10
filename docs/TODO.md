@@ -46,7 +46,7 @@ Frontend (`docs/guides/frontend-setup.md`):
 
 ## 3. Schema
 
-On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threads`, `chat_messages`, `message_citations`.
+`source_documents`, `cba_chunks`, `users`, `chat_threads`, `chat_messages`, and `message_citations` are in `c0a2023b0003` and on the hosted database. Row policies for the chat tables stay open until auth exists.
 
 - [x] SQLAlchemy models in `app/database/models.py`
 - [x] `alembic/env.py` imports that metadata and reads `Settings().sqlalchemy_database_url`
@@ -68,15 +68,17 @@ On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threa
 
 ## 4. Auth
 
-v1 has no auth. These stay open.
+v1 has no auth. These stay open. Access is invite-only. Public sign-up stays off until the owner opens it. A visitor can leave an email to request access. That request does not create an account. The owner sends the invite from Authentication, then Users, then Add user, then Send invitation. That control is not on Project Overview. A row in `public.users` does not send an invite. Supabase rejects a new account that was not invited. The app also rejects a signed-in email that is not on the allow-list. The link in the invite email does not open this app yet. Until the phase 11 redirect exists, an invited person uses Send code.
 
-- [ ] Email sign-up and sign-in in the SPA
+- [ ] A public form takes an email and stores an access request. It does not create a user
+- [ ] Email sign-in in the SPA for an invited address. No public sign-up form
 - [ ] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
 - [ ] Reject a missing or invalid token with 401 before any retrieval or model call
-- [ ] Create a `users` row for the signed-in user
+- [ ] Reject a signed-in email that is not on the allow-list with 403
+- [ ] Create a `users` row for an allowed signed-in user
 - [ ] 403 when an authenticated user opens another user's thread
 
-**Exit:** a signed-in request reaches a protected route. A request with no token gets 401.
+**Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403.
 
 ## 5. Chat shell
 
@@ -165,7 +167,7 @@ Default host is Railway, one frontend service and one backend service, until you
 - [ ] Backend env: database URL, Supabase URL, anon key, service role, direct `DATABASE_URL`, answer-model key, embedding settings, production `ALLOWED_ORIGINS`
 - [ ] Frontend env: API base URL only, until auth exists
 - [ ] `alembic upgrade head` against the hosted database
-- [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list, once phase 4 exists
+- [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list, so the invite link opens this app. Until this box is done, an invited person uses Send code
 - [x] README "Run the offline demo" has the local backend and frontend commands
 - [ ] Smoke test on the deployed URL: ask one question, see an article, a section, and a page, reload
 

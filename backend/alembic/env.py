@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from app.config import Settings
 from app.database.models import (
+    AccessRequestRecord,
     Base,
     CbaChunk,
     ChatMessage,
@@ -20,6 +21,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 registered = {
+    AccessRequestRecord.__tablename__,
     CbaChunk.__tablename__,
     ChatMessage.__tablename__,
     ChatThread.__tablename__,
