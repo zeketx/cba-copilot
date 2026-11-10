@@ -27,13 +27,22 @@ from app.database.constants import EMBEDDING_DIMENSIONS
 
 class SourceDocument(Base):
     __tablename__ = "source_documents"
+    __table_args__ = (UniqueConstraint("source_url", name="uq_source_documents_source_url"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    sha256: Mapped[str | None] = mapped_column(Text)
+    cover_date: Mapped[str | None] = mapped_column(Text)
+    printed_term: Mapped[str | None] = mapped_column(Text)
+    page_offset: Mapped[int | None] = mapped_column(Integer)
+    text: Mapped[str | None] = mapped_column(Text)
     effective_start: Mapped[str] = mapped_column(Text, nullable=False)
     effective_through: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
