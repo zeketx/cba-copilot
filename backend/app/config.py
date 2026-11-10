@@ -10,6 +10,7 @@ from app.database.constants import EMBEDDING_DIMENSIONS
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _PROVIDERS = {"openai", "google", "openrouter"}
+_EMBEDDING_PROVIDERS = {"hash", "openai", "openrouter"}
 
 
 def model_id(provider: str, model: str) -> str:
@@ -63,6 +64,9 @@ class Settings(BaseSettings):
     openai_chat_model: str = "gpt-4o"
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = Field(default=EMBEDDING_DIMENSIONS, gt=0)
+    embedding_provider: str = ""
+    embedding_model: str = ""
+    embedding_dimensions: int | None = None
     answer_provider: str = "openai"
     answer_model: str = ""
     gemini_api_key: str = ""
@@ -97,10 +101,39 @@ class Settings(BaseSettings):
             )
         return value
 
-    @field_validator("answer_provider", "answer_model", "gemini_api_key", "openrouter_api_key")
+    @field_validator(
+        "answer_provider",
+        "answer_model",
+        "gemini_api_key",
+        "openrouter_api_key",
+        "embedding_provider",
+        "embedding_model",
+    )
     @classmethod
     def strip_provider_text(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("embedding_dimensions", mode="before")
+    @classmethod
+    def blank_embedding_dimensions(cls, value: object) -> object:
+        if value is None or value == "":
+            return None
+        return value
+
+    @field_validator("embedding_dimensions")
+    @classmethod
+    def positive_embedding_dimensions(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("EMBEDDING_DIMENSIONS must be positive")
+        return value
+
+    @field_validator("embedding_provider")
+    @classmethod
+    def known_embedding_provider(cls, value: str) -> str:
+        cleaned = value.lower()
+        if cleaned and cleaned not in _EMBEDDING_PROVIDERS:
+            raise ValueError("EMBEDDING_PROVIDER must be hash, openai, or openrouter")
+        return cleaned
 
     @field_validator("answer_provider")
     @classmethod
@@ -119,6 +152,20 @@ class Settings(BaseSettings):
         if not origins:
             raise ValueError("ALLOWED_ORIGINS must include at least one origin")
         return origins
+
+    @property
+    def resolved_embedding_provider(self) -> str:
+        return self.embedding_provider or "openai"
+
+    @property
+    def resolved_embedding_model(self) -> str:
+        return self.embedding_model or self.openai_embedding_model
+
+    @property
+    def resolved_embedding_dimensions(self) -> int:
+        if self.embedding_dimensions is not None:
+            return self.embedding_dimensions
+        return self.openai_embedding_dimensions
 
     @property
     def answer_model_id(self) -> str:
