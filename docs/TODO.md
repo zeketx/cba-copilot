@@ -82,18 +82,18 @@ v1 has no auth. These stay open. Access is invite-only. Public sign-up stays off
 
 ## 5. Chat shell
 
-The demo screen posts one question and renders the reply. It does not save threads. The screen uses Beautiful UI (`https://www.beautifului.dev/`): the foundation theme, `Button`, `StreamText`, `ContextCards`, and `LoadingState`.
+The screen lists the signed-in user's threads, streams a reply, and reloads that history. The screen uses Beautiful UI (`https://www.beautifului.dev/`): the foundation theme, `Button`, `StreamText`, `ContextCards`, and `LoadingState`.
 
 - [x] The screen calls `POST /api/ask` with `{ question }` and renders each claim or a refusal
 - [x] The empty screen says fixture mode. It says replies use the checked-in demo passages and are not a live reading of the official PDF
 - [x] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag. Access requests and ask go through it. Sign-in still calls Supabase directly
-- [ ] `src/lib/api.ts` lists threads, creates a thread, and loads messages
-- [ ] Thread list and new chat. Only the current user's threads
-- [ ] `POST /chat/stream` accepts `{ threadId, messages }` and streams the assistant reply
-- [ ] After a successful run, persist the user message and the assistant message
-- [ ] Reload shows the same thread history
+- [x] `src/lib/api.ts` lists threads, creates a thread, and loads messages
+- [x] Thread list and new chat. Only the current user's threads
+- [x] `POST /api/chat/stream` accepts `{ threadId, messages }` and streams the assistant reply. The checklist name was `/chat/stream`. The route lives under `/api` with the other routes
+- [x] After a successful run, persist the user message and the assistant message
+- [x] Reload shows the same thread history
 
-**Exit:** sign in, send a message, watch it stream, refresh, and see it still there. A second user cannot open that thread.
+**Exit:** sign in, send a message, watch it stream, refresh, and see it still there. A second user cannot open that thread. On 2026-11-10 the browser sent a fixture question, showed the reply and the citation chips, and kept that thread after refresh. The button read Asking while the reply was on the way. `test_list_does_not_include_another_users_thread` returns 403 for the other user. The browser session used a test token. A dashboard invite is still required for a live sign-in.
 
 ## 6. Ingestion
 

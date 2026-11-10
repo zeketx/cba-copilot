@@ -9,13 +9,13 @@ from app.auth.gate import (
     GoTrueVerifier,
     Ledger,
     MemoryLedger,
-    MemoryThreads,
     RejectVerifier,
     SqlLedger,
-    SqlThreads,
+    ThreadDirectory,
     Verifier,
 )
 from app.auth.identity import AppUser, AuthError, EmailAllowList
+from app.chat.log import MemoryChatLog, SqlChatLog
 from app.config import Settings
 
 _STATUS: dict[str, int] = {
@@ -41,7 +41,10 @@ def get_current_user(
         raise http_error(exc) from None
 
 
-def gate_from_settings(settings: Settings) -> AccessGate:
+def gate_from_settings(
+    settings: Settings,
+    threads: ThreadDirectory | None = None,
+) -> AccessGate:
     allow = EmailAllowList.parse(",".join(settings.allowed_emails))
     verifier: Verifier
     if settings.supabase_url and settings.supabase_anon_key:
@@ -49,11 +52,12 @@ def gate_from_settings(settings: Settings) -> AccessGate:
     else:
         verifier = RejectVerifier()
     ledger: Ledger
-    threads: MemoryThreads | SqlThreads
     if settings.database_url:
         ledger = SqlLedger(settings.sqlalchemy_database_url)
-        threads = SqlThreads(settings.sqlalchemy_database_url)
+        directory: ThreadDirectory = (
+            threads if threads is not None else SqlChatLog(settings.sqlalchemy_database_url)
+        )
     else:
         ledger = MemoryLedger()
-        threads = MemoryThreads()
-    return AccessGate(allow=allow, verifier=verifier, ledger=ledger, threads=threads)
+        directory = threads if threads is not None else MemoryChatLog()
+    return AccessGate(allow=allow, verifier=verifier, ledger=ledger, threads=directory)

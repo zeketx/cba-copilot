@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/beautifui/Button";
 import ContextCards, { type ContextChunk } from "@/components/beautifui/ContextCards";
 import LoadingState from "@/components/beautifui/LoadingState";
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { createThread, listThreads, loadMessages, streamAsk } from "@/lib/api";
 import { loadDefinitions } from "@/lib/definitions";
 import { ApiError, apiRequest } from "@/lib/http";
 import {
@@ -23,16 +24,29 @@ import {
 } from "@/lib/session";
 import {
   SAMPLE_QUESTIONS,
-  responseFromWire,
-  type ChatTurn,
+  type ChatMessage,
   type PublicCitation,
-  type WireResponse,
+  type PublicResponse,
+  type ThreadSummary,
 } from "@/lib/types";
+
+const ACTIVE_THREAD_KEY = "cba.active_thread_id";
+
+function replyText(response: PublicResponse): string {
+  if (response.kind === "refusal") {
+    return response.message;
+  }
+  return response.claims.map((claim) => claim.text).join("\n\n");
+}
 
 export function App() {
   const glossary = useMemo(() => loadDefinitions(), []);
   const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [liveDelta, setLiveDelta] = useState<string | null>(null);
+  const settleThread = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<PublicCitation | null>(null);
@@ -63,6 +77,41 @@ export function App() {
     const clear = window.setTimeout(() => setRequestState("idle"), 1200);
     return () => window.clearTimeout(clear);
   }, [requestState]);
+
+  useEffect(() => {
+    if (sessionToken === null) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const listed = await listThreads();
+        if (cancelled) {
+          return;
+        }
+        setThreads(listed);
+        const hint = sessionStorage.getItem(ACTIVE_THREAD_KEY);
+        const chosen = listed.find((thread) => thread.id === hint)?.id ?? null;
+        setActiveThreadId(chosen);
+        if (chosen === null) {
+          setMessages([]);
+          return;
+        }
+        const loaded = await loadMessages(chosen);
+        if (!cancelled) {
+          setMessages(loaded);
+        }
+      } catch (caught) {
+        if (cancelled) {
+          return;
+        }
+        handleRequestError(caught);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken]);
 
   async function submitAccessRequest(email: string) {
     const trimmed = email.trim();
@@ -123,6 +172,85 @@ export function App() {
     }
   }
 
+  function handleRequestError(caught: unknown): boolean {
+    if (caught instanceof ApiError && caught.status === 401) {
+      clearAccessToken();
+      setSessionToken(getAccessToken());
+      setNotAllowed(false);
+      setGateView("login");
+      return true;
+    }
+    if (caught instanceof ApiError && caught.status === 403 && caught.message === "not_allowed") {
+      setNotAllowed(true);
+      return true;
+    }
+    return false;
+  }
+
+  async function openThread(threadId: string) {
+    sessionStorage.setItem(ACTIVE_THREAD_KEY, threadId);
+    setActiveThreadId(threadId);
+    setError(null);
+    setLiveDelta(null);
+    try {
+      setMessages(await loadMessages(threadId));
+    } catch (caught) {
+      if (handleRequestError(caught)) {
+        return;
+      }
+      setMessages([]);
+      const message =
+        caught instanceof ApiError && caught.kind === "network"
+          ? "The request did not reach the server."
+          : caught instanceof Error
+            ? caught.message
+            : "The request failed.";
+      setError(message);
+    }
+  }
+
+  async function startThread() {
+    try {
+      const thread = await createThread();
+      sessionStorage.setItem(ACTIVE_THREAD_KEY, thread.id);
+      setThreads((current) => [thread, ...current.filter((item) => item.id !== thread.id)]);
+      setActiveThreadId(thread.id);
+      setMessages([]);
+      setLiveDelta(null);
+      setError(null);
+    } catch (caught) {
+      if (!handleRequestError(caught)) {
+        const message =
+          caught instanceof ApiError && caught.kind === "network"
+            ? "The request did not reach the server."
+            : caught instanceof Error
+              ? caught.message
+              : "The request failed.";
+        setError(message);
+      }
+    }
+  }
+
+  async function settleLive() {
+    const threadId = settleThread.current;
+    if (threadId === null) {
+      return;
+    }
+    settleThread.current = null;
+    try {
+      const [loaded, listed] = await Promise.all([loadMessages(threadId), listThreads()]);
+      setMessages(loaded);
+      setThreads(listed);
+      setLiveDelta(null);
+    } catch (caught) {
+      if (!handleRequestError(caught)) {
+        setError(caught instanceof Error ? caught.message : "The request failed.");
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function ask(text: string) {
     const trimmed = text.trim();
     if (!trimmed || pending) {
@@ -136,36 +264,43 @@ export function App() {
     setPending(true);
     setError(null);
     setQuestion("");
+    setLiveDelta(null);
+    const turnId = crypto.randomUUID();
+    let threadId = activeThreadId;
+    let appended = false;
     try {
-      const response = await apiRequest("/api/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: trimmed }),
-      });
-      if (response.status === 401) {
-        clearAccessToken();
-        setSessionToken(getAccessToken());
-        setNotAllowed(false);
-        setGateView("login");
+      if (threadId === null) {
+        const thread = await createThread();
+        threadId = thread.id;
+        sessionStorage.setItem(ACTIVE_THREAD_KEY, thread.id);
+        setThreads((current) => [thread, ...current]);
+        setActiveThreadId(thread.id);
+      }
+      setMessages((current) => [
+        ...current,
+        {
+          id: turnId,
+          role: "user",
+          position: current.length,
+          text: trimmed,
+        },
+      ]);
+      appended = true;
+      const finished = await streamAsk(threadId, [
+        { id: turnId, role: "user", content: trimmed },
+      ]);
+      settleThread.current = threadId;
+      setLiveDelta(replyText(finished.response));
+    } catch (caught) {
+      settleThread.current = null;
+      if (appended) {
+        setMessages((current) => current.filter((message) => message.id !== turnId));
+      }
+      setLiveDelta(null);
+      setPending(false);
+      if (handleRequestError(caught)) {
         return;
       }
-      if (response.status === 403) {
-        const body = (await response.json()) as { detail?: { error?: string } };
-        if (body.detail?.error === "not_allowed") {
-          setNotAllowed(true);
-          return;
-        }
-      }
-      if (!response.ok) {
-        throw new ApiError("http", `The API returned ${response.status}.`, response.status);
-      }
-      const body = (await response.json()) as WireResponse;
-      const parsed = responseFromWire(body);
-      setTurns((current) => [
-        ...current,
-        { id: crypto.randomUUID(), question: trimmed, response: parsed },
-      ]);
-    } catch (caught) {
       const message =
         caught instanceof ApiError && caught.kind === "network"
           ? "The request did not reach the server."
@@ -174,8 +309,6 @@ export function App() {
             : "The request failed.";
       setError(message);
       setQuestion(trimmed);
-    } finally {
-      setPending(false);
     }
   }
 
@@ -333,25 +466,65 @@ export function App() {
           <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Fixture mode</p>
           <h1 className="text-lg font-semibold text-ink">CBA Copilot</h1>
         </div>
-        <Button
-          type="button"
-          variant="quiet"
-          size="sm"
-          className="md:hidden"
-          onClick={() => setGlossaryOpen(true)}
-        >
-          Definitions
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="quiet" size="sm" className="md:hidden" onClick={() => void startThread()}>
+            New chat
+          </Button>
+          <Button
+            type="button"
+            variant="quiet"
+            size="sm"
+            className="md:hidden"
+            onClick={() => setGlossaryOpen(true)}
+          >
+            Definitions
+          </Button>
+        </div>
       </header>
       <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-48 shrink-0 flex-col border-r border-line md:flex">
+          <div className="p-3">
+            <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => void startThread()}>
+              New chat
+            </Button>
+          </div>
+          <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+            {threads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={() => void openThread(thread.id)}
+                className={`mb-1 w-full rounded-lg px-2 py-1.5 text-left text-[13px] leading-snug ${
+                  thread.id === activeThreadId ? "bg-field text-ink" : "text-ink-2 hover:bg-field"
+                }`}
+              >
+                {thread.title.trim() === "" ? "New chat" : thread.title}
+              </button>
+            ))}
+          </nav>
+        </aside>
         <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2 md:hidden">
+            {threads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={() => void openThread(thread.id)}
+                className={`shrink-0 rounded-lg px-2 py-1 text-[12px] ${
+                  thread.id === activeThreadId ? "bg-field text-ink" : "text-ink-2"
+                }`}
+              >
+                {thread.title.trim() === "" ? "New chat" : thread.title}
+              </button>
+            ))}
+          </div>
           <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
             {notAllowed ? (
               <p className="mx-auto max-w-2xl text-[13px] text-red">
                 This email is signed in and is not on the allow-list.
               </p>
             ) : null}
-                {turns.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="mx-auto max-w-2xl rounded-card bg-surface p-4 shadow-card">
                     <p className="text-[13px] leading-relaxed text-ink">
                       Fixture mode. Replies use the checked-in demo passages. They are not a live
@@ -373,45 +546,37 @@ export function App() {
                     </div>
                   </div>
                 ) : null}
-                {turns.map((turn) => (
-                  <article key={turn.id} className="mx-auto max-w-2xl space-y-3">
-                    <div className="flex justify-end pl-14">
-                      <p className="rounded-xl bg-field px-3 py-1.5 text-[13px] leading-[1.4] text-ink">
-                        {turn.question}
-                      </p>
-                    </div>
-                    {turn.response.kind === "refusal" ? (
-                      <div className="rounded-card bg-red-tint px-3 py-2 text-[13px] leading-relaxed text-ink">
-                        <StreamText text={turn.response.message} />
+                {messages.map((message, index) => {
+                  if (message.role !== "user") {
+                    return null;
+                  }
+                  const next = messages[index + 1];
+                  const assistant = next?.role === "assistant" ? next : null;
+                      const showLive =
+                        liveDelta !== null && assistant === null && index === messages.length - 1;
+                  return (
+                    <article key={message.id} className="mx-auto max-w-2xl space-y-3">
+                      <div className="flex justify-end pl-14">
+                        <p className="rounded-xl bg-field px-3 py-1.5 text-[13px] leading-[1.4] text-ink">
+                          {message.text}
+                        </p>
                       </div>
-                    ) : (
-                      turn.response.claims.map((claim) => (
-                        <div key={claim.text} className="space-y-3">
-                          <p className="text-[13px] leading-relaxed text-ink">
-                            <StreamText text={claim.text} />
-                          </p>
-                          <ContextCards
-                            className="max-w-none"
-                            chunks={claim.citations.map((citation) =>
-                              citationChunk(citation, active?.passageId === citation.passageId),
-                            )}
-                            labels={{
-                              header: "Retrieved passages",
-                              count: String(claim.citations.length),
-                            }}
-                            onOpen={(_chunk, index) => {
-                              const citation = claim.citations[index];
-                              if (citation) {
-                                setActive(citation);
-                              }
-                            }}
-                          />
-                        </div>
-                      ))
-                    )}
-                  </article>
-                ))}
-                {pending ? (
+                      {assistant !== null ? (
+                        <StaticReply
+                          response={assistant.response}
+                          active={active}
+                          onOpen={setActive}
+                        />
+                      ) : null}
+                      {showLive ? (
+                        <p className="text-[13px] leading-relaxed text-ink">
+                          <StreamText text={liveDelta} onDone={() => void settleLive()} />
+                        </p>
+                      ) : null}
+                    </article>
+                  );
+                })}
+                {pending && liveDelta === null ? (
                   <div className="mx-auto max-w-2xl">
                     <LoadingState variant="Orbit" label="Reading the fixture" />
                   </div>
@@ -454,6 +619,49 @@ export function App() {
       </div>
     </div>
       )}
+    </>
+  );
+}
+
+function StaticReply({
+  response,
+  active,
+  onOpen,
+}: {
+  response: PublicResponse;
+  active: PublicCitation | null;
+  onOpen: (citation: PublicCitation) => void;
+}) {
+  if (response.kind === "refusal") {
+    return (
+      <div className="rounded-card bg-red-tint px-3 py-2 text-[13px] leading-relaxed text-ink">
+        {response.message}
+      </div>
+    );
+  }
+  return (
+    <>
+      {response.claims.map((claim) => (
+        <div key={claim.text} className="space-y-3">
+          <p className="text-[13px] leading-relaxed text-ink">{claim.text}</p>
+          <ContextCards
+            className="max-w-none"
+            chunks={claim.citations.map((citation) =>
+              citationChunk(citation, active?.passageId === citation.passageId),
+            )}
+            labels={{
+              header: "Retrieved passages",
+              count: String(claim.citations.length),
+            }}
+            onOpen={(_chunk, index) => {
+              const citation = claim.citations[index];
+              if (citation) {
+                onOpen(citation);
+              }
+            }}
+          />
+        </div>
+      ))}
     </>
   );
 }
