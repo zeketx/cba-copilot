@@ -76,7 +76,7 @@ v1 has no auth. These stay open. Access is invite-only. Public sign-up stays off
 - [x] Reject a missing or invalid token with 401 before any retrieval or model call. The offline test is `test_rejected_bearer_does_not_call_the_pipeline`. A live missing token returned 401 on 2026-11-10
 - [x] Reject a signed-in email that is not on the allow-list with 403. The offline test is `test_unlisted_email_does_not_insert_a_user`. A live signed-in 403 has not been run
 - [x] Create a `users` row for an allowed signed-in user. `AccessGate.admit` inserts `users.id` after the allow-list check. Offline tests use the memory ledger
-- [ ] 403 when an authenticated user opens another user's thread. `ThreadGrant` raises when the ids differ. There is no thread route yet
+- [x] 403 when an authenticated user opens another user's thread. `GET /api/threads/{thread_id}` loads the owner and builds `ThreadGrant`. A missing thread is 404. The offline test is `test_opening_another_users_thread_is_forbidden`
 
 **Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403. The 401 is proven. The invited sign-in is not, because the dashboard invite has not been sent.
 

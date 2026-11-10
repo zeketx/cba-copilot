@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Literal
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from app.assistant.drafter import OverlapDrafter
-from app.auth.dependencies import gate_from_settings, get_current_user
-from app.auth.identity import Email
+from app.auth.dependencies import gate_from_settings, get_current_user, http_error
+from app.auth.identity import AppUser, AuthError, Email
 from app.config import Settings
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
@@ -139,6 +140,18 @@ def create_app(
     def request_access(body: AccessRequestBody, request: Request) -> AccessRequestResponse:
         record = request.app.state.gate.submit(Email.parse(body.email))
         return AccessRequestResponse(email=record.email.value, created_at=record.created_at)
+
+    @app.get("/api/threads/{thread_id}")
+    def open_thread(
+        thread_id: UUID,
+        request: Request,
+        user: Annotated[AppUser, Depends(get_current_user)],
+    ) -> dict[str, str]:
+        try:
+            request.app.state.gate.open_thread(user, thread_id)
+        except AuthError as exc:
+            raise http_error(exc) from None
+        return {"id": str(thread_id)}
 
     @app.post("/api/ask", dependencies=[Depends(get_current_user)])
     def ask(body: AskRequest) -> PublicAnswer | PublicRefusal:

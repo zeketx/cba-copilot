@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import httpx
 import pytest
 from app.api import create_app
@@ -6,6 +8,7 @@ from app.auth.gate import (
     AccessGate,
     GoTrueVerifier,
     MemoryLedger,
+    MemoryThreads,
     RejectVerifier,
     access_request_insert,
     user_insert,
@@ -101,6 +104,79 @@ def test_unlisted_email_does_not_insert_a_user(monkeypatch: pytest.MonkeyPatch) 
     assert response.status_code == 403
     assert response.json()["detail"]["error"] == "not_allowed"
     assert ledger.user_ids == set()
+
+
+def test_opening_another_users_thread_is_forbidden() -> None:
+    viewer = VerifiedIdentity(
+        id=AuthUserId.parse("11111111-1111-1111-1111-111111111111"),
+        email=Email.parse("fan@example.com"),
+    )
+    other = AuthUserId.parse("22222222-2222-2222-2222-222222222222")
+    thread_id = UUID("33333333-3333-3333-3333-333333333333")
+    gate = AccessGate(
+        allow=EmailAllowList.parse("fan@example.com"),
+        verifier=StaticVerifier({"fan": viewer}),
+        ledger=MemoryLedger(),
+        threads=MemoryThreads({thread_id: other}),
+    )
+    client = TestClient(
+        create_app(
+            Settings(
+                allowed_emails=(),
+                supabase_url="",
+                supabase_anon_key="",
+                database_url="",
+                _env_file=None,
+            ),
+            gate=gate,
+        )
+    )
+    denied = client.get(
+        f"/api/threads/{thread_id}",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["error"] == "not_owner"
+    missing_token = client.get(f"/api/threads/{thread_id}")
+    assert missing_token.status_code == 401
+    absent = client.get(
+        "/api/threads/44444444-4444-4444-4444-444444444444",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert absent.status_code == 404
+    assert absent.json()["detail"]["error"] == "not_found"
+
+
+def test_opening_own_thread_returns_the_id() -> None:
+    viewer = VerifiedIdentity(
+        id=AuthUserId.parse("11111111-1111-1111-1111-111111111111"),
+        email=Email.parse("fan@example.com"),
+    )
+    thread_id = UUID("33333333-3333-3333-3333-333333333333")
+    gate = AccessGate(
+        allow=EmailAllowList.parse("fan@example.com"),
+        verifier=StaticVerifier({"fan": viewer}),
+        ledger=MemoryLedger(),
+        threads=MemoryThreads({thread_id: viewer.id}),
+    )
+    client = TestClient(
+        create_app(
+            Settings(
+                allowed_emails=(),
+                supabase_url="",
+                supabase_anon_key="",
+                database_url="",
+                _env_file=None,
+            ),
+            gate=gate,
+        )
+    )
+    response = client.get(
+        f"/api/threads/{thread_id}",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"id": str(thread_id)}
 
 
 def test_other_owners_thread_is_forbidden() -> None:

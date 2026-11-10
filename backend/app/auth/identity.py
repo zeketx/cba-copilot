@@ -84,5 +84,9 @@ class NotThreadOwner(AuthError):
     code = "not_owner"
 
 
+class MissingThread(AuthError):
+    code = "not_found"
+
+
 class AuthBackendDown(AuthError):
     code = "auth_unavailable"

@@ -9,8 +9,10 @@ from app.auth.gate import (
     GoTrueVerifier,
     Ledger,
     MemoryLedger,
+    MemoryThreads,
     RejectVerifier,
     SqlLedger,
+    SqlThreads,
     Verifier,
 )
 from app.auth.identity import AppUser, AuthError, EmailAllowList
@@ -20,6 +22,7 @@ _STATUS: dict[str, int] = {
     "unauthorized": 401,
     "not_allowed": 403,
     "not_owner": 403,
+    "not_found": 404,
     "auth_unavailable": 503,
 }
 
@@ -46,8 +49,11 @@ def gate_from_settings(settings: Settings) -> AccessGate:
     else:
         verifier = RejectVerifier()
     ledger: Ledger
+    threads: MemoryThreads | SqlThreads
     if settings.database_url:
         ledger = SqlLedger(settings.sqlalchemy_database_url)
+        threads = SqlThreads(settings.sqlalchemy_database_url)
     else:
         ledger = MemoryLedger()
-    return AccessGate(allow=allow, verifier=verifier, ledger=ledger)
+        threads = MemoryThreads()
+    return AccessGate(allow=allow, verifier=verifier, ledger=ledger, threads=threads)

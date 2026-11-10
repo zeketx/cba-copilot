@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from datetime import datetime, timezone
 from typing import Protocol
+from uuid import UUID
 
 import httpx
 from sqlalchemy import create_engine, select
@@ -16,7 +17,9 @@ from app.auth.identity import (
     AuthUserId,
     Email,
     EmailAllowList,
+    MissingThread,
     NotAllowed,
+    ThreadGrant,
     Unauthenticated,
     VerifiedIdentity,
 )
@@ -32,11 +35,58 @@ class Ledger(Protocol):
     def ensure_user(self, user_id: AuthUserId) -> None: ...
 
 
+class ThreadDirectory(Protocol):
+    def owner_id(self, thread_id: UUID) -> AuthUserId | None: ...
+
+
+class MemoryThreads:
+    def __init__(self, owners: dict[UUID, AuthUserId] | None = None) -> None:
+        self._owners = dict(owners or {})
+
+    def owner_id(self, thread_id: UUID) -> AuthUserId | None:
+        return self._owners.get(thread_id)
+
+
+class SqlThreads:
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+        self._engine: Engine | None = None
+
+    def owner_id(self, thread_id: UUID) -> AuthUserId | None:
+        from app.database.models import ChatThread
+
+        engine = self._engine
+        if engine is None:
+            engine = create_engine(self._database_url)
+            self._engine = engine
+        with engine.connect() as connection:
+            row = connection.execute(
+                select(ChatThread.user_id).where(ChatThread.id == thread_id)
+            ).one_or_none()
+        if row is None:
+            return None
+        return AuthUserId(value=row.user_id)
+
+
 class AccessGate:
-    def __init__(self, *, allow: EmailAllowList, verifier: Verifier, ledger: Ledger) -> None:
+    def __init__(
+        self,
+        *,
+        allow: EmailAllowList,
+        verifier: Verifier,
+        ledger: Ledger,
+        threads: ThreadDirectory | None = None,
+    ) -> None:
         self._allow = allow
         self._verifier = verifier
         self._ledger = ledger
+        self._threads = threads if threads is not None else MemoryThreads()
+
+    def open_thread(self, viewer: AppUser, thread_id: UUID) -> ThreadGrant:
+        owner = self._threads.owner_id(thread_id)
+        if owner is None:
+            raise MissingThread
+        return ThreadGrant(viewer_id=viewer.id, owner_id=owner)
 
     def submit(self, email: Email) -> AccessRequest:
         return self._ledger.submit(email)
