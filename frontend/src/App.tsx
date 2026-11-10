@@ -1,13 +1,21 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/beautifui/Button";
 import ContextCards, { type ContextChunk } from "@/components/beautifui/ContextCards";
 import LoadingState from "@/components/beautifui/LoadingState";
 import { StreamText } from "@/components/beautifui/StreamText";
 import { SourcePanel } from "@/components/chat/SourcePanel";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
-import { loadDefinitions } from "@/lib/definitions";
 import {
-  authorizationHeader,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { loadDefinitions } from "@/lib/definitions";
+import { ApiError, apiRequest } from "@/lib/http";
+import {
   clearAccessToken,
   completeSignIn,
   getAccessToken,
@@ -31,28 +39,57 @@ export function App() {
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(() => getAccessToken());
   const [requestEmail, setRequestEmail] = useState("");
-  const [requestNotice, setRequestNotice] = useState<string | null>(null);
+  const [requestState, setRequestState] = useState<
+    "idle" | "sending" | "sent" | "leaving" | "failed"
+  >("idle");
   const [signInEmail, setSignInEmail] = useState("");
   const [signInCode, setSignInCode] = useState("");
   const [signInNotice, setSignInNotice] = useState<string | null>(null);
   const [notAllowed, setNotAllowed] = useState(false);
+  const [gateView, setGateView] = useState<"request" | "login">("request");
+
+  useEffect(() => {
+    if (requestState !== "sent") {
+      return;
+    }
+    const fade = window.setTimeout(() => setRequestState("leaving"), 1400);
+    return () => window.clearTimeout(fade);
+  }, [requestState]);
+
+  useEffect(() => {
+    if (requestState !== "leaving") {
+      return;
+    }
+    const clear = window.setTimeout(() => setRequestState("idle"), 1200);
+    return () => window.clearTimeout(clear);
+  }, [requestState]);
 
   async function submitAccessRequest(email: string) {
     const trimmed = email.trim();
-    if (!trimmed) {
+    if (!trimmed || requestState === "sending") {
       return;
     }
-    setRequestNotice(null);
-    const response = await fetch("/api/access-requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: trimmed }),
-    });
+    setRequestState("sending");
+    let response: Response;
+    try {
+      response = await apiRequest("/api/access-requests", {
+        method: "POST",
+        auth: false,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.kind === "network") {
+        setRequestState("failed");
+        return;
+      }
+      throw caught;
+    }
     if (!response.ok) {
-      setRequestNotice("That email could not be saved.");
+      setRequestState("failed");
       return;
     }
-    setRequestNotice("Request saved.");
+    setRequestState("sent");
   }
 
   async function sendCode() {
@@ -91,8 +128,7 @@ export function App() {
     if (!trimmed || pending) {
       return;
     }
-    const authorization = authorizationHeader();
-    if (authorization === null) {
+    if (getAccessToken() === null) {
       clearAccessToken();
       setSessionToken(null);
       return;
@@ -101,18 +137,16 @@ export function App() {
     setError(null);
     setQuestion("");
     try {
-      const response = await fetch("/api/ask", {
+      const response = await apiRequest("/api/ask", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authorization,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: trimmed }),
       });
       if (response.status === 401) {
         clearAccessToken();
         setSessionToken(getAccessToken());
         setNotAllowed(false);
+        setGateView("login");
         return;
       }
       if (response.status === 403) {
@@ -123,7 +157,7 @@ export function App() {
         }
       }
       if (!response.ok) {
-        throw new Error(`The API returned ${response.status}.`);
+        throw new ApiError("http", `The API returned ${response.status}.`, response.status);
       }
       const body = (await response.json()) as WireResponse;
       const parsed = responseFromWire(body);
@@ -132,7 +166,12 @@ export function App() {
         { id: crypto.randomUUID(), question: trimmed, response: parsed },
       ]);
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "The request failed.";
+      const message =
+        caught instanceof ApiError && caught.kind === "network"
+          ? "The request did not reach the server."
+          : caught instanceof Error
+            ? caught.message
+            : "The request failed.";
       setError(message);
       setQuestion(trimmed);
     } finally {
@@ -140,7 +179,154 @@ export function App() {
     }
   }
 
+  const gatePanel =
+    gateView === "request" ? (
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submitAccessRequest(requestEmail);
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Request access</DialogTitle>
+          <DialogDescription>Leave an email. This does not create an account.</DialogDescription>
+        </DialogHeader>
+        <label className="sr-only" htmlFor="access-email">
+          Email
+        </label>
+        <Input
+          id="access-email"
+          type="email"
+          autoComplete="email"
+          value={requestEmail}
+          onChange={(event) => setRequestEmail(event.target.value)}
+          placeholder="you@example.com"
+          className="mt-4"
+        />
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          className="mt-4 w-full"
+          disabled={requestState === "sending"}
+        >
+          Request access
+        </Button>
+        <div className="mt-3 h-5 overflow-hidden" aria-live="polite">
+          {requestState === "sent" || requestState === "leaving" ? (
+            <p
+              className="flex items-center gap-1.5 text-[13px] text-green transition-opacity duration-[1200ms]"
+              style={{ opacity: requestState === "leaving" ? 0 : 1 }}
+            >
+              <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
+                <path
+                  d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Request sent
+            </p>
+          ) : null}
+          {requestState === "failed" ? (
+            <p className="text-[13px] text-ink-3">That email could not be saved.</p>
+          ) : null}
+        </div>
+        <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
+          If you already have a login,{" "}
+          <Button
+            type="button"
+            variant="quiet"
+            size="sm"
+            className="h-auto px-1 text-accent"
+            onClick={() => setGateView("login")}
+          >
+            Go to login
+          </Button>
+        </p>
+      </form>
+    ) : (
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void finishSignIn();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Sign in</DialogTitle>
+          <DialogDescription>
+            If this is your first time, enter the email we invited and send a code.
+          </DialogDescription>
+        </DialogHeader>
+        <label className="sr-only" htmlFor="sign-in-email">
+          Sign-in email
+        </label>
+        <Input
+          id="sign-in-email"
+          type="email"
+          autoComplete="email"
+          value={signInEmail}
+          onChange={(event) => setSignInEmail(event.target.value)}
+          placeholder="invited@example.com"
+          className="mt-4"
+        />
+        <label className="sr-only" htmlFor="sign-in-code">
+          Six-digit code
+        </label>
+        <Input
+          id="sign-in-code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={signInCode}
+          onChange={(event) => setSignInCode(event.target.value)}
+          placeholder="123456"
+          className="mt-2"
+        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => void sendCode()}>
+            Send code
+          </Button>
+          <Button type="submit" variant="primary" size="sm">
+            Sign in
+          </Button>
+        </div>
+        {signInNotice ? <p className="mt-3 text-[13px] text-ink-3">{signInNotice}</p> : null}
+        <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
+          <Button
+            type="button"
+            variant="quiet"
+            size="sm"
+            className="h-auto px-1 text-accent"
+            onClick={() => setGateView("request")}
+          >
+            Request access
+          </Button>
+        </p>
+      </form>
+    );
+
   return (
+    <>
+      <Dialog open={sessionToken === null} onOpenChange={() => {}}>
+        <DialogContent
+          showCloseButton={false}
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onPointerDownOutside={(event) => event.preventDefault()}
+        >
+          <div
+            key={gateView}
+            style={{ animation: "fade-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
+          >
+            {gatePanel}
+          </div>
+        </DialogContent>
+      </Dialog>
+      {sessionToken === null ? (
+        <div className="min-h-screen" />
+      ) : (
     <div className="mx-auto flex h-full min-h-screen max-w-5xl flex-col bg-page shadow-raised">
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <div>
@@ -160,86 +346,11 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
-            <form
-              className="mx-auto max-w-2xl rounded-card bg-surface p-4 shadow-card"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submitAccessRequest(requestEmail);
-              }}
-            >
-              <p className="text-[13px] leading-relaxed text-ink">Request access</p>
-              <label className="sr-only" htmlFor="access-email">
-                Email
-              </label>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <input
-                  id="access-email"
-                  value={requestEmail}
-                  onChange={(event) => setRequestEmail(event.target.value)}
-                  placeholder="you@example.com"
-                  className="min-h-4.5 flex-1 rounded-control border border-line bg-field px-3 py-2 text-[13px] leading-[1.4] text-ink outline-none placeholder:text-ink-3"
-                />
-                <Button type="submit" variant="secondary" size="sm">
-                  Request
-                </Button>
-              </div>
-              {requestNotice ? (
-                <p className="mt-2 text-[13px] text-ink-3">{requestNotice}</p>
-              ) : null}
-            </form>
-            {sessionToken === null ? (
-              <form
-                className="mx-auto max-w-2xl rounded-card bg-surface p-4 shadow-card"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (signInCode.trim() === "") {
-                    void sendCode();
-                    return;
-                  }
-                  void finishSignIn();
-                }}
-              >
-                <p className="text-[13px] leading-relaxed text-ink">Sign in with a one-time code</p>
-                <label className="sr-only" htmlFor="sign-in-email">
-                  Sign-in email
-                </label>
-                <input
-                  id="sign-in-email"
-                  value={signInEmail}
-                  onChange={(event) => setSignInEmail(event.target.value)}
-                  placeholder="invited@example.com"
-                  className="mt-3 min-h-4.5 w-full rounded-control border border-line bg-field px-3 py-2 text-[13px] leading-[1.4] text-ink outline-none placeholder:text-ink-3"
-                />
-                <label className="sr-only" htmlFor="sign-in-code">
-                  Six-digit code
-                </label>
-                <input
-                  id="sign-in-code"
-                  value={signInCode}
-                  onChange={(event) => setSignInCode(event.target.value)}
-                  placeholder="123456"
-                  className="mt-2 min-h-4.5 w-full rounded-control border border-line bg-field px-3 py-2 text-[13px] leading-[1.4] text-ink outline-none placeholder:text-ink-3"
-                />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={() => void sendCode()}>
-                    Send code
-                  </Button>
-                  <Button type="submit" variant="primary" size="sm">
-                    Sign in
-                  </Button>
-                </div>
-                {signInNotice ? (
-                  <p className="mt-2 text-[13px] text-ink-3">{signInNotice}</p>
-                ) : null}
-              </form>
-            ) : null}
             {notAllowed ? (
               <p className="mx-auto max-w-2xl text-[13px] text-red">
                 This email is signed in and is not on the allow-list.
               </p>
             ) : null}
-            {sessionToken === null ? null : (
-              <>
                 {turns.length === 0 ? (
                   <div className="mx-auto max-w-2xl rounded-card bg-surface p-4 shadow-card">
                     <p className="text-[13px] leading-relaxed text-ink">
@@ -302,14 +413,11 @@ export function App() {
                 ))}
                 {pending ? (
                   <div className="mx-auto max-w-2xl">
-                    <LoadingState label="Reading the fixture" />
+                    <LoadingState variant="Orbit" label="Reading the fixture" />
                   </div>
                 ) : null}
                 {error ? <p className="mx-auto max-w-2xl text-[13px] text-red">{error}</p> : null}
-              </>
-            )}
           </div>
-          {sessionToken === null ? null : (
             <form
               className="border-t border-line px-4 py-3"
               onSubmit={(event) => {
@@ -335,7 +443,6 @@ export function App() {
                 </div>
               </div>
             </form>
-          )}
         </main>
         <SourcePanel citation={active} onClose={() => setActive(null)} />
         <DefinitionsSidebar
@@ -346,6 +453,8 @@ export function App() {
         />
       </div>
     </div>
+      )}
+    </>
   );
 }
 
