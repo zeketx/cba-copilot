@@ -4,7 +4,7 @@ Work top to bottom. A phase is done when its exit check passes.
 
 The pilot is one official PDF of the 2023 NBA CBA. Record its URL, sha256, cover date, and printed term before a live answer is shown. Do not commit the PDF. Unofficial markdown, fan sites, and salary-cap explainers are not sources. A later agreement, side letter, or amendment stays in phase 12 until this PDF passes phase 10.
 
-Checked boxes match `main`. The stack is in `AGENTS.md`. Corpus rules are in `docs/corpus.md`. The offline demo answers from a fixture and does not call a paid model.
+Checked boxes through phase 3 match `main`. Phase 4 and the `http.ts` box match the auth work merged into `schema/chat-tables` on 2026-11-10. That work is not on `main` yet. The stack is in `AGENTS.md`. Corpus rules are in `docs/corpus.md`. The offline demo answers from a fixture and does not call a paid model.
 
 ## 0. Already in the repo
 
@@ -70,15 +70,15 @@ Frontend (`docs/guides/frontend-setup.md`):
 
 v1 has no auth. These stay open. Access is invite-only. Public sign-up stays off until the owner opens it. A visitor can leave an email to request access. That request does not create an account. The owner sends the invite from Authentication, then Users, then Add user, then Send invitation. That control is not on Project Overview. A row in `public.users` does not send an invite. Supabase rejects a new account that was not invited. The app also rejects a signed-in email that is not on the allow-list. The link in the invite email does not open this app yet. Until the phase 11 redirect exists, an invited person uses Send code.
 
-- [ ] A public form takes an email and stores an access request. It does not create a user
-- [ ] Email sign-in in the SPA for an invited address. No public sign-up form
-- [ ] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
-- [ ] Reject a missing or invalid token with 401 before any retrieval or model call
-- [ ] Reject a signed-in email that is not on the allow-list with 403
-- [ ] Create a `users` row for an allowed signed-in user
-- [ ] 403 when an authenticated user opens another user's thread
+- [x] A public form takes an email and stores an access request. It does not create a user. `c0a2023b0004` is on the hosted database. On 2026-11-10 `POST /api/access-requests` returned 200, a second post kept the same `created_at`, and that request did not add a `users` row
+- [x] Email sign-in in the SPA for an invited address. No public sign-up form. The dialog sends a code with `create_user` false. A live code has not been received yet, because the dashboard invite has not been sent
+- [x] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
+- [x] Reject a missing or invalid token with 401 before any retrieval or model call. The offline test is `test_rejected_bearer_does_not_call_the_pipeline`. A live missing token returned 401 on 2026-11-10
+- [x] Reject a signed-in email that is not on the allow-list with 403. The offline test is `test_unlisted_email_does_not_insert_a_user`. A live signed-in 403 has not been run
+- [x] Create a `users` row for an allowed signed-in user. `AccessGate.admit` inserts `users.id` after the allow-list check. Offline tests use the memory ledger
+- [ ] 403 when an authenticated user opens another user's thread. `ThreadGrant` raises when the ids differ. There is no thread route yet
 
-**Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403.
+**Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403. The 401 is proven. The invited sign-in is not, because the dashboard invite has not been sent.
 
 ## 5. Chat shell
 
@@ -86,7 +86,7 @@ The demo screen posts one question and renders the reply. It does not save threa
 
 - [x] The screen calls `POST /api/ask` with `{ question }` and renders each claim or a refusal
 - [x] The empty screen says fixture mode. It says replies use the checked-in demo passages and are not a live reading of the official PDF
-- [ ] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag
+- [x] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag. Access requests and ask go through it. Sign-in still calls Supabase directly
 - [ ] `src/lib/api.ts` lists threads, creates a thread, and loads messages
 - [ ] Thread list and new chat. Only the current user's threads
 - [ ] `POST /chat/stream` accepts `{ threadId, messages }` and streams the assistant reply
