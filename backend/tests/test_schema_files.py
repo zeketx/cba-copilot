@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.database.models import (
+    AccessRequestRecord,
     Base,
     CbaChunk,
     ChatMessage,
@@ -16,6 +17,9 @@ MIGRATION = (
     ROOT / "backend" / "alembic" / "versions" / "c0a2023b0002_chunk_pages_and_rls.py"
 )
 CHAT_MIGRATION = ROOT / "backend" / "alembic" / "versions" / "c0a2023b0003_chat_tables.py"
+ACCESS_MIGRATION = (
+    ROOT / "backend" / "alembic" / "versions" / "c0a2023b0004_access_requests.py"
+)
 ENV_PY = ROOT / "backend" / "alembic" / "env.py"
 
 
@@ -159,6 +163,44 @@ def test_chat_models_expose_locked_columns() -> None:
 
 def test_env_registers_chat_models() -> None:
     text = ENV_PY.read_text(encoding="utf-8")
-    for name in ("User", "ChatThread", "ChatMessage", "MessageCitation"):
+    for name in (
+        "User",
+        "ChatThread",
+        "ChatMessage",
+        "MessageCitation",
+        "AccessRequestRecord",
+    ):
         assert f"{name}.__tablename__" in text
     assert "RuntimeError" in text
+
+
+def test_access_request_migration_is_default_deny() -> None:
+    text = ACCESS_MIGRATION.read_text(encoding="utf-8")
+    assert 'down_revision: Union[str, Sequence[str], None] = "c0a2023b0003"' in text
+    assert "access_requests" in text
+    assert "email = lower(email)" in text
+    assert "ENABLE ROW LEVEL SECURITY" in text
+    assert "REVOKE ALL" in text
+    assert "CREATE POLICY" not in text
+    assert "rolname = 'anon'" in text
+    assert "rolname = 'authenticated'" in text
+    for banned in ("status", "user_id", "auth.users"):
+        assert banned not in text
+    downgrade = text.split("def downgrade", 1)[1]
+    assert "DROP POLICY" not in downgrade
+    assert downgrade.index("rolname = 'anon'") < downgrade.index("GRANT ALL ON TABLE")
+    assert downgrade.index("GRANT ALL ON TABLE") < downgrade.index(
+        "DISABLE ROW LEVEL SECURITY"
+    )
+    assert downgrade.index("DISABLE ROW LEVEL SECURITY") < downgrade.index(
+        'op.drop_table(TABLE)'
+    )
+
+
+def test_access_request_model_exposes_locked_columns() -> None:
+    assert "access_requests" in Base.metadata.tables
+    table = AccessRequestRecord.__table__
+    assert {column.name for column in table.columns} == {"email", "created_at"}
+    assert list(table.foreign_keys) == []
+    assert table.c.email.primary_key
+    assert table.c.created_at.nullable is False

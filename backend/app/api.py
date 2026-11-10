@@ -1,13 +1,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from datetime import datetime
+from typing import TYPE_CHECKING, Annotated, Literal
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.assistant.drafter import OverlapDrafter
+from app.auth.dependencies import gate_from_settings, get_current_user
+from app.auth.identity import Email
 from app.config import Settings
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
@@ -15,9 +18,24 @@ from app.domain import Chunk, CitedAnswer, Refusal
 from app.pipeline import answer_question
 from app.source_view import ElementPlacement, SpanPlacement, render_source
 
+if TYPE_CHECKING:
+    from app.auth.gate import AccessGate
+
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1)
+
+class AccessRequestBody(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def normalized(cls, value: str) -> str:
+        return Email.parse(value).value
+
+class AccessRequestResponse(BaseModel):
+    email: str
+    created_at: datetime
 
 class PublicCitation(BaseModel):
     passage_id: str
@@ -94,13 +112,18 @@ def to_public(
         claims.append(PublicClaim(text=claim.text, citations=citations))
     return PublicAnswer(claims=claims)
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    gate: AccessGate | None = None,
+) -> FastAPI:
     settings = settings or Settings()
     store = demo_store()
     embedder = demo_embedder(settings.openai_embedding_dimensions)
     drafter = OverlapDrafter()
     by_id = {chunk.id: chunk for chunk in load_demo_chunks()}
     app = FastAPI(title="CBA Copilot", version="0.1.0")
+    app.state.gate = gate if gate is not None else gate_from_settings(settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
@@ -112,7 +135,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         return {"ok": "true", "mode": "fake"}
 
-    @app.post("/api/ask")
+    @app.post("/api/access-requests")
+    def request_access(body: AccessRequestBody, request: Request) -> AccessRequestResponse:
+        record = request.app.state.gate.submit(Email.parse(body.email))
+        return AccessRequestResponse(email=record.email.value, created_at=record.created_at)
+
+    @app.post("/api/ask", dependencies=[Depends(get_current_user)])
     def ask(body: AskRequest) -> PublicAnswer | PublicRefusal:
         result = answer_question(
             body.question,

@@ -92,6 +92,17 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
 
 
+class AccessRequestRecord(Base):
+    __tablename__ = "access_requests"
+
+    email: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class ChatThread(Base):
     __tablename__ = "chat_threads"
     __table_args__ = (Index("ix_chat_threads_user_id", "user_id"),)

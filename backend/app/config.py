@@ -6,6 +6,7 @@ from typing import Annotated
 from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.auth.identity import EmailAllowList
 from app.database.constants import EMBEDDING_DIMENSIONS
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -74,6 +75,7 @@ class Settings(BaseSettings):
     retrieval_fts_config: str = "english"
 
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    allowed_emails: Annotated[tuple[str, ...], NoDecode] = ()
 
     @field_validator("supabase_url")
     @classmethod
@@ -108,6 +110,16 @@ class Settings(BaseSettings):
         if value not in _PROVIDERS:
             raise ValueError("ANSWER_PROVIDER must be openai, google, or openrouter")
         return value
+
+    @field_validator("allowed_emails", mode="before")
+    @classmethod
+    def parse_allowed_emails(cls, value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]:
+        if isinstance(value, str):
+            joined = value
+        else:
+            joined = ",".join(value)
+        allow = EmailAllowList.parse(joined)
+        return tuple(sorted(email.value for email in allow.emails))
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
