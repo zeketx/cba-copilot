@@ -1,0 +1,47 @@
+# Compare embedders on the CBA
+
+Run this when you want recall, cost, and latency for a candidate embedding model before you change the live index. The ask path stays on the hash embedder. The database stays at 1536 dimensions.
+
+## Run the bench
+
+From `backend/`:
+
+```bash
+uv run python -m evals.embed_bench --models hash
+```
+
+That command needs the July 2023 PDF at `data/downloads/2023-nba-cba.pdf`. From the repo root, download it with `python data/download_cba.py`. The PDF stays gitignored. You also need `pdftotext` (Poppler).
+
+The hash row is free and does not call the network. A later run reads `backend/evals/reports/cache/` and does not embed those chunks again.
+
+To score Qwen and Voyage, set `OPENROUTER_API_KEY` in the environment or in `backend/.env`, then run:
+
+```bash
+uv run python -m evals.embed_bench --live --models qwen/qwen3-embedding-8b,mongodb/voyage-4-lite
+```
+
+Add `mongodb/voyage-4` to `--models` when you want the third catalog price. The hash row is included either way.
+
+Without `--live`, the command refuses and sends no request. With `--live` and no key, it exits before a request and names `OPENROUTER_API_KEY`.
+
+Check that every draft question still matches a chunk, without embedding:
+
+```bash
+uv run python -m evals.embed_bench --models hash --check-questions
+```
+
+## Read the report
+
+The command writes `backend/evals/reports/embed-bench.md` and `embed-bench.json`. Both stay gitignored.
+
+Read the draft row first. Those questions are marked `draft: true` in `backend/evals/draft_questions.yaml` for review. The original six stay in `questions.yaml`. A question with no matching chunk label is listed as unscored and is left out of the average.
+
+Dense recall is a full-corpus cosine ranking. Hybrid recall is the app's in-memory keyword list fused with the vector list by reciprocal rank fusion. `candidate_k` and `rrf_k` come from settings, same as the ask path. Keyword overlap here is the in-memory stand-in, not Postgres full text.
+
+`any` scores 1 when one expected section is inside the cutoff. `all` scores the fraction of expected sections found. MRR uses the rank of the first matching section.
+
+Index dollars are `usage.prompt_tokens` from OpenRouter, times the price per million tokens. The price comes from the models endpoint (`output_modalities=embeddings`). If that call fails, the report uses the pinned table and says `pinned`. A cache hit shows zero dollars in the this-run column. Hash is free and reports no provider tokens.
+
+Query p50 and p95 time only `embed_query`, one pass. The percentile is nearest-rank with `ceil`. Float32 bytes are `chunks × dimensions × 4`. That is a storage estimate for a vector column. This bench does not write the database.
+
+Do not treat the hash row as a semantic bake-off. It is a signed bag of tokens, so its recall follows lexical overlap after the app's nickname expansion.
