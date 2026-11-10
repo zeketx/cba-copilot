@@ -46,7 +46,7 @@ Frontend (`docs/guides/frontend-setup.md`):
 
 ## 3. Schema
 
-On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threads`, `chat_messages`, `message_citations`.
+`source_documents`, `cba_chunks`, `users`, `chat_threads`, `chat_messages`, and `message_citations` are in `c0a2023b0003` and on the hosted database. Row policies for the chat tables stay open until auth exists.
 
 - [x] SQLAlchemy models in `app/database/models.py`
 - [x] `alembic/env.py` imports that metadata and reads `Settings().sqlalchemy_database_url`
@@ -68,15 +68,17 @@ On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threa
 
 ## 4. Auth
 
-v1 has no auth. These stay open.
+v1 has no auth. These stay open. Access is invite-only. Public sign-up stays off until the owner opens it. A visitor can leave an email to request access. That request does not create an account. The owner approves it in Supabase, which sends the invite. Supabase rejects a new account that was not invited. The app also rejects a signed-in email that is not on the allow-list.
 
-- [ ] Email sign-up and sign-in in the SPA
+- [ ] A public form takes an email and stores an access request. It does not create a user
+- [ ] Email sign-in in the SPA for an invited address. No public sign-up form
 - [ ] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
 - [ ] Reject a missing or invalid token with 401 before any retrieval or model call
-- [ ] Create a `users` row for the signed-in user
+- [ ] Reject a signed-in email that is not on the allow-list with 403
+- [ ] Create a `users` row for an allowed signed-in user
 - [ ] 403 when an authenticated user opens another user's thread
 
-**Exit:** a signed-in request reaches a protected route. A request with no token gets 401.
+**Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403.
 
 ## 5. Chat shell
 
