@@ -32,10 +32,33 @@ export type PublicRefusal = {
 
 export type PublicResponse = PublicAnswer | PublicRefusal;
 
-export type ChatTurn = {
+export type ThreadSummary = {
   id: string;
-  question: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserMessage = {
+  id: string;
+  role: "user";
+  position: number;
+  text: string;
+};
+
+export type AssistantMessage = {
+  id: string;
+  role: "assistant";
+  position: number;
   response: PublicResponse;
+};
+
+export type ChatMessage = UserMessage | AssistantMessage;
+
+export type StreamChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
 };
 
 type WireCitation = {
@@ -76,6 +99,50 @@ function citationFromWire(citation: WireCitation): PublicCitation {
     excerpt: citation.excerpt,
     sourceHtml: citation.source_html,
     placement: readPlacement(citation.placement),
+  };
+}
+
+export type WireThread = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WireUserMessage = {
+  id: string;
+  role: "user";
+  position: number;
+  text: string;
+};
+
+export type WireAssistantMessage = {
+  id: string;
+  role: "assistant";
+  position: number;
+  response: WireResponse;
+};
+
+export type WireChatMessage = WireUserMessage | WireAssistantMessage;
+
+export function threadFromWire(body: WireThread): ThreadSummary {
+  return {
+    id: body.id,
+    title: body.title,
+    createdAt: body.created_at,
+    updatedAt: body.updated_at,
+  };
+}
+
+export function messageFromWire(body: WireChatMessage): ChatMessage {
+  if (body.role === "user") {
+    return body;
+  }
+  return {
+    id: body.id,
+    role: "assistant",
+    position: body.position,
+    response: responseFromWire(body.response),
   };
 }
 

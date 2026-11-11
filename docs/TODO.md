@@ -4,7 +4,7 @@ Work top to bottom. A phase is done when its exit check passes.
 
 The pilot is one official PDF of the 2023 NBA CBA. Record its URL, sha256, cover date, and printed term before a live answer is shown. Do not commit the PDF. Unofficial markdown, fan sites, and salary-cap explainers are not sources. A later agreement, side letter, or amendment stays in phase 12 until this PDF passes phase 10.
 
-Checked boxes match `main`. The stack is in `AGENTS.md`. Corpus rules are in `docs/corpus.md`. The offline demo answers from a fixture and does not call a paid model.
+Checked boxes through phase 3 match `main`. Phase 4 and the `http.ts` box match the auth work merged into `schema/chat-tables` on 2026-11-10. That work is not on `main` yet. The stack is in `AGENTS.md`. Corpus rules are in `docs/corpus.md`. The offline demo answers from a fixture and does not call a paid model.
 
 ## 0. Already in the repo
 
@@ -46,7 +46,7 @@ Frontend (`docs/guides/frontend-setup.md`):
 
 ## 3. Schema
 
-On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threads`, `chat_messages`, `message_citations`.
+`source_documents`, `cba_chunks`, `users`, `chat_threads`, `chat_messages`, and `message_citations` are in `c0a2023b0003` and on the hosted database. Row policies for the chat tables stay open until auth exists.
 
 - [x] SQLAlchemy models in `app/database/models.py`
 - [x] `alembic/env.py` imports that metadata and reads `Settings().sqlalchemy_database_url`
@@ -56,10 +56,11 @@ On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threa
   - [x] generated `tsvector` on chunk text
   - [x] HNSW index on the embedding
   - [x] GIN index on `search_vector`
-- [x] GIN index on JSON metadata, in `c0a2023b0002_chunk_pages_and_rls.py`. Not applied to the hosted database
-- [ ] Chat tables, and RLS for those tables once auth exists
-- [x] `source_documents` and `cba_chunks` enable row level security and revoke `anon` and `authenticated`. No row policy is created. Not applied to the hosted database
-- [ ] `uv run alembic upgrade head` against the hosted database
+- [x] GIN index on JSON metadata, in `c0a2023b0002_chunk_pages_and_rls.py`. Applied to the hosted database on 2026-11-09
+- [x] Chat tables in `c0a2023b0003_chat_tables.py`. Applied to the hosted database on 2026-11-09
+- [ ] Row policies for the chat tables once auth exists. The tables enable row level security and revoke `anon` and `authenticated`. No policy is created
+- [x] `source_documents` and `cba_chunks` enable row level security and revoke `anon` and `authenticated`. No row policy is created. Applied to the hosted database on 2026-11-09
+- [x] `uv run alembic upgrade head` against the hosted database. Head is `c0a2023b0003`. A second run on 2026-11-09 did not run another revision. `vector` is installed. The public tables are `source_documents`, `cba_chunks`, `users`, `chat_threads`, `chat_messages`, and `message_citations`
 - [x] A chunk can store the article number, the article title, the section, the page range, the source URL, the order in the file, and the token count
 - [x] Store the printed page and the viewer page as separate fields, and store the character offsets of the quote, in the model and in `c0a2023b0002`. Ingest does not fill them yet
 
@@ -67,41 +68,43 @@ On `main`: `source_documents` and `cba_chunks`. Still open: `users`, `chat_threa
 
 ## 4. Auth
 
-v1 has no auth. These stay open.
+v1 has no auth. These stay open. Access is invite-only. Public sign-up stays off until the owner opens it. A visitor can leave an email to request access. That request does not create an account. The owner sends the invite from Authentication, then Users, then Add user, then Send invitation. That control is not on Project Overview. A row in `public.users` does not send an invite. Supabase rejects a new account that was not invited. The app also rejects a signed-in email that is not on the allow-list. The link in the invite email does not open this app yet. Until the phase 11 redirect exists, an invited person uses Send code.
 
-- [ ] Email sign-up and sign-in in the SPA
-- [ ] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
-- [ ] Reject a missing or invalid token with 401 before any retrieval or model call
-- [ ] Create a `users` row for the signed-in user
-- [ ] 403 when an authenticated user opens another user's thread
+- [x] A public form takes an email and stores an access request. It does not create a user. `c0a2023b0004` is on the hosted database. On 2026-11-10 `POST /api/access-requests` returned 200, a second post kept the same `created_at`, and that request did not add a `users` row
+- [x] Email sign-in in the SPA for an invited address. No public sign-up form. The dialog sends a code with `create_user` false. A live code has not been received yet, because the dashboard invite has not been sent
+- [x] `app/auth/dependencies.py` verifies `Authorization: Bearer` and exposes `get_current_user`
+- [x] Reject a missing or invalid token with 401 before any retrieval or model call. The offline test is `test_rejected_bearer_does_not_call_the_pipeline`. A live missing token returned 401 on 2026-11-10
+- [x] Reject a signed-in email that is not on the allow-list with 403. The offline test is `test_unlisted_email_does_not_insert_a_user`. A live signed-in 403 has not been run
+- [x] Create a `users` row for an allowed signed-in user. `AccessGate.admit` inserts `users.id` after the allow-list check. Offline tests use the memory ledger
+- [x] 403 when an authenticated user opens another user's thread. `GET /api/threads/{thread_id}` loads the owner and builds `ThreadGrant`. A missing thread is 404. The offline test is `test_opening_another_users_thread_is_forbidden`
 
-**Exit:** a signed-in request reaches a protected route. A request with no token gets 401.
+**Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403. The 401 is proven. The invited sign-in is not, because the dashboard invite has not been sent.
 
 ## 5. Chat shell
 
-The demo screen posts one question and renders the reply. It does not save threads. The screen uses Beautiful UI (`https://www.beautifului.dev/`): the foundation theme, `Button`, `StreamText`, `ContextCards`, and `LoadingState`.
+The screen lists the signed-in user's threads, streams a reply, and reloads that history. The screen uses Beautiful UI (`https://www.beautifului.dev/`): the foundation theme, `Button`, `StreamText`, `ContextCards`, and `LoadingState`.
 
 - [x] The screen calls `POST /api/ask` with `{ question }` and renders each claim or a refusal
 - [x] The empty screen says fixture mode. It says replies use the checked-in demo passages and are not a live reading of the official PDF
-- [ ] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag
-- [ ] `src/lib/api.ts` lists threads, creates a thread, and loads messages
-- [ ] Thread list and new chat. Only the current user's threads
-- [ ] `POST /chat/stream` accepts `{ threadId, messages }` and streams the assistant reply
-- [ ] After a successful run, persist the user message and the assistant message
-- [ ] Reload shows the same thread history
+- [x] `src/lib/http.ts` sets the base URL, the bearer token, and timeouts, and types `ApiError` with a network-versus-HTTP flag. Access requests and ask go through it. Sign-in still calls Supabase directly
+- [x] `src/lib/api.ts` lists threads, creates a thread, and loads messages
+- [x] Thread list and new chat. Only the current user's threads
+- [x] `POST /api/chat/stream` accepts `{ threadId, messages }` and streams the assistant reply. The checklist name was `/chat/stream`. The route lives under `/api` with the other routes
+- [x] After a successful run, persist the user message and the assistant message
+- [x] Reload shows the same thread history
 
-**Exit:** sign in, send a message, watch it stream, refresh, and see it still there. A second user cannot open that thread.
+**Exit:** sign in, send a message, watch it stream, refresh, and see it still there. A second user cannot open that thread. On 2026-11-10 the browser sent a fixture question, showed the reply and the citation chips, and kept that thread after refresh. The button read Asking while the reply was on the way. `test_list_does_not_include_another_users_thread` returns 403 for the other user. The browser session used a test token. A dashboard invite is still required for a live sign-in.
 
 ## 6. Ingestion
 
-- [ ] Parse the official PDF into text that keeps the source URL, the printed page, and the viewer page. Measure the offset from the file. Do not assume an offset
-- [ ] Upsert one `source_documents` row with that text, the source URL, the hash, the cover date, and the printed term. A second run updates the same row
+- [x] Parse the official PDF into text that keeps the source URL, the printed page, and the viewer page. Measure the offset from the file. Do not assume an offset. `ingest/pdf.py` reads the printed page from each running header. All 560 article pages give an offset of 24. Exhibits, viewer pages 585 to 676, are not ingested yet
+- [x] Upsert one `source_documents` row with that text, the source URL, the hash, the cover date, and the printed term. A second run updates the same row. Migration `c0a2023b0005` adds the columns and a unique `source_url`
 - [x] `chunk_markdown` in `ingest/chunker.py` chunks by article and section, keeps a section whole across a page, and does not start a chunk on a page marker. Tests are in `tests/test_chunker.py` and do not use the network
-- [ ] When a chunk tells the reader to apply another section, store that target on the chunk
-- [ ] Embed chunks with `text-embedding-3-small` at 1536 dimensions
-- [ ] Upsert `cba_chunks`. `search_vector` is generated by the database. A second ingest does not add duplicate chunks
+- [x] When a chunk tells the reader to apply another section, store that target on the chunk. Targets live in `chunk_metadata.references` as `{article, section}`
+- [ ] Embed chunks with `text-embedding-3-small` at 1536 dimensions. `uv run python -m ingest embed` fills missing embeddings. An agent session may not call OpenAI, so the owner runs it
+- [x] Upsert `cba_chunks`. `search_vector` is generated by the database. A second ingest does not add duplicate chunks
 
-**Exit:** the official PDF is queryable as rows in `source_documents` and `cba_chunks`, with embeddings, both page numbers, and a populated `search_vector`. The PDF file is still gitignored.
+**Exit:** the official PDF is queryable as rows in `source_documents` and `cba_chunks`, with embeddings, both page numbers, and a populated `search_vector`. The PDF file is still gitignored. On 2026-11-10 two `ingest load` runs left one document and 857 chunks with the same ids. Every chunk has both page numbers and a populated `search_vector`. 461 chunks carry a reference. Embeddings are still empty until the owner runs `ingest embed`.
 
 ## 7. Hybrid retrieval
 
@@ -164,7 +167,7 @@ Default host is Railway, one frontend service and one backend service, until you
 - [ ] Backend env: database URL, Supabase URL, anon key, service role, direct `DATABASE_URL`, answer-model key, embedding settings, production `ALLOWED_ORIGINS`
 - [ ] Frontend env: API base URL only, until auth exists
 - [ ] `alembic upgrade head` against the hosted database
-- [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list, once phase 4 exists
+- [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list, so the invite link opens this app. Until this box is done, an invited person uses Send code
 - [x] README "Run the offline demo" has the local backend and frontend commands
 - [ ] Smoke test on the deployed URL: ask one question, see an article, a section, and a page, reload
 

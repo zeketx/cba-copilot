@@ -2,6 +2,15 @@ from pathlib import Path
 
 import yaml
 from app.api import create_app
+from app.auth.gate import AccessGate, MemoryLedger
+from app.auth.identity import (
+    AuthUserId,
+    Email,
+    EmailAllowList,
+    Unauthenticated,
+    VerifiedIdentity,
+)
+from app.config import Settings
 from app.corpus import printed_page_to_pdf_page
 from app.definitions import load_definitions
 from evals.runner import main as run_eval
@@ -62,14 +71,51 @@ def test_migration_creates_vector_and_full_text_indexes() -> None:
     assert "USING hnsw (embedding vector_cosine_ops)" in migration
 
 
+class StaticVerifier:
+    def __init__(self, tokens: dict[str, VerifiedIdentity]) -> None:
+        self._tokens = tokens
+
+    def verify(self, token: str) -> VerifiedIdentity:
+        try:
+            return self._tokens[token]
+        except KeyError:
+            raise Unauthenticated from None
+
+
 def test_ask_endpoint_answers_and_refuses() -> None:
-    client = TestClient(create_app())
+    identity = VerifiedIdentity(
+        id=AuthUserId.parse("11111111-1111-1111-1111-111111111111"),
+        email=Email.parse("fan@example.com"),
+    )
+    ledger = MemoryLedger()
+    gate = AccessGate(
+        allow=EmailAllowList.parse("fan@example.com"),
+        verifier=StaticVerifier({"stub": identity}),
+        ledger=ledger,
+    )
+    settings = Settings(
+        allowed_emails=(),
+        supabase_url="",
+        supabase_anon_key="",
+        database_url="",
+        _env_file=None,
+    )
+    client = TestClient(create_app(settings, gate=gate))
+    headers = {"Authorization": "Bearer stub"}
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.json()["mode"] == "fake"
 
+    missing = client.post(
+        "/api/ask",
+        json={"question": "What can't a second-apron team do in a trade?"},
+    )
+    assert missing.status_code == 401
+    assert missing.json()["detail"]["error"] == "unauthorized"
+
     answer = client.post(
         "/api/ask",
+        headers=headers,
         json={"question": "What can't a second-apron team do in a trade?"},
     )
     assert answer.status_code == 200
@@ -81,8 +127,19 @@ def test_ask_endpoint_answers_and_refuses() -> None:
     assert citation["source_html"].count("<section>") > 1
     assert citation["placement"]["start_id"] in citation["source_html"]
 
+    assert ledger.user_ids == {identity.id}
+
+    again = client.post(
+        "/api/ask",
+        headers=headers,
+        json={"question": "What can't a second-apron team do in a trade?"},
+    )
+    assert again.status_code == 200
+    assert ledger.user_ids == {identity.id}
+
     refusal = client.post(
         "/api/ask",
+        headers=headers,
         json={"question": "How many timeouts may an NHL coach call during a playoff overtime?"},
     )
     assert refusal.status_code == 200
