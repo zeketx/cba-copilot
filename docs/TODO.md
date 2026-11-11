@@ -124,7 +124,7 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 - [x] `validate_draft` keeps a claim only when every passage id was retrieved. If one valid claim remains, that claim stays. If none remain, the reason is `citations_dropped` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] No claims, or `insufficient_evidence`, refuses with `no_evidence` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] Tests in `tests/test_grounding.py` and `tests/test_agent.py` use stand-in models and do not call the network ([#1](https://github.com/zeketx/cba-copilot/pull/1))
-- [ ] Add `ambiguous` and `missing_inputs`. Ask which season or effective date applies when more than one passage matches and the question names neither
+- [x] Add `ambiguous` and `missing_inputs`. Ask which season or effective date applies when more than one passage matches and the question names neither ([#17](https://github.com/zeketx/cba-copilot/pull/17))
 - [ ] Persist the turn only after the validator accepts it
 - [ ] Stream text deltas first, then citation parts. Map auth, missing thread, retrieval, and grounding failures to 401, 403, 404, 422, and 502
 
