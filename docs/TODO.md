@@ -190,6 +190,6 @@ These wait until phase 11's exit passes.
 
 These are open after the work merged on the evening of 2026-11-10. They are not a new phase.
 
-- [x] Add to the eval docs: LENIENT scoring with the text guard is the eval gate; STRICT is still reported. Noted in `docs/embedding-bench.md` in this PR
+- [x] Add to the eval docs: LENIENT scoring with the text guard is the eval gate; STRICT is still reported. Noted in `docs/embedding-bench.md` in #15
 - [ ] Retrieval and question-design follow-up for `second-apron-trade` and `cap-inclusions` in `backend/evals/questions.yaml`. The `2(e)` label on `second-apron-trade` is verified against the CBA (Article VII 2(e)(4) transaction table, printed page 187); the miss is real, not a bad label. `cap-inclusions` needs both Article I 1(lll) and Article VII 4
 - [ ] Review the 30 draft questions in `backend/evals/draft_questions.yaml`
