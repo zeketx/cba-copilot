@@ -16,7 +16,13 @@ from evals.embed_bench import (
     pick_source_document,
     resolve_price,
 )
-from evals.metrics import section_for_match, section_matches
+from evals.metrics import (
+    ExpectedSection,
+    chunk_matches,
+    lenient_chunk_matches,
+    section_for_match,
+    section_matches,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -148,6 +154,87 @@ def test_ingest_labels_map_onto_question_needles() -> None:
         "1(yy) Qualifying Veteran Free Agent"
     )
     assert section_matches(section_for_match("2(e)(4) Transaction"), "2(e)")
+
+
+def test_lenient_match_accepts_a_parent_label_only_with_the_text_marker() -> None:
+    parent = _chunk(
+        "mle",
+        7,
+        "6. Exceptions to the Salary Cap / (e) Non-Taxpayer Mid-Level Salary Exception",
+        "(1) Contracts signed under it can total 9.12 percent of the salary cap.",
+        "Exceptions",
+    )
+    bare = _chunk(
+        "bare",
+        7,
+        "6. Exceptions to the Salary Cap / (e) Non-Taxpayer Mid-Level Salary Exception",
+        "The exception opens after the moratorium and names no numbered child.",
+        "Exceptions",
+    )
+    expected = ExpectedSection(article=7, section_contains="6(e)(1)")
+    assert not chunk_matches(parent, expected)
+    assert lenient_chunk_matches(parent, expected)
+    assert not chunk_matches(bare, expected)
+    assert not lenient_chunk_matches(bare, expected)
+    traded = _chunk(
+        "trade",
+        7,
+        "6. Exceptions to the Salary Cap / (j) Traded Player Exception",
+        "(1) A Team may replace a player. (i) Incoming salary is 100 percent plus $250,000.",
+        "Exceptions",
+    )
+    both = ExpectedSection(article=7, section_contains="6(j)(1)(i)")
+    only_roman = _chunk(
+        "roman",
+        7,
+        "6. Exceptions to the Salary Cap / (j) Traded Player Exception",
+        "(i) This romanette has no numbered parent in the text.",
+        "Exceptions",
+    )
+    assert lenient_chunk_matches(traded, both)
+    assert not lenient_chunk_matches(only_roman, both)
+    deeper = ExpectedSection(article=8, section_contains="1(c)(ii)")
+    rookie = _chunk(
+        "rookie",
+        8,
+        "1. Rookie Scale / (c) Protection",
+        "(i) A shorter child. (ii) Protection is 80 percent of the rookie scale amount.",
+        "Rookie",
+    )
+    only_i = _chunk(
+        "only-i",
+        8,
+        "1. Rookie Scale / (c) Protection",
+        "(i) A shorter child stays here.",
+        "Rookie",
+    )
+    assert lenient_chunk_matches(rookie, deeper)
+    assert not lenient_chunk_matches(only_i, deeper)
+    assert not lenient_chunk_matches(
+        _chunk(rookie.id, 2, rookie.section, rookie.text, rookie.article_title),
+        deeper,
+    )
+
+
+def test_lenient_label_match_joins_pdf_spaces_inside_words() -> None:
+    spaced = _chunk(
+        "bird-exception",
+        7,
+        "6. Exceptions to the Salary Cap / (b) V eteran Free Agen t Exception",
+        "The exception begins at 12:01 p.m. eastern time.",
+        "Exceptions",
+    )
+    expected = ExpectedSection(article=7, section_contains="6(b) Veteran")
+    assert not chunk_matches(spaced, expected)
+    assert lenient_chunk_matches(spaced, expected)
+    untouched = _chunk(
+        "free-agent",
+        7,
+        "6. Exceptions to the Salary Cap / (b) Free Agent Exception",
+        "No veteran wording here.",
+        "Exceptions",
+    )
+    assert not lenient_chunk_matches(untouched, expected)
 
 
 def test_section_match_stops_at_a_longer_id() -> None:
@@ -528,7 +615,11 @@ def test_database_flag_scores_ingest_labels(tmp_path, monkeypatch, capsys) -> No
     assert any(item.startswith("missing-minimum:") for item in scored["miss_labels"])
     assert not any(item.startswith("bird:") for item in scored["miss_labels"])
     stdout = capsys.readouterr().out
-    assert "draft hybrid" in stdout
-    assert "all hybrid" in stdout
+    assert "strict draft" in stdout
+    assert "lenient draft" in stdout
+    assert "strict all" in stdout
+    assert "lenient all" in stdout
+    assert scored["lenient_draft_hybrid"]["recall_at_5"] == pytest.approx(0.5)
+    assert scored["lenient_flips"] == []
     assert "query p95" in stdout
     assert "hybrid_retrieve" in stdout

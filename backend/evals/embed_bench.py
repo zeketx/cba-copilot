@@ -38,6 +38,7 @@ from evals.metrics import (
     aggregate,
     chunk_matches,
     first_relevant_rank,
+    lenient_chunk_matches,
     percentile,
     recall_at,
 )
@@ -121,6 +122,9 @@ class ModelReport:
     error: str | None = None
     miss_labels: list[str] = field(default_factory=list)
     latency_scope: str = "embed_query"
+    lenient_hybrid: RankMetrics | None = None
+    lenient_draft_hybrid: RankMetrics | None = None
+    lenient_flips: list[str] = field(default_factory=list)
 
 
 def load_bench_questions(paths: list[Path]) -> tuple[list[BenchQuestion], list[str]]:
@@ -402,6 +406,15 @@ def score_model(
             cache_bytes=cache_path.stat().st_size if cache_path.exists() else 0,
             misses=misses,
             miss_labels=hybrid_miss_labels(scored, hybrid_rankings),
+            lenient_hybrid=aggregate(
+                scored, hybrid_rankings, matches=lenient_chunk_matches
+            ),
+            lenient_draft_hybrid=(
+                aggregate(draft, hybrid_rankings, matches=lenient_chunk_matches)
+                if draft
+                else None
+            ),
+            lenient_flips=lenient_flip_lines(scored, hybrid_rankings),
         )
     except RuntimeError as exc:
         return _failed(model, chunks, skipped, price_source, str(exc))
@@ -593,18 +606,38 @@ def render_markdown(reports: list[ModelReport], *, price_fetch: str, generated_a
             )
         elif report.draft_hybrid:
             lines.append(
-                "Draft only. "
+                "Draft only, strict. "
                 f"Hybrid recall@5 {_rate(report.draft_hybrid.recall_at_5)}, "
                 f"hybrid recall@8 {_rate(report.draft_hybrid.recall_at_8)}, "
                 f"hybrid MRR {_rate(report.draft_hybrid.mrr)}."
             )
-        if report.latency_scope == "hybrid_retrieve" and report.hybrid is not None:
+        if report.lenient_draft_hybrid:
             lines.append(
-                "All scored questions. "
+                "Draft only, lenient. "
+                f"Hybrid recall@5 {_rate(report.lenient_draft_hybrid.recall_at_5)}, "
+                f"hybrid recall@8 {_rate(report.lenient_draft_hybrid.recall_at_8)}, "
+                f"hybrid MRR {_rate(report.lenient_draft_hybrid.mrr)}."
+            )
+        if report.hybrid is not None and (
+            report.latency_scope == "hybrid_retrieve" or report.lenient_hybrid is not None
+        ):
+            lines.append(
+                "All scored questions, strict. "
                 f"Hybrid recall@5 {_rate(report.hybrid.recall_at_5)}, "
                 f"hybrid recall@8 {_rate(report.hybrid.recall_at_8)}, "
                 f"hybrid MRR {_rate(report.hybrid.mrr)}."
             )
+        if report.lenient_hybrid is not None:
+            lines.append(
+                "All scored questions, lenient. "
+                f"Hybrid recall@5 {_rate(report.lenient_hybrid.recall_at_5)}, "
+                f"hybrid recall@8 {_rate(report.lenient_hybrid.recall_at_8)}, "
+                f"hybrid MRR {_rate(report.lenient_hybrid.mrr)}."
+            )
+        if report.lenient_flips:
+            lines.append("Questions that miss under strict and hit under lenient:")
+            for item in report.lenient_flips:
+                lines.append(f"- {item}")
         if report.miss_labels:
             lines.append("Hybrid misses at recall@5, top labels:")
             for item in report.miss_labels:
@@ -724,6 +757,24 @@ def hybrid_miss_labels(
             labels.append(label)
         shown = " | ".join(labels) if labels else "(no rows)"
         lines.append(f"{question.id}: {shown}")
+    return lines
+
+
+def lenient_flip_lines(
+    questions: list[BenchQuestion],
+    rankings: dict[str, list[Chunk]],
+) -> list[str]:
+    lines: list[str] = []
+    for question in questions:
+        ranked = rankings.get(question.id, [])
+        strict = recall_at(ranked, question, 5)
+        loose = recall_at(ranked, question, 5, matches=lenient_chunk_matches)
+        if strict >= 1 or loose < 1 or not ranked:
+            continue
+        top = ranked[0]
+        label = " ".join(top.section.split())
+        snippet = " ".join(top.text.split())[:100]
+        lines.append(f"{question.id}: {label} | {snippet}")
     return lines
 
 
@@ -887,27 +938,39 @@ def _database_report(
         misses=[],
         miss_labels=hybrid_miss_labels(questions, rankings),
         latency_scope="hybrid_retrieve",
+        lenient_hybrid=aggregate(questions, rankings, matches=lenient_chunk_matches),
+        lenient_draft_hybrid=(
+            aggregate(draft, rankings, matches=lenient_chunk_matches) if draft else None
+        ),
+        lenient_flips=lenient_flip_lines(questions, rankings),
+    )
+
+
+def _print_metrics(kind: str, metrics: RankMetrics) -> None:
+    print(
+        f"{kind} "
+        f"R@5 {_rate(metrics.recall_at_5)} "
+        f"R@8 {_rate(metrics.recall_at_8)} "
+        f"MRR {_rate(metrics.mrr)}"
     )
 
 
 def _print_database_summary(report: ModelReport) -> None:
     if report.draft_hybrid is not None:
-        print(
-            "draft hybrid "
-            f"R@5 {_rate(report.draft_hybrid.recall_at_5)} "
-            f"R@8 {_rate(report.draft_hybrid.recall_at_8)} "
-            f"MRR {_rate(report.draft_hybrid.mrr)}"
-        )
+        _print_metrics("strict draft", report.draft_hybrid)
+    if report.lenient_draft_hybrid is not None:
+        _print_metrics("lenient draft", report.lenient_draft_hybrid)
     if report.hybrid is not None:
-        print(
-            "all hybrid "
-            f"R@5 {_rate(report.hybrid.recall_at_5)} "
-            f"R@8 {_rate(report.hybrid.recall_at_8)} "
-            f"MRR {_rate(report.hybrid.mrr)}"
-        )
+        _print_metrics("strict all", report.hybrid)
+    if report.lenient_hybrid is not None:
+        _print_metrics("lenient all", report.lenient_hybrid)
     print(f"query p95 {_ms(report.query_latency_p95_ms)} ms (hybrid_retrieve)")
+    if report.lenient_flips:
+        print("lenient flips:")
+        for line in report.lenient_flips:
+            print(line)
     if report.miss_labels:
-        print("misses at R@5:")
+        print("strict misses at R@5:")
         for line in report.miss_labels:
             print(line)
 
