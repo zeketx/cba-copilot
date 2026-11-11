@@ -26,7 +26,7 @@ The PydanticAI agent returns a `DraftAnswer`. The default demo drafter quotes ov
 
 ## What the skeleton does not do
 
-It does not extract the 676-page PDF. It does not call OpenAI. It does not open a Supabase connection. `PostgresChunkStore` has the SQL ready for that connection. `OpenAIEmbedder.embed_query` and `refuse_live_model` raise before a client is built.
+The ask path does not extract the 676-page PDF and does not call OpenAI. It does not open a Supabase connection. `PostgresChunkStore` has the SQL ready for that connection. `OpenAIEmbedder.embed_query` and `refuse_live_model` raise before a client is built. `OpenRouterEmbedder` is only for the embedding bench, and only after `--live`.
 
 ## Shape that lost
 

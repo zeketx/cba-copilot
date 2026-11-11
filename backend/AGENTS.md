@@ -28,6 +28,8 @@ uv run pytest
 uv run python -m evals.runner
 ```
 
+`uv run python -m evals.embed_bench --models hash` scores the hash embedder when the gitignored CBA PDF is on disk. Add `--live` before any OpenRouter call. See `docs/embedding-bench.md`.
+
 Tests must pass with no network, no database, and no API key.
 
 `PostgresChunkStore` and `OpenAIEmbedder` are the live edges. Do not call them from tests.

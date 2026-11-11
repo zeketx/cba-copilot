@@ -20,6 +20,7 @@ pnpm-debug.log*
 data/downloads/*
 !data/downloads/.gitkeep
 data/markdown-aid/
+backend/evals/reports/
 
 .DS_Store
 *.log
