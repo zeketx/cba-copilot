@@ -52,9 +52,9 @@
       verified: true
       note: "Salary definition, Article I Section 1(lll), printed page 9."
     - article: 7
-      section_contains: "4 Team Salary"
+      section_contains: "4 Determination of Team Salary"
       verified: true
-      note: "Team Salary and the two-way exclusion, Article VII Section 4(j), printed page 225."
+      note: "Determination of Team Salary, Article VII Section 4, printed page 211."
 
 - id: outside-cba
   question: How many timeouts may an NHL coach call during a playoff overtime?
