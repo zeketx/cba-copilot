@@ -1,0 +1,329 @@
+- id: bird-rights-definition
+  draft: true
+  question: What makes a player a Qualifying Veteran Free Agent, the status readers call Bird rights?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(yy)"
+      verified: true
+      note: "Printed page 7. The definition requires some or all of each of the three preceding seasons with the prior team, with only narrow ways to have changed teams."
+
+- id: early-bird-definition
+  draft: true
+  question: What makes a player an Early Qualifying Veteran Free Agent?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(t)"
+      verified: true
+      note: "Printed page 3. The definition uses two preceding seasons with the prior team and the same narrow ways to have changed teams."
+
+- id: non-bird-definition
+  draft: true
+  question: Who is a Non-Qualifying Veteran Free Agent?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(rr)"
+      verified: true
+      note: "Printed page 6. A veteran free agent who is neither a Qualifying Veteran Free Agent nor an Early Qualifying Veteran Free Agent."
+
+- id: salary-excludes-unlikely-bonuses
+  draft: true
+  question: What does Salary include, and does it include Unlikely Bonuses?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(lll)"
+      verified: true
+      note: "Printed page 9. Salary is the player's compensation for the season plus other amounts the agreement deems salary, not including Unlikely Bonuses or agreement benefits."
+
+- id: team-salary-definition
+  draft: true
+  question: What goes into Team Salary?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(uuu)"
+      verified: true
+      note: "Printed page 11. Team Salary sums salaries of a team's active and former players, plus other Article VII amounts, minus Article VII credits."
+
+- id: room-definition
+  draft: true
+  question: What is Room for salary-cap purposes?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(kkk)"
+      verified: true
+      note: "Printed page 9. Room is the gap when Team Salary is under the Salary Cap, and it also covers room inside a listed exception."
+
+- id: minimum-team-salary-definition
+  draft: true
+  question: Where does the agreement send you for the Minimum Team Salary amount?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(ll)"
+      verified: true
+      note: "Printed page 5. The definition says the amount is determined in accordance with Article VII, Section 2(b)."
+
+- id: rookie-scale-contract-definition
+  draft: true
+  question: What is a Rookie Scale Contract?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(jjj)"
+      verified: true
+      note: "Printed page 9. It is the initial uniform player contract between a first-round pick and the team that holds his draft rights, under Article VIII, Section 1 or 2."
+
+- id: salary-cap-calculation
+  draft: true
+  question: How does the agreement calculate the Salary Cap for a salary cap year?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "2(a)(1) For each"
+      verified: true
+      note: "Printed pages 169-170. The cap equals 44.74 percent of Projected BRI, less Projected Benefits, divided by the number of teams."
+
+- id: apron-team-salary
+  draft: true
+  question: What is Apron Team Salary, relative to Team Salary?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "2(e)(1) “Apron Team Salary”"
+      verified: true
+      note: "Printed pages 186-187. Apron Team Salary starts from Team Salary and adds items such as performance bonuses excluded from a player's salary."
+
+- id: second-apron-transaction-table
+  draft: true
+  question: Which transactions does the restrictions table mark at the second apron?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "2(e)(4)"
+      verified: true
+      note: "Printed pages 190-191. The table includes aggregated standard traded-player deals, cash in a trade, a sign-and-trade acquisition, and the taxpayer mid-level exception at the second apron."
+
+- id: veteran-exception-opens
+  draft: true
+  question: When may a team start using the Veteran Free Agent Exception after the prior contract ends?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(b) Veteran"
+      verified: true
+      note: "Printed page 231. The exception begins at 12:01 p.m. eastern time on the last day of the Moratorium Period."
+
+- id: bird-resign-first-year
+  draft: true
+  question: What first-year salary can a Qualifying Veteran Free Agent's new contract with his prior team reach?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(b)(1)"
+      verified: true
+      note: "Printed page 231. Salary plus Unlikely Bonuses in the first salary cap year may total up to the maximum in Article II, Section 7."
+
+- id: non-bird-first-year
+  draft: true
+  question: What first-year limit applies when a Non-Qualifying Veteran Free Agent signs a new contract with his prior team?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(b)(2) If"
+      verified: true
+      note: "Printed pages 231-232. The first salary cap year is capped by the greater of 120 percent of the regular salary for the final year of the prior contract, plus 120 percent of unlikely bonuses, and the other amounts listed in that paragraph."
+
+- id: biannual-consecutive-years
+  draft: true
+  question: When is a team not allowed to use the Bi-annual Exception?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(d)(3)"
+      verified: true
+      note: "Printed page 235. A team cannot use it after using the room mid-level exception that year, and cannot use it in two consecutive salary cap years."
+
+- id: non-taxpayer-mle-size
+  draft: true
+  question: How large is the Non-Taxpayer Mid-Level Salary Exception in the first salary cap year?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(e)(1)"
+      verified: true
+      note: "Printed page 236. Contracts signed or acquired under it can total up to 9.12 percent of the salary cap in salaries and unlikely bonuses."
+
+- id: taxpayer-mle-size
+  draft: true
+  question: How long can a Taxpayer Mid-Level contract run, and what is the 2023-24 amount?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(f)(1)"
+      verified: true
+      note: "Printed page 237. The contract cannot exceed two seasons. For 2023-24 the first-year total is $5 million, and later years scale that amount with the salary cap. The team's apron team salary must end above the first apron."
+
+- id: room-mle-closes-others
+  draft: true
+  question: Which exceptions close for the rest of the year after a team uses the Mid-Level Salary Exception for Room Teams?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(g)(3)"
+      verified: true
+      note: "Printed page 239. The team cannot use the non-taxpayer mid-level, the taxpayer mid-level, or the bi-annual exception for the rest of that salary cap year."
+
+- id: minimum-salary-exception-length
+  draft: true
+  question: How long can a contract under the Minimum Player Salary Exception run?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(i)"
+      verified: true
+      note: "Printed page 240. The contract cannot exceed two seasons, and the first season pays the player's minimum salary with no bonuses."
+
+- id: standard-traded-player-match
+  draft: true
+  question: How much salary can the Standard Traded Player Exception bring back for one player sent out?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(j)(1)(i)"
+      verified: true
+      note: "Printed page 240. Incoming salary can be no more than 100 percent of the traded player's pre-trade salary plus $250,000."
+
+- id: aggregated-traded-player-match
+  draft: true
+  question: How does the Aggregated Standard Traded Player Exception combine outgoing salary?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(j)(1)(ii)"
+      verified: true
+      note: "Printed page 240. A team can replace two or more players, acquired simultaneously, up to 100 percent of their aggregated pre-trade salaries plus $250,000."
+
+- id: exceptions-do-not-stack
+  draft: true
+  question: Can a team combine salary-cap exceptions to pay more than one exception allows?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "6(m)"
+      verified: true
+      note: "Printed page 247. A team may not aggregate exceptions to exceed any one of them, other than the traded player exception rule in Section 6(j). If more than one exception is available, the team chooses which one to use."
+
+- id: qualifying-veteran-cap-hold
+  draft: true
+  question: What free-agent amount stays on the books for a Qualifying Veteran Free Agent whose prior salary was at least the estimated average?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "4(d) Free"
+      verified: true
+      note: "Printed page 217. Until he re-signs, signs elsewhere, or is renounced, he is included at 150 percent of his prior salary when that salary was at least the estimated average player salary."
+
+- id: two-way-excluded-from-team-salary
+  draft: true
+  question: Does Two-Way salary count toward Team Salary?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "4(j)"
+      verified: true
+      note: "Printed page 225. Two-Way player salaries are excluded from Team Salary, so the team does not need room or an exception to sign, acquire, or convert a player to a Two-Way contract."
+
+- id: exhibit-10-excluded
+  draft: true
+  question: Does an Exhibit 10 bonus count toward Team Salary?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "4(k)"
+      verified: true
+      note: "Printed page 225. Amounts earned under an Exhibit 10 bonus are excluded from Team Salary."
+
+- id: trade-cash-limit
+  draft: true
+  question: How much cash can a team pay or receive across trades in one salary cap year?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "8(a)"
+      verified: true
+      note: "Printed page 260. The aggregate in each direction is 5.15 percent of that year's salary cap, subject to the apron rules in Section 2(e)."
+
+- id: sign-and-trade-permission
+  draft: true
+  question: May a veteran free agent sign with his prior team under an agreement that the contract will be traded?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "8(e) (1)"
+      verified: true
+      note: "Printed page 262. Section 8(e)(1) allows that signing and subsequent trade, subject to the rules in Section 2(e)."
+
+- id: two-way-salary-rate
+  draft: true
+  question: How is the salary in a Two-Way contract set?
+  expect: answer
+  match: any
+  articles:
+    - article: 2
+      section_contains: "11(a)(ii)"
+      verified: true
+      note: "Printed page 50. Two-Way player salary for a season is 50 percent of the minimum annual salary for a player with zero years of service, prorated by the days left in the regular season."
+
+- id: rookie-scale-protection
+  draft: true
+  question: How much of the rookie scale amount must a Rookie Scale Contract protect for lack of skill and for injury?
+  expect: answer
+  match: any
+  articles:
+    - article: 8
+      section_contains: "1(c)(ii)"
+      verified: true
+      note: "Printed pages 292-293. Protection for each of the two seasons and the first option year is not less than 80 percent of the applicable rookie scale amount."
+
+- id: awards-sixty-five-games
+  draft: true
+  question: How many regular-season games does a player need for MVP, Defensive Player of the Year, Most Improved, All-NBA, or All-Defense?
+  expect: answer
+  match: any
+  articles:
+    - article: 29
+      section_contains: "6(a) Award"
+      verified: true
+      note: "Printed pages 432-433. The player needs 65 regular-season games, or 62 games plus a season-ending injury and at least 85 percent of his team's games before the injury."

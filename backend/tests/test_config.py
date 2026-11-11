@@ -31,6 +31,32 @@ def test_pooler_url_is_rejected() -> None:
         Settings(database_url="postgresql://postgres:pw@pooler.supabase.com:6543/postgres")
 
 
+def test_embedding_settings_fall_back_to_the_openai_names() -> None:
+    settings = Settings()
+    assert settings.resolved_embedding_provider == "openai"
+    assert settings.resolved_embedding_model == "text-embedding-3-small"
+    assert settings.resolved_embedding_dimensions == 1536
+    assert settings.embedding_dimensions is None
+
+
+def test_generic_embedding_settings_override_the_openai_names() -> None:
+    settings = Settings(
+        embedding_provider="OpenRouter",
+        embedding_model="qwen/qwen3-embedding-8b",
+        embedding_dimensions=4096,
+    )
+    assert settings.resolved_embedding_provider == "openrouter"
+    assert settings.resolved_embedding_model == "qwen/qwen3-embedding-8b"
+    assert settings.resolved_embedding_dimensions == 4096
+    assert settings.openai_embedding_model == "text-embedding-3-small"
+    assert settings.openai_embedding_dimensions == 1536
+
+
+def test_unknown_embedding_provider_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(embedding_provider="cohere")
+
+
 def test_missing_provider_key_names_the_env_var() -> None:
     message = missing_provider_key("google", openai="", gemini="", openrouter="")
     assert message is not None
