@@ -12,17 +12,19 @@ The response type is a cited answer or a refusal. A claim cannot exist without a
 
 ## Retrieval
 
-Live search is two SQL statements. One orders by pgvector cosine distance. The other ranks a generated `tsvector` with `ts_rank_cd`. Reciprocal rank fusion adds `1 / (k + rank)` across the two lists. `k` defaults to 60.
+Live search fuses two fixed SQL statements. One orders by pgvector cosine distance. The other ranks a generated `tsvector` with `ts_rank_cd`. Reciprocal rank fusion adds `1 / (k + rank)` across the two lists. `k` defaults to 60.
 
-The offline store runs the same fusion over an in-memory keyword overlap and a hash embedding. Nickname expansion maps "Bird" to "Qualifying Veteran Free Agent" and similar pairs, because the agreement rarely uses the nickname.
+`hybrid_retrieve` keeps that fused ranking, then loads context for every hit in two more fixed statements. One statement reads the previous and next chunk in the same article for all of the hits. The other reads every cited article and the source documents. A cross-reference in the hit text is parsed with the ingest reference rules. A reference that names no stored section is skipped. `RETRIEVAL_CONTEXT_PER_HIT` defaults to 4 and `RETRIEVAL_CONTEXT_MAX` defaults to 16.
 
-Evidence is adequate only when a retrieved passage shares at least two content tokens with the expanded question. Otherwise the turn refuses before the drafter runs.
+The offline store runs the same fusion over an in-memory keyword overlap and a hash embedding, and it resolves the same context from the fixture list. Nickname expansion maps "Bird" to "Qualifying Veteran Free Agent" and similar pairs, because the agreement rarely uses the nickname.
+
+Evidence is adequate only when one of the fused hits shares at least two content tokens with the expanded question. Context does not satisfy that check. When no fused hit shares those tokens, the turn refuses before the drafter runs. Context passages are still retrieved, so a claim may cite a neighbor or a resolved section. The fused hits keep their rank.
 
 ## Generation and checks
 
 The PydanticAI agent returns a `DraftAnswer`. The default demo drafter quotes overlapping passages instead of calling a model. Tests also drive the agent with PydanticAI's `TestModel`, which returns a fixed object and does not call an API.
 
-`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. If no claim remains, the reason is `citations_dropped`.
+`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. That set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`.
 
 ## What the skeleton does not do
 

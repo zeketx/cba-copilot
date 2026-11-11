@@ -77,6 +77,8 @@ class Settings(BaseSettings):
     retrieval_candidate_k: int = 50
     retrieval_top_k: int = 8
     retrieval_rrf_k: int = 60
+    retrieval_context_per_hit: int = 4
+    retrieval_context_max: int = 16
     retrieval_fts_config: str = "english"
 
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]

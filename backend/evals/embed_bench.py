@@ -863,6 +863,8 @@ def rank_with_hybrid(
     candidate_k: int,
     rrf_k: int,
     top_k: int,
+    context_per_hit: int = 4,
+    context_max: int = 16,
 ) -> tuple[dict[str, list[Chunk]], list[float]]:
     rankings: dict[str, list[Chunk]] = {}
     latencies: list[float] = []
@@ -875,9 +877,11 @@ def rank_with_hybrid(
             candidate_k=candidate_k,
             top_k=top_k,
             rrf_k=rrf_k,
+            context_per_hit=context_per_hit,
+            context_max=context_max,
         )
         latencies.append((time.perf_counter() - started) * 1000)
-        rankings[question.id] = ranked
+        rankings[question.id] = ranked.hits
     return rankings, latencies
 
 
@@ -1020,6 +1024,8 @@ def _run_database(
             candidate_k=settings.retrieval_candidate_k,
             rrf_k=settings.retrieval_rrf_k,
             top_k=top_k,
+            context_per_hit=settings.retrieval_context_per_hit,
+            context_max=settings.retrieval_context_max,
         )
         query_tokens = int(getattr(embedder, "prompt_tokens", 0)) - before
         report = _database_report(

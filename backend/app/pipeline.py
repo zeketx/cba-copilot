@@ -18,16 +18,21 @@ def answer_question(
     candidate_k: int = 50,
     top_k: int = 8,
     rrf_k: int = 60,
+    context_per_hit: int = 4,
+    context_max: int = 16,
 ) -> CopilotResponse:
-    passages = hybrid_retrieve(
+    retrieved = hybrid_retrieve(
         store,
         question,
         embedder,
         candidate_k=candidate_k,
         top_k=top_k,
         rrf_k=rrf_k,
+        context_per_hit=context_per_hit,
+        context_max=context_max,
     )
-    if not evidence_is_adequate(question, passages):
+    if not evidence_is_adequate(question, retrieved.hits):
         return Refusal(reason="no_evidence", message=NO_EVIDENCE_MESSAGE)
+    passages = retrieved.passages()
     draft = drafter.draft(question, passages)
     return validate_draft(draft, passages)

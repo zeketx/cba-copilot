@@ -79,6 +79,13 @@ def test_unknown_embedding_provider_is_rejected() -> None:
         Settings(embedding_provider="cohere")
 
 
+def test_context_caps_default_with_the_rrf_constant() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.retrieval_rrf_k == 60
+    assert settings.retrieval_context_per_hit == 4
+    assert settings.retrieval_context_max == 16
+
+
 def test_missing_provider_key_names_the_env_var() -> None:
     message = missing_provider_key("google", openai="", gemini="", openrouter="")
     assert message is not None
