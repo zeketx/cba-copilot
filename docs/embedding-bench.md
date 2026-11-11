@@ -1,6 +1,6 @@
 # Compare embedders on the CBA
 
-Run this when you want recall, cost, and latency for a candidate embedding model before you change the live index. The ask path stays on the hash embedder. The database stays at 1536 dimensions.
+Run this when you want recall, cost, and latency for a candidate embedding model. The live index is `mongodb/voyage-4-lite` at 1024 dimensions. The re-index commands are in [Set up the backend](guides/backend-setup.md). The ask path stays on the hash embedder. This bench does not write the database.
 
 ## Run the bench
 
@@ -12,7 +12,7 @@ uv run python -m evals.embed_bench --models hash
 
 That command needs the July 2023 PDF at `data/downloads/2023-nba-cba.pdf`. From the repo root, download it with `python data/download_cba.py`. The PDF stays gitignored. You also need `pdftotext` (Poppler).
 
-The hash row is free and does not call the network. A later run reads `backend/evals/reports/cache/` and does not embed those chunks again.
+The hash row is free and does not call the network. A later run reads `backend/evals/reports/cache/` and does not embed those chunks again. A Voyage cache file name ends in `--document`, because those vectors were embedded with `input_type` `document`. An older file named only from the model slug is left unread.
 
 To score Qwen and Voyage, set `OPENROUTER_API_KEY` in the environment or in `backend/.env`, then run:
 

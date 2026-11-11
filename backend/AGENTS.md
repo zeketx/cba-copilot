@@ -32,6 +32,6 @@ uv run python -m evals.runner
 
 Tests must pass with no network, no database, and no API key.
 
-`PostgresChunkStore` and `OpenAIEmbedder` are the live edges. Do not call them from tests.
+`PostgresChunkStore` and `OpenRouterEmbedder` are the live edges. `OpenAIEmbedder.embed_query` still raises before a client is built. Do not call them from tests.
 
 Alembic is the schema. Generated `search_vector` and the HNSW and GIN indexes live in the migration because autogenerate does not own them.
