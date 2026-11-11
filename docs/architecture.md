@@ -8,7 +8,7 @@ A chunk is one article section. If that section is long and it has subsection he
 
 Each chunk carries the article number, the article title, the section, the PDF page range, and a source url with a `#page=` anchor.
 
-The response type is a cited answer or a refusal. A claim cannot exist without a passage id. A refusal cannot carry claims.
+The response type is a cited answer, a refusal, an ambiguous turn, or a missing-inputs turn. A claim cannot exist without a passage id. A refusal cannot carry claims. An ambiguous turn asks which season or effective date applies and cites every matching passage. It has no claim. A missing-inputs turn names the missing inputs, cites the passage that states the operation, and has no computed number.
 
 ## Retrieval
 
@@ -24,7 +24,7 @@ Evidence is adequate only when one of the fused hits shares at least two content
 
 The PydanticAI agent returns a `DraftAnswer`. The default demo drafter quotes overlapping passages instead of calling a model. Tests also drive the agent with PydanticAI's `TestModel`, which returns a fixed object and does not call an API.
 
-`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. That set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`.
+`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. That set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`. An ambiguous or missing-inputs draft whose passage ids are not all retrieved becomes `no_evidence`. A clarifying question that contains a statement also becomes `no_evidence`, because that statement can pick a passage. A missing-inputs draft whose text contains a digit run that is not in the cited quote becomes `no_evidence`. The digit check compares runs of digits. It misses a number written in words. It allows a run the quote already contains, even when that run is a computed result. It does not parse arithmetic.
 
 ## What the skeleton does not do
 

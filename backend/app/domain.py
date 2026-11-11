@@ -21,9 +21,12 @@ class Claim(BaseModel):
     passage_ids: list[str] = Field(min_length=1)
 
 class DraftAnswer(BaseModel):
-
+    kind: Literal["claims", "ambiguous", "missing_inputs"] = "claims"
     claims: list[Claim] = Field(default_factory=list)
     insufficient_evidence: bool = False
+    question: str = ""
+    passage_ids: list[str] = Field(default_factory=list)
+    text: str = ""
 
 class CitedAnswer(BaseModel):
     kind: Literal["answer"] = "answer"
@@ -34,7 +37,20 @@ class Refusal(BaseModel):
     reason: Literal["no_evidence", "citations_dropped"]
     message: str
 
-CopilotResponse = Annotated[CitedAnswer | Refusal, Field(discriminator="kind")]
+class Ambiguous(BaseModel):
+    kind: Literal["ambiguous"] = "ambiguous"
+    question: str
+    passage_ids: list[str] = Field(min_length=2)
+
+class MissingInputs(BaseModel):
+    kind: Literal["missing_inputs"] = "missing_inputs"
+    text: str
+    passage_ids: list[str] = Field(min_length=1)
+
+CopilotResponse = Annotated[
+    CitedAnswer | Refusal | Ambiguous | MissingInputs,
+    Field(discriminator="kind"),
+]
 
 NO_EVIDENCE_MESSAGE = (
     "The retrieved passages from the 2023 NBA Collective Bargaining Agreement "
