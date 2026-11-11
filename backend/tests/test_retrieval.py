@@ -10,10 +10,9 @@ from app.retrieval.embed import HashEmbedder
 from app.retrieval.hybrid import evidence_is_adequate, hybrid_retrieve
 from app.retrieval.queries import (
     chunk_by_id_sql,
+    context_batch_sql,
     keyword_search_sql,
-    neighbor_sql,
-    section_candidates_sql,
-    source_documents_sql,
+    neighbor_batch_sql,
     vector_search_sql,
 )
 from app.retrieval.store import MemoryChunkStore, PostgresChunkStore
@@ -314,42 +313,85 @@ class _Rows:
         return self._rows[0] if self._rows else None
 
 
+def _chunk_row(chunk_id: str, section: str, *, article: int = 7) -> SimpleNamespace:
+    return SimpleNamespace(
+        kind="chunk",
+        chunk_index=0,
+        id=chunk_id,
+        article_number=article,
+        article_title="Cap",
+        section=section,
+        page_start=1,
+        page_end=1,
+        body="body",
+        source_url="https://example.test/cba.pdf#page=1",
+    )
+
+
 class _Session:
-    def __init__(self) -> None:
+    def __init__(self, search_ids: list[str] | None = None) -> None:
         self.sql: list[str] = []
+        self.search_ids = search_ids or []
 
     def execute(self, statement: object, params: dict[str, object] | None = None) -> _Rows:
         sql = str(statement)
         self.sql.append(sql)
-        if sql == neighbor_sql():
-            return _Rows(
-                [
-                    SimpleNamespace(slot="prev", id="left"),
-                    SimpleNamespace(slot="next", id="right"),
-                ]
-            )
-        if sql == section_candidates_sql():
-            return _Rows(
-                [
-                    SimpleNamespace(id="exact", section="6(j) Exceptions"),
-                    SimpleNamespace(id="child", section="6(j)(1) Child"),
-                    SimpleNamespace(id="other", section="2(e) Elsewhere"),
-                ]
-            )
-        if "source_documents" in sql:
+        if "<=>" in sql or "search_vector" in sql:
+            return _Rows([SimpleNamespace(id=item) for item in self.search_ids])
+        if sql == neighbor_batch_sql():
             return _Rows(
                 [
                     SimpleNamespace(
+                        slot="prev",
+                        hit_id="hit",
+                        id="left",
+                        article_number=7,
+                        article_title="Cap",
+                        section="1 Prev",
+                        page_start=1,
+                        page_end=1,
+                        body="previous body",
+                        source_url="https://example.test/cba.pdf#page=1",
+                    ),
+                    SimpleNamespace(
+                        slot="next",
+                        hit_id="hit",
+                        id="right",
+                        article_number=7,
+                        article_title="Cap",
+                        section="3 Next",
+                        page_start=1,
+                        page_end=1,
+                        body="next body",
+                        source_url="https://example.test/cba.pdf#page=1",
+                    ),
+                ]
+            )
+        if sql == context_batch_sql():
+            return _Rows(
+                [
+                    _chunk_row("exact", "6(j) Exceptions"),
+                    _chunk_row("child", "6(j)(1) Child"),
+                    _chunk_row("other", "2(e) Elsewhere"),
+                    SimpleNamespace(
+                        kind="document",
+                        chunk_index=None,
                         id="doc-1",
-                        title="2023 CBA",
+                        article_number=None,
+                        article_title=None,
+                        section=None,
+                        page_start=None,
+                        page_end=None,
+                        body=None,
                         source_url="https://example.test/cba.pdf",
+                        title="2023 CBA",
                         sha256="abc",
                         cover_date="June 28, 2023",
                         printed_term="2023-2030",
                         page_offset=24,
                         effective_start="2023-07-01",
                         effective_through="2029-30",
-                    )
+                    ),
                 ]
             )
         if sql == chunk_by_id_sql() and params and params.get("chunk_id") == "loaded":
@@ -370,21 +412,22 @@ class _Session:
         return _Rows([])
 
 
+def _context_statements(sql: list[str]) -> list[str]:
+    batched = {neighbor_batch_sql(), context_batch_sql()}
+    return [statement for statement in sql if statement in batched]
+
+
 def test_context_sql_is_fixed() -> None:
-    for statement in (
-        neighbor_sql(),
-        section_candidates_sql(),
-        chunk_by_id_sql(),
-        source_documents_sql(),
-    ):
+    for statement in (neighbor_batch_sql(), context_batch_sql(), chunk_by_id_sql()):
         assert "cba_chunks" in statement or "source_documents" in statement
         assert "{" not in statement
         assert "%s" not in statement
-    assert ":chunk_id" in neighbor_sql()
-    assert "article_number" in neighbor_sql()
-    assert "chunk_index" in neighbor_sql()
-    assert ":article" in section_candidates_sql()
-    assert "IN :chunk_ids" in source_documents_sql()
+    assert "ANY(string_to_array(:hit_ids" in neighbor_batch_sql()
+    assert "article_number" in neighbor_batch_sql()
+    assert "chunk_index" in neighbor_batch_sql()
+    assert "source_documents" in context_batch_sql()
+    assert ":articles" in context_batch_sql()
+    assert "ANY(string_to_array(:hit_ids" in context_batch_sql()
 
 
 def test_postgres_store_loads_neighbors_sections_and_metadata() -> None:
@@ -393,16 +436,45 @@ def test_postgres_store_loads_neighbors_sections_and_metadata() -> None:
     store = PostgresChunkStore(session, {"cached": cached})
     assert store.get("cached") is cached
     assert session.sql == []
-    assert store.neighbor_ids("mid") == ("left", "right")
-    assert store.section_ids(7, "6(j)") == ["exact"]
     loaded = store.get("loaded")
     assert loaded is not None
     assert loaded.text == "loaded body"
     assert store.get("missing") is None
-    documents = store.source_documents(["loaded"])
-    assert documents[0].title == "2023 CBA"
-    assert documents[0].page_offset == 24
-    assert documents[0].printed_term == "2023-2030"
-    assert neighbor_sql() in session.sql
-    assert section_candidates_sql() in session.sql
-    assert chunk_by_id_sql() in session.sql
+    hit = _chunk(
+        "hit",
+        "See Section 6(j) of this Article.",
+        "2 Middle",
+    )
+    context = store.load_context([hit], [7])
+    assert context.neighbors["hit"][0] is not None
+    assert context.neighbors["hit"][0].id == "left"
+    assert context.neighbors["hit"][1] is not None
+    assert context.neighbors["hit"][1].id == "right"
+    assert [chunk.id for chunk in context.articles[7]] == ["exact", "child", "other"]
+    assert context.documents[0].title == "2023 CBA"
+    assert context.documents[0].page_offset == 24
+    assert context.documents[0].printed_term == "2023-2030"
+    assert _context_statements(session.sql) == [neighbor_batch_sql(), context_batch_sql()]
+
+
+def test_postgres_context_statements_do_not_grow_with_top_k() -> None:
+    ids = [f"h{index}" for index in range(5)]
+    chunks = []
+    for index, chunk_id in enumerate(ids, start=1):
+        text = f"{chunk_id} zebra quota. See Section 6(j) of this Article."
+        chunks.append(_chunk(chunk_id, text, f"{index} Section"))
+    counts: list[int] = []
+    for top_k in (1, 5):
+        session = _Session(ids)
+        store = PostgresChunkStore(session, {chunk.id: chunk for chunk in chunks})
+        embedder = HashEmbedder(dimensions=64)
+        hybrid_retrieve(
+            store,
+            "zebra quota",
+            embedder,
+            top_k=top_k,
+            candidate_k=5,
+        )
+        counts.append(len(_context_statements(session.sql)))
+        assert chunk_by_id_sql() not in session.sql
+    assert counts == [2, 2]

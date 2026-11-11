@@ -20,8 +20,17 @@ ORDER BY score DESC, c.id
 LIMIT :limit
 """.strip()
 
-NEIGHBOR_SQL = """
-SELECT 'prev' AS slot, CAST(p.id AS text) AS id
+NEIGHBOR_BATCH_SQL = """
+SELECT 'prev' AS slot,
+       CAST(c.id AS text) AS hit_id,
+       CAST(p.id AS text) AS id,
+       p.article_number,
+       p.article_title,
+       p.section,
+       p.page_start,
+       p.page_end,
+       p.text AS body,
+       p.source_url
 FROM cba_chunks c
 JOIN cba_chunks p
   ON p.document_id = c.document_id
@@ -33,9 +42,18 @@ JOIN cba_chunks p
         AND p2.article_number IS NOT DISTINCT FROM c.article_number
         AND p2.chunk_index < c.chunk_index
  )
-WHERE CAST(c.id AS text) = :chunk_id
+WHERE CAST(c.id AS text) = ANY(string_to_array(:hit_ids, ','))
 UNION ALL
-SELECT 'next' AS slot, CAST(n.id AS text) AS id
+SELECT 'next' AS slot,
+       CAST(c.id AS text) AS hit_id,
+       CAST(n.id AS text) AS id,
+       n.article_number,
+       n.article_title,
+       n.section,
+       n.page_start,
+       n.page_end,
+       n.text AS body,
+       n.source_url
 FROM cba_chunks c
 JOIN cba_chunks n
   ON n.document_id = c.document_id
@@ -47,14 +65,65 @@ JOIN cba_chunks n
         AND n2.article_number IS NOT DISTINCT FROM c.article_number
         AND n2.chunk_index > c.chunk_index
  )
-WHERE CAST(c.id AS text) = :chunk_id
+WHERE CAST(c.id AS text) = ANY(string_to_array(:hit_ids, ','))
 """.strip()
 
-SECTION_CANDIDATES_SQL = """
-SELECT CAST(c.id AS text) AS id, c.section
+CONTEXT_BATCH_SQL = """
+SELECT 'chunk' AS kind,
+       c.chunk_index,
+       CAST(c.id AS text) AS id,
+       c.article_number,
+       c.article_title,
+       c.section,
+       c.page_start,
+       c.page_end,
+       c.text AS body,
+       c.source_url,
+       CAST(NULL AS text) AS title,
+       CAST(NULL AS text) AS sha256,
+       CAST(NULL AS text) AS cover_date,
+       CAST(NULL AS text) AS printed_term,
+       CAST(NULL AS integer) AS page_offset,
+       CAST(NULL AS text) AS effective_start,
+       CAST(NULL AS text) AS effective_through
 FROM cba_chunks c
-WHERE c.article_number = :article
-ORDER BY c.chunk_index
+WHERE c.article_number = ANY(
+  CASE
+    WHEN :articles = '' THEN CAST(ARRAY[] AS integer[])
+    ELSE CAST(string_to_array(:articles, ',') AS integer[])
+  END
+)
+UNION ALL
+SELECT 'document' AS kind,
+       CAST(NULL AS integer) AS chunk_index,
+       CAST(d.id AS text) AS id,
+       CAST(NULL AS integer) AS article_number,
+       CAST(NULL AS text) AS article_title,
+       CAST(NULL AS text) AS section,
+       CAST(NULL AS integer) AS page_start,
+       CAST(NULL AS integer) AS page_end,
+       CAST(NULL AS text) AS body,
+       d.source_url,
+       d.title,
+       d.sha256,
+       d.cover_date,
+       d.printed_term,
+       d.page_offset,
+       d.effective_start,
+       d.effective_through
+FROM source_documents d
+WHERE d.id IN (
+  SELECT c.document_id
+  FROM cba_chunks c
+  WHERE CAST(c.id AS text) = ANY(string_to_array(:hit_ids, ','))
+     OR c.article_number = ANY(
+       CASE
+         WHEN :articles = '' THEN CAST(ARRAY[] AS integer[])
+         ELSE CAST(string_to_array(:articles, ',') AS integer[])
+       END
+     )
+)
+ORDER BY kind, chunk_index, id
 """.strip()
 
 CHUNK_BY_ID_SQL = """
@@ -70,37 +139,17 @@ FROM cba_chunks c
 WHERE CAST(c.id AS text) = :chunk_id
 """.strip()
 
-SOURCE_DOCUMENTS_SQL = """
-SELECT DISTINCT
-       CAST(d.id AS text) AS id,
-       d.title,
-       d.source_url,
-       d.sha256,
-       d.cover_date,
-       d.printed_term,
-       d.page_offset,
-       d.effective_start,
-       d.effective_through
-FROM source_documents d
-JOIN cba_chunks c ON c.document_id = d.id
-WHERE CAST(c.id AS text) IN :chunk_ids
-ORDER BY id
-""".strip()
-
 def vector_search_sql() -> str:
     return VECTOR_SEARCH_SQL
 
 def keyword_search_sql() -> str:
     return KEYWORD_SEARCH_SQL
 
-def neighbor_sql() -> str:
-    return NEIGHBOR_SQL
+def neighbor_batch_sql() -> str:
+    return NEIGHBOR_BATCH_SQL
 
-def section_candidates_sql() -> str:
-    return SECTION_CANDIDATES_SQL
+def context_batch_sql() -> str:
+    return CONTEXT_BATCH_SQL
 
 def chunk_by_id_sql() -> str:
     return CHUNK_BY_ID_SQL
-
-def source_documents_sql() -> str:
-    return SOURCE_DOCUMENTS_SQL

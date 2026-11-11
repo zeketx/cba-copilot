@@ -2,21 +2,19 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domain import Chunk
 from app.retrieval.queries import (
     chunk_by_id_sql,
+    context_batch_sql,
     keyword_search_sql,
-    neighbor_sql,
-    section_candidates_sql,
-    source_documents_sql,
+    neighbor_batch_sql,
     vector_search_sql,
 )
-from app.retrieval.refs import select_section_ids
 from app.retrieval.text import tokens
-from app.retrieval.types import DocumentMeta
+from app.retrieval.types import DocumentMeta, LoadedContext
 
 
 class ChunkStore(Protocol):
@@ -26,11 +24,7 @@ class ChunkStore(Protocol):
 
     def get(self, passage_id: str) -> Chunk | None: ...
 
-    def neighbor_ids(self, passage_id: str) -> tuple[str | None, str | None]: ...
-
-    def section_ids(self, article_number: int, section: str) -> list[str]: ...
-
-    def source_documents(self, passage_ids: list[str]) -> list[DocumentMeta]: ...
+    def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext: ...
 
 def _cosine(left: list[float], right: list[float]) -> float:
     if len(left) != len(right) or not left:
@@ -39,6 +33,36 @@ def _cosine(left: list[float], right: list[float]) -> float:
 
 def _source_base(url: str) -> str:
     return url.split("#", 1)[0]
+
+def documents_for(documents: list[DocumentMeta], passages: list[Chunk]) -> list[DocumentMeta]:
+    bases = {_source_base(passage.source_url) for passage in passages}
+    found: list[DocumentMeta] = []
+    seen: set[str] = set()
+    for document in documents:
+        if document.id in seen:
+            continue
+        if _source_base(document.source_url) in bases:
+            seen.add(document.id)
+            found.append(document)
+    return found
+
+def _memory_neighbors(
+    chunks: dict[str, Chunk],
+    order: list[str],
+    passage_id: str,
+) -> tuple[str | None, str | None]:
+    chunk = chunks.get(passage_id)
+    if chunk is None:
+        return None, None
+    same = [
+        item_id
+        for item_id in order
+        if chunks[item_id].article_number == chunk.article_number
+    ]
+    index = same.index(passage_id)
+    prev_id = same[index - 1] if index else None
+    next_id = same[index + 1] if index + 1 < len(same) else None
+    return prev_id, next_id
 
 class MemoryChunkStore:
     def __init__(
@@ -80,48 +104,31 @@ class MemoryChunkStore:
     def get(self, passage_id: str) -> Chunk | None:
         return self._chunks.get(passage_id)
 
-    def neighbor_ids(self, passage_id: str) -> tuple[str | None, str | None]:
-        chunk = self._chunks.get(passage_id)
-        if chunk is None:
-            return None, None
-        same = [
-            item_id
-            for item_id in self._order
-            if self._chunks[item_id].article_number == chunk.article_number
-        ]
-        index = same.index(passage_id)
-        prev_id = same[index - 1] if index else None
-        next_id = same[index + 1] if index + 1 < len(same) else None
-        return prev_id, next_id
-
-    def section_ids(self, article_number: int, section: str) -> list[str]:
-        rows = [
-            (passage_id, self._chunks[passage_id].section)
-            for passage_id in self._order
-            if self._chunks[passage_id].article_number == article_number
-        ]
-        return select_section_ids(rows, section)
-
-    def source_documents(self, passage_ids: list[str]) -> list[DocumentMeta]:
-        bases: set[str] = set()
-        for passage_id in passage_ids:
-            chunk = self._chunks.get(passage_id)
-            if chunk is not None:
-                bases.add(_source_base(chunk.source_url))
-        found: list[DocumentMeta] = []
-        seen: set[str] = set()
-        for document in self._documents:
-            if document.id in seen:
-                continue
-            if _source_base(document.source_url) in bases:
-                seen.add(document.id)
-                found.append(document)
-        return found
+    def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext:
+        if not hits:
+            return LoadedContext()
+        neighbors: dict[str, tuple[Chunk | None, Chunk | None]] = {}
+        for hit in hits:
+            prev_id, next_id = _memory_neighbors(self._chunks, self._order, hit.id)
+            neighbors[hit.id] = (
+            self.get(prev_id) if prev_id else None,
+            self.get(next_id) if next_id else None,
+        )
+        wanted = set(articles)
+        grouped: dict[int, list[Chunk]] = {article: [] for article in articles}
+        for passage_id in self._order:
+            chunk = self._chunks[passage_id]
+            if chunk.article_number in wanted:
+                grouped[chunk.article_number].append(chunk)
+        return LoadedContext(neighbors=neighbors, articles=grouped, documents=list(self._documents))
 
 def _vector_literal(values: list[float]) -> str:
     return "[" + ",".join(str(value) for value in values) + "]"
 
 def _chunk_from_row(row: object) -> Chunk:
+    body = getattr(row, "body", None)
+    if body is None:
+        body = row.text
     return Chunk(
         id=str(row.id),
         article_number=row.article_number,
@@ -129,8 +136,8 @@ def _chunk_from_row(row: object) -> Chunk:
         section=row.section or "",
         page_start=row.page_start,
         page_end=row.page_end,
-        text=row.text,
-        source_url=row.source_url,
+        text=body or "",
+        source_url=row.source_url or "",
     )
 
 def _document_from_row(row: object) -> DocumentMeta:
@@ -180,33 +187,47 @@ class PostgresChunkStore:
         self._chunks[passage_id] = chunk
         return chunk
 
-    def neighbor_ids(self, passage_id: str) -> tuple[str | None, str | None]:
-        rows = self._session.execute(
-            text(neighbor_sql()),
-            {"chunk_id": passage_id},
+    def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext:
+        if not hits:
+            return LoadedContext()
+        hit_ids = ",".join(hit.id for hit in hits)
+        article_ids = ",".join(str(article) for article in articles)
+        neighbor_rows = self._session.execute(
+            text(neighbor_batch_sql()),
+            {"hit_ids": hit_ids},
         ).all()
-        prev_id = None
-        next_id = None
-        for row in rows:
+        context_rows = self._session.execute(
+            text(context_batch_sql()),
+            {"hit_ids": hit_ids, "articles": article_ids},
+        ).all()
+        neighbors: dict[str, list[Chunk | None]] = {hit.id: [None, None] for hit in hits}
+        for row in neighbor_rows:
+            chunk = _chunk_from_row(row)
+            self._chunks[chunk.id] = chunk
+            pair = neighbors.setdefault(str(row.hit_id), [None, None])
             if row.slot == "prev":
-                prev_id = str(row.id)
+                pair[0] = chunk
             elif row.slot == "next":
-                next_id = str(row.id)
-        return prev_id, next_id
-
-    def section_ids(self, article_number: int, section: str) -> list[str]:
-        rows = self._session.execute(
-            text(section_candidates_sql()),
-            {"article": article_number},
-        ).all()
-        pairs = [(str(row.id), str(row.section or "")) for row in rows]
-        return select_section_ids(pairs, section)
-
-    def source_documents(self, passage_ids: list[str]) -> list[DocumentMeta]:
-        if not passage_ids:
-            return []
-        statement = text(source_documents_sql()).bindparams(
-            bindparam("chunk_ids", expanding=True)
+                pair[1] = chunk
+        grouped: dict[int, list[Chunk]] = {article: [] for article in articles}
+        documents: list[DocumentMeta] = []
+        seen_docs: set[str] = set()
+        for row in context_rows:
+            if row.kind == "chunk":
+                chunk = _chunk_from_row(row)
+                self._chunks[chunk.id] = chunk
+                if chunk.article_number in grouped:
+                    grouped[chunk.article_number].append(chunk)
+                continue
+            if row.kind != "document":
+                continue
+            document = _document_from_row(row)
+            if document.id in seen_docs:
+                continue
+            seen_docs.add(document.id)
+            documents.append(document)
+        return LoadedContext(
+            neighbors={hit_id: (pair[0], pair[1]) for hit_id, pair in neighbors.items()},
+            articles=grouped,
+            documents=documents,
         )
-        rows = self._session.execute(statement, {"chunk_ids": passage_ids}).all()
-        return [_document_from_row(row) for row in rows]

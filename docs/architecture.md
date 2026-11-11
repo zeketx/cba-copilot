@@ -14,7 +14,7 @@ The response type is a cited answer or a refusal. A claim cannot exist without a
 
 Live search fuses two fixed SQL statements. One orders by pgvector cosine distance. The other ranks a generated `tsvector` with `ts_rank_cd`. Reciprocal rank fusion adds `1 / (k + rank)` across the two lists. `k` defaults to 60.
 
-`hybrid_retrieve` keeps that fused ranking, then loads context for each hit. The previous and next chunk are the adjacent chunks in the same article. A cross-reference in the hit text is parsed with the ingest reference rules and resolved by a fixed statement that reads the cited article. A reference that names no stored section is skipped. `RETRIEVAL_CONTEXT_PER_HIT` defaults to 4 and `RETRIEVAL_CONTEXT_MAX` defaults to 16. The source document is loaded with the passages.
+`hybrid_retrieve` keeps that fused ranking, then loads context for every hit in two more fixed statements. One statement reads the previous and next chunk in the same article for all of the hits. The other reads every cited article and the source documents. A cross-reference in the hit text is parsed with the ingest reference rules. A reference that names no stored section is skipped. `RETRIEVAL_CONTEXT_PER_HIT` defaults to 4 and `RETRIEVAL_CONTEXT_MAX` defaults to 16.
 
 The offline store runs the same fusion over an in-memory keyword overlap and a hash embedding, and it resolves the same context from the fixture list. Nickname expansion maps "Bird" to "Qualifying Veteran Free Agent" and similar pairs, because the agreement rarely uses the nickname.
 

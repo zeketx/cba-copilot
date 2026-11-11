@@ -4,10 +4,10 @@ from app.domain import Chunk
 from app.retrieval.aliases import expand_query
 from app.retrieval.embed import Embedder
 from app.retrieval.fusion import reciprocal_rank_fusion
-from app.retrieval.refs import citation_targets
-from app.retrieval.store import ChunkStore
+from app.retrieval.refs import citation_targets, select_section_ids
+from app.retrieval.store import ChunkStore, documents_for
 from app.retrieval.text import tokens
-from app.retrieval.types import Retrieval
+from app.retrieval.types import LoadedContext, Retrieval
 
 
 def hybrid_retrieve(
@@ -32,23 +32,34 @@ def hybrid_retrieve(
         chunk = store.get(passage_id)
         if chunk is not None:
             hits.append(chunk)
+    articles = _cited_articles(hits)
+    loaded = store.load_context(hits, articles)
     context = _context_chunks(
-        store,
         hits,
+        loaded,
         per_hit=context_per_hit,
         total=context_max,
     )
-    passage_ids = [chunk.id for chunk in hits]
-    passage_ids.extend(chunk.id for chunk in context)
     return Retrieval(
         hits=hits,
         context=context,
-        documents=store.source_documents(passage_ids),
+        documents=documents_for(loaded.documents, [*hits, *context]),
     )
 
+def _cited_articles(hits: list[Chunk]) -> list[int]:
+    articles: list[int] = []
+    seen: set[int] = set()
+    for hit in hits:
+        for article, _section in citation_targets(hit.text, hit.article_number, hit.section):
+            if article in seen:
+                continue
+            seen.add(article)
+            articles.append(article)
+    return articles
+
 def _context_chunks(
-    store: ChunkStore,
     hits: list[Chunk],
+    loaded: LoadedContext,
     *,
     per_hit: int,
     total: int,
@@ -61,7 +72,7 @@ def _context_chunks(
         if len(context) >= total:
             break
         added = 0
-        for candidate in _candidates(store, hit):
+        for candidate in _candidates(hit, loaded):
             if candidate.id in seen:
                 continue
             if added >= per_hit or len(context) >= total:
@@ -71,20 +82,18 @@ def _context_chunks(
             added += 1
     return context
 
-def _candidates(store: ChunkStore, hit: Chunk) -> list[Chunk]:
+def _candidates(hit: Chunk, loaded: LoadedContext) -> list[Chunk]:
     found: list[Chunk] = []
-    prev_id, next_id = store.neighbor_ids(hit.id)
-    for passage_id in (prev_id, next_id):
-        if passage_id is None:
-            continue
-        neighbor = store.get(passage_id)
+    prev, nxt = loaded.neighbors.get(hit.id, (None, None))
+    for neighbor in (prev, nxt):
         if neighbor is not None:
             found.append(neighbor)
     for article, section in citation_targets(hit.text, hit.article_number, hit.section):
-        for passage_id in store.section_ids(article, section):
-            target = store.get(passage_id)
-            if target is not None:
-                found.append(target)
+        chunks = loaded.articles.get(article, [])
+        wanted = set(select_section_ids([(chunk.id, chunk.section) for chunk in chunks], section))
+        for chunk in chunks:
+            if chunk.id in wanted:
+                found.append(chunk)
     return found
 
 def evidence_is_adequate(question: str, passages: list[Chunk], *, minimum_overlap: int = 2) -> bool:
