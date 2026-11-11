@@ -12,11 +12,14 @@ from evals.embed_bench import (
     LIVE_REQUIRED,
     catalog_from_payload,
     embed_corpus,
+    lenient_flip_lines,
     main,
+    passage_snippet,
     pick_source_document,
     resolve_price,
 )
 from evals.metrics import (
+    BenchQuestion,
     ExpectedSection,
     chunk_matches,
     lenient_chunk_matches,
@@ -214,6 +217,36 @@ def test_lenient_match_accepts_a_parent_label_only_with_the_text_marker() -> Non
         _chunk(rookie.id, 2, rookie.section, rookie.text, rookie.article_title),
         deeper,
     )
+
+
+def test_flip_and_miss_snippets_skip_the_breadcrumb() -> None:
+    breadcrumb = (
+        "Article 7. BASKETBALL RELATED INCOME\n"
+        "Section 6. Exceptions to the Salary Cap / (i) Standard Traded Player Exception\n"
+        "\n"
+        "(ii) Aggregated Standard Traded Player Exception. (1) Two players."
+    )
+    assert passage_snippet(breadcrumb).startswith("(ii) Aggregated")
+    assert "Article 7" not in passage_snippet(breadcrumb)
+    assert not passage_snippet(breadcrumb).startswith("Section ")
+    question = BenchQuestion(
+        id="aggregated-traded-player-match",
+        question="How does the aggregated exception combine salary?",
+        match="any",
+        draft=True,
+        expected=(ExpectedSection(article=7, section_contains="6(j)(1)(ii)"),),
+    )
+    top = _chunk(
+        "trade",
+        7,
+        "6. Exceptions to the Salary Cap / (j)(1)(i) Standard Traded Player Exception",
+        breadcrumb,
+        "Exceptions",
+    )
+    flips = lenient_flip_lines([question], {question.id: [top]})
+    assert len(flips) == 1
+    assert flips[0].split("|", 1)[1].strip().startswith("(ii) Aggregated")
+    assert "Article 7" not in flips[0].split("|", 1)[1]
 
 
 def test_lenient_label_match_joins_pdf_spaces_inside_words() -> None:

@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from evals.metrics import section_for_match, section_matches
-from ingest.chunker import article_number_from_aid_name, chunk_markdown, roman_to_int
+from ingest.chunker import (
+    article_number_from_aid_name,
+    chunk_markdown,
+    rejoin_pdf_word_splits,
+    roman_to_int,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "article_vii_excerpt.md"
 DEFINITIONS = Path(__file__).parent / "fixtures" / "article_i_definitions.md"
@@ -142,6 +147,116 @@ def test_other_articles_do_not_split_on_repeated_letters() -> None:
 def chunk_does_not_match_shorter(section: str, token: str) -> bool:
     shorter = token[0]
     return not section_matches(section_for_match(section), f"1({shorter})")
+
+
+def test_pdf_word_splits_rejoin_in_labels_and_leave_real_words_apart() -> None:
+    cases = {
+        "V eteran": "Veteran",
+        "Agen t": "Agent",
+        "F ree": "Free",
+        "O peration": "Operation",
+        "Ro om": "Room",
+        "acquir ed": "acquired",
+        "assi gnment": "assignment",
+        "Ot her": "Other",
+    }
+    for broken, fixed in cases.items():
+        assert rejoin_pdf_word_splits(broken) == fixed
+    joined = rejoin_pdf_word_splits(
+        "(b) V eteran Free Agen t Exception and (d) F ree Agents in the Ro om"
+    )
+    assert joined == "(b) Veteran Free Agent Exception and (d) Free Agents in the Room"
+    assert rejoin_pdf_word_splits("Free Agent") == "Free Agent"
+    assert rejoin_pdf_word_splits("Team Salary") == "Team Salary"
+
+
+def test_parent_path_changes_the_section_label_and_not_the_text() -> None:
+    text = (
+        "# Article VII. BASKETBALL RELATED INCOME\n"
+        "## Section 6. Exceptions to the Salary Cap\n"
+        "(j) Traded Player Exception.\n"
+        "(1) Subject to the rules set forth below.\n"
+        "(i) Standard Traded Player Exception. Incoming salary is limited.\n"
+        "(ii) Aggregated exception. Two or more players.\n"
+        "(b) V eteran Free Agen t Exception. The exception begins at noon.\n"
+        "(c) O peration of the minimum. A team may sign.\n"
+        "(4) A numbered child stays inside the letter.\n"
+        "(i) No player whose contract was acquir ed by assi gnment.\n"
+        "(n) Ot her Rules. The Ro om exception is separate.\n"
+        "(d) F ree Agents. Until a team renounces the player.\n"
+    )
+    chunks = chunk_markdown(text, source_url=SOURCE, max_section_chars=40)
+    by_start = {chunk.text.split("\n\n", 1)[-1].split("\n", 1)[0]: chunk for chunk in chunks}
+
+    traded = by_start["(i) Standard Traded Player Exception. Incoming salary is limited."]
+    veteran = by_start["(b) V eteran Free Agen t Exception. The exception begins at noon."]
+    acquired = by_start["(i) No player whose contract was acquir ed by assi gnment."]
+    other = by_start["(n) Ot her Rules. The Ro om exception is separate."]
+    free = by_start["(d) F ree Agents. Until a team renounces the player."]
+
+    assert traded.section == (
+        "6. Exceptions to the Salary Cap / (j)(1)(i) Standard Traded Player Exception. "
+        "Incoming salary is limited."
+    )
+    assert section_matches(section_for_match(traded.section), "6(j)(1)(i)")
+    assert veteran.section.startswith(
+        "6. Exceptions to the Salary Cap / (b) Veteran Free Agent Exception."
+    )
+    assert "V eteran" not in veteran.section
+    assert "Agen t" not in veteran.section
+    assert acquired.section.startswith("6. Exceptions to the Salary Cap / (c)(4)(i) ")
+    assert "acquired" in acquired.section
+    assert "assignment" in acquired.section
+    assert other.section.startswith("6. Exceptions to the Salary Cap / (n) Other Rules.")
+    assert "Room" in other.section
+    assert free.section.startswith("6. Exceptions to the Salary Cap / (d) Free Agents.")
+
+    expected_text = [
+        (
+            traded,
+            "Article 7. BASKETBALL RELATED INCOME\n"
+            "Section 6. Exceptions to the Salary Cap / (i) Standard Traded Player Exception. "
+            "Incoming salary is limited.\n"
+            "\n"
+            "(i) Standard Traded Player Exception. Incoming salary is limited.\n"
+            "(ii) Aggregated exception. Two or more players.",
+        ),
+        (
+            veteran,
+            "Article 7. BASKETBALL RELATED INCOME\n"
+            "Section 6. Exceptions to the Salary Cap / (b) V eteran Free Agen t Exception. "
+            "The exception begins at noon.\n"
+            "\n"
+            "(b) V eteran Free Agen t Exception. The exception begins at noon.",
+        ),
+        (
+            acquired,
+            "Article 7. BASKETBALL RELATED INCOME\n"
+            "Section 6. Exceptions to the Salary Cap / (i) No player whose contract was "
+            "acquir ed by assi gnment.\n"
+            "\n"
+            "(i) No player whose contract was acquir ed by assi gnment.",
+        ),
+        (
+            other,
+            "Article 7. BASKETBALL RELATED INCOME\n"
+            "Section 6. Exceptions to the Salary Cap / (n) Ot her Rules. "
+            "The Ro om exception is separate.\n"
+            "\n"
+            "(n) Ot her Rules. The Ro om exception is separate.",
+        ),
+        (
+            free,
+            "Article 7. BASKETBALL RELATED INCOME\n"
+            "Section 6. Exceptions to the Salary Cap / (d) F ree Agents. "
+            "Until a team renounces the player.\n"
+            "\n"
+            "(d) F ree Agents. Until a team renounces the player.",
+        ),
+    ]
+    for chunk, before in expected_text:
+        assert chunk.text == before
+        assert chunk.section != before.split("Section ", 1)[1].split("\n", 1)[0]
 
 
 def test_roman_and_aid_filename() -> None:
