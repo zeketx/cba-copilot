@@ -10,7 +10,6 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
-from app.database.constants import EMBEDDING_DIMENSIONS
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
 
@@ -49,7 +48,7 @@ def upgrade() -> None:
         sa.Column("page_end", sa.Integer(), nullable=True),
         sa.Column("source_url", sa.Text(), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
-        sa.Column("embedding", Vector(EMBEDDING_DIMENSIONS), nullable=True),
+        sa.Column("embedding", Vector(1536), nullable=True),
         sa.Column("token_count", sa.Integer(), nullable=True),
         sa.Column(
             "chunk_metadata",

@@ -217,7 +217,7 @@ def create_app(
 ) -> FastAPI:
     settings = settings or Settings()
     store = demo_store()
-    embedder = demo_embedder(settings.openai_embedding_dimensions)
+    embedder = demo_embedder()
     drafter = OverlapDrafter()
     by_id = {chunk.id: chunk for chunk in load_demo_chunks()}
     corpus = list(by_id.values())

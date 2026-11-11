@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import math
-from typing import Protocol
+from typing import Literal, Protocol
 
 import httpx
 
 from app.config import Settings
+from app.database.constants import EMBEDDING_DIMENSIONS
 from app.retrieval.text import tokens
 
 OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings"
@@ -22,7 +23,7 @@ class DocumentEmbedder(Protocol):
 
 
 class HashEmbedder:
-    def __init__(self, dimensions: int = 1536) -> None:
+    def __init__(self, dimensions: int = EMBEDDING_DIMENSIONS) -> None:
         if dimensions < 8:
             raise ValueError("dimensions must be at least 8")
         self.dimensions = dimensions
@@ -107,17 +108,33 @@ class OpenRouterEmbedder:
             self._client.close()
 
     def embed_query(self, text: str) -> list[float]:
-        return self.embed_documents([text])[0]
+        return self._embed([text], role="query")[0]
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._embed(texts, role="document")
+
+    def _embed(self, texts: list[str], *, role: Literal["query", "document"]) -> list[list[float]]:
         if not texts:
             return []
         vectors: list[list[float]] = []
         for start in range(0, len(texts), _EMBED_BATCH):
-            vectors.extend(self._embed_batch(texts[start : start + _EMBED_BATCH]))
+            vectors.extend(self._embed_batch(texts[start : start + _EMBED_BATCH], role=role))
         return vectors
 
-    def _embed_batch(self, texts: list[str]) -> list[list[float]]:
+    def _embed_batch(
+        self,
+        texts: list[str],
+        *,
+        role: Literal["query", "document"],
+    ) -> list[list[float]]:
+        body: dict[str, object] = {
+            "model": self.model,
+            "input": texts,
+            "encoding_format": "float",
+        }
+        input_type = voyage_input_type(self.model, role)
+        if input_type is not None:
+            body["input_type"] = input_type
         try:
             response = self._client.post(
                 OPENROUTER_EMBEDDINGS_URL,
@@ -125,7 +142,7 @@ class OpenRouterEmbedder:
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json",
                 },
-                json={"model": self.model, "input": texts, "encoding_format": "float"},
+                json=body,
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(f"OpenRouter embeddings request failed for {self.model}.") from exc
@@ -152,6 +169,24 @@ class OpenRouterEmbedder:
             self._expected_dimensions = len(vectors[0])
             self.dimensions = self._expected_dimensions
         return vectors
+
+
+def voyage_input_type(model: str, role: Literal["query", "document"]) -> str | None:
+    name = model.rsplit("/", 1)[-1]
+    if name.startswith("voyage-"):
+        return role
+    return None
+
+
+def build_embedder(settings: Settings) -> HashEmbedder | OpenAIEmbedder | OpenRouterEmbedder:
+    provider = settings.resolved_embedding_provider
+    if provider == "hash":
+        return HashEmbedder(settings.resolved_embedding_dimensions)
+    if provider == "openrouter":
+        return OpenRouterEmbedder(settings)
+    if provider == "openai":
+        return OpenAIEmbedder(settings)
+    raise RuntimeError("EMBEDDING_PROVIDER must be hash, openai, or openrouter")
 
 
 def parse_embedding_payload(

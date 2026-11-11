@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 from app.config import Settings
-from app.retrieval.embed import OpenRouterEmbedder
+from app.retrieval.embed import OpenRouterEmbedder, build_embedder, voyage_input_type
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -28,6 +28,7 @@ def test_embed_documents_preserve_index_order_and_sum_usage() -> None:
         calls["count"] += 1
         body = json.loads(request.content)
         assert body["model"] == "qwen/qwen3-embedding-8b"
+        assert "input_type" not in body
         assert request.headers["authorization"] == "Bearer test-key"
         data = [
             {"index": index, "embedding": [float(index), 1.0]}
@@ -96,3 +97,46 @@ def test_missing_key_raises_before_a_request() -> None:
 def test_provider_must_be_openrouter() -> None:
     with pytest.raises(RuntimeError, match="EMBEDDING_PROVIDER"):
         OpenRouterEmbedder(_settings(embedding_provider="openai"))
+
+
+def test_voyage_sends_document_and_query_input_types() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        seen.append(body["input_type"])
+        return httpx.Response(
+            200,
+            json={
+                "data": [{"index": 0, "embedding": [1.0, 2.0]}],
+                "usage": {"prompt_tokens": 1, "total_tokens": 1},
+            },
+        )
+
+    embedder = OpenRouterEmbedder(
+        _settings(embedding_model="mongodb/voyage-4-lite", embedding_dimensions=2),
+        client=_client(handler),
+    )
+    assert embedder.embed_documents(["section"]) == [[1.0, 2.0]]
+    assert embedder.embed_query("apron") == [1.0, 2.0]
+    assert seen == ["document", "query"]
+    embedder.close()
+
+
+def test_voyage_input_type_matches_the_model_name() -> None:
+    assert voyage_input_type("mongodb/voyage-4-lite", "query") == "query"
+    assert voyage_input_type("mongodb/voyage-4", "document") == "document"
+    assert voyage_input_type("qwen/qwen3-embedding-8b", "query") is None
+
+
+def test_build_embedder_uses_voyage_lite_without_a_request() -> None:
+    embedder = build_embedder(
+        Settings(
+            openrouter_api_key="test-key",
+            _env_file=None,
+        )
+    )
+    assert isinstance(embedder, OpenRouterEmbedder)
+    assert embedder.model == "mongodb/voyage-4-lite"
+    assert embedder.dimensions == 1024
+    embedder.close()

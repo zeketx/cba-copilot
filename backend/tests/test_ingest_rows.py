@@ -57,6 +57,13 @@ def test_hash_embedder_embed_documents_dimension() -> None:
     assert all(len(vector) == 32 for vector in vectors)
 
 
+def test_hash_embedder_default_matches_the_column_width() -> None:
+    from app.database.constants import EMBEDDING_DIMENSIONS
+
+    vector = HashEmbedder().embed_query("apron")
+    assert len(vector) == EMBEDDING_DIMENSIONS == 1024
+
+
 def test_openai_embed_documents_raises_with_no_key_before_a_client(monkeypatch) -> None:
     def boom(*_args, **_kwargs):
         raise AssertionError("httpx client was built")
