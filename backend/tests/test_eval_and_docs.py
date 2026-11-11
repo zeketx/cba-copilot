@@ -60,6 +60,28 @@ def test_mode_line_check() -> None:
     assert not body_has_mode(None)
 
 
+def test_original_migration_keeps_the_1536_column() -> None:
+    migration = (
+        ROOT / "backend" / "alembic" / "versions" / "c0a2023b0001_cba_schema.py"
+    ).read_text(encoding="utf-8")
+    assert "Vector(1536)" in migration
+    assert "EMBEDDING_DIMENSIONS" not in migration
+
+
+def test_resize_migration_nulls_vectors_and_rebuilds_hnsw() -> None:
+    migration = (
+        ROOT / "backend" / "alembic" / "versions" / "c0a2023b0007_embedding_1024.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision: Union[str, Sequence[str], None] = "c0a2023b0006"' in migration
+    assert "SET embedding = NULL WHERE embedding IS NOT NULL" in migration
+    assert "USING NULL::vector" in migration
+    assert "USING hnsw (embedding vector_cosine_ops)" in migration
+    upgrade = migration.split("def upgrade", 1)[1].split("def downgrade", 1)[0]
+    downgrade = migration.split("def downgrade", 1)[1]
+    assert "_resize(1024)" in upgrade
+    assert "_resize(1536)" in downgrade
+
+
 def test_migration_creates_vector_and_full_text_indexes() -> None:
     migration = (
         ROOT / "backend" / "alembic" / "versions" / "c0a2023b0001_cba_schema.py"

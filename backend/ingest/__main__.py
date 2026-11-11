@@ -20,11 +20,16 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     load_cmd = sub.add_parser("load")
     load_cmd.add_argument("--dry-run", action="store_true")
-    sub.add_parser("embed")
+    embed_cmd = sub.add_parser("embed")
+    embed_cmd.add_argument(
+        "--live",
+        action="store_true",
+        help="Call the configured embedder. OpenRouter also needs OPENROUTER_API_KEY.",
+    )
     args = parser.parse_args(argv)
     if args.command == "load":
         return _load(dry_run=args.dry_run)
-    return _embed()
+    return _embed(live=args.live)
 
 
 def _load(*, dry_run: bool) -> int:
@@ -89,30 +94,46 @@ def _load(*, dry_run: bool) -> int:
     return 0
 
 
-def _embed() -> int:
+def _embed(*, live: bool) -> int:
+    if not live:
+        print(
+            "Refusing to embed without --live. "
+            "Re-run with --live after OPENROUTER_API_KEY is set. No request was sent.",
+            file=sys.stderr,
+        )
+        return 2
     from app.config import Settings
     from app.database.models import SourceDocument
-    from app.retrieval.embed import OpenAIEmbedder
+    from app.retrieval.embed import build_embedder
 
     from ingest.load import embed_missing
 
-    manifest = json.loads(_DEFAULT_MANIFEST.read_text(encoding="utf-8"))
     settings = Settings()
-    embedder = OpenAIEmbedder(settings)
-    engine = create_engine(settings.sqlalchemy_database_url)
-    with engine.connect() as conn:
-        document_id = conn.execute(
-            select(SourceDocument.id).where(SourceDocument.source_url == manifest["url"])
-        ).scalar_one()
-    filled = 0
-    while True:
-        with engine.begin() as conn:
-            count = embed_missing(conn, UUID(str(document_id)), embedder)
-        if count == 0:
-            break
-        filled += count
-        print(f"filled {filled}")
-    print(f"done, filled {filled}")
+    try:
+        embedder = build_embedder(settings)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    manifest = json.loads(_DEFAULT_MANIFEST.read_text(encoding="utf-8"))
+    try:
+        engine = create_engine(settings.sqlalchemy_database_url)
+        with engine.connect() as conn:
+            document_id = conn.execute(
+                select(SourceDocument.id).where(SourceDocument.source_url == manifest["url"])
+            ).scalar_one()
+        filled = 0
+        while True:
+            with engine.begin() as conn:
+                count = embed_missing(conn, UUID(str(document_id)), embedder)
+            if count == 0:
+                break
+            filled += count
+            print(f"filled {filled}")
+        print(f"done, filled {filled}")
+    finally:
+        close = getattr(embedder, "close", None)
+        if callable(close):
+            close()
     return 0
 
 

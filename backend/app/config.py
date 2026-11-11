@@ -12,6 +12,7 @@ from app.database.constants import EMBEDDING_DIMENSIONS
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _PROVIDERS = {"openai", "google", "openrouter"}
 _EMBEDDING_PROVIDERS = {"hash", "openai", "openrouter"}
+_VOYAGE_LITE = "mongodb/voyage-4-lite"
 
 
 def model_id(provider: str, model: str) -> str:
@@ -64,10 +65,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_chat_model: str = "gpt-4o"
     openai_embedding_model: str = "text-embedding-3-small"
-    openai_embedding_dimensions: int = Field(default=EMBEDDING_DIMENSIONS, gt=0)
-    embedding_provider: str = ""
-    embedding_model: str = ""
-    embedding_dimensions: int | None = None
+    openai_embedding_dimensions: int = Field(default=1536, gt=0)
+    embedding_provider: str = "openrouter"
+    embedding_model: str = _VOYAGE_LITE
+    embedding_dimensions: int | None = EMBEDDING_DIMENSIONS
     answer_provider: str = "openai"
     answer_model: str = ""
     gemini_api_key: str = ""
@@ -167,17 +168,21 @@ class Settings(BaseSettings):
 
     @property
     def resolved_embedding_provider(self) -> str:
-        return self.embedding_provider or "openai"
+        return self.embedding_provider or "openrouter"
 
     @property
     def resolved_embedding_model(self) -> str:
-        return self.embedding_model or self.openai_embedding_model
+        if self.embedding_model:
+            return self.embedding_model
+        if self.resolved_embedding_provider == "openai":
+            return self.openai_embedding_model
+        return _VOYAGE_LITE
 
     @property
     def resolved_embedding_dimensions(self) -> int:
         if self.embedding_dimensions is not None:
             return self.embedding_dimensions
-        return self.openai_embedding_dimensions
+        return EMBEDDING_DIMENSIONS
 
     @property
     def answer_model_id(self) -> str:

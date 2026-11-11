@@ -26,7 +26,7 @@ The PydanticAI agent returns a `DraftAnswer`. The default demo drafter quotes ov
 
 ## What the skeleton does not do
 
-The ask path does not extract the 676-page PDF and does not call OpenAI. It does not open a Supabase connection. `PostgresChunkStore` has the SQL ready for that connection. `OpenAIEmbedder.embed_query` and `refuse_live_model` raise before a client is built. `OpenRouterEmbedder` is only for the embedding bench, and only after `--live`.
+The ask path does not extract the 676-page PDF and does not call OpenRouter. It does not open a Supabase connection. The fixture answers with `HashEmbedder`. `PostgresChunkStore` has the SQL ready for that connection. `OpenAIEmbedder.embed_query` and `refuse_live_model` raise before a client is built. The live embedder is `OpenRouterEmbedder` on `mongodb/voyage-4-lite` at 1024 dimensions. Ingest calls it only with `--live` and `OPENROUTER_API_KEY`. Chunk text uses `input_type` `document`. A query uses `input_type` `query`. Those are the values in Voyage's embeddings API. OpenRouter's `input_type` field is a string, and this model is forwarded to Voyage. The embedding bench uses the same client, and only after `--live`.
 
 ## Shape that lost
 

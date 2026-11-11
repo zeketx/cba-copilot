@@ -19,7 +19,7 @@ from app.corpus import load_corpus, pdf_url
 from app.database.constants import EMBEDDING_DIMENSIONS
 from app.domain import Chunk
 from app.retrieval.aliases import expand_query
-from app.retrieval.embed import HashEmbedder, OpenRouterEmbedder
+from app.retrieval.embed import HashEmbedder, OpenRouterEmbedder, voyage_input_type
 from app.retrieval.fusion import reciprocal_rank_fusion
 from app.retrieval.store import MemoryChunkStore
 from ingest.cba_text import chunk_cba_text, read_pdf_layout
@@ -159,6 +159,8 @@ def content_hash(chunk: Chunk) -> str:
 
 def _cache_path(report_dir: Path, model: str) -> Path:
     slug = model.replace("/", "--")
+    if voyage_input_type(model, "document") is not None:
+        slug = f"{slug}--document"
     return report_dir / "cache" / f"{slug}.json"
 
 

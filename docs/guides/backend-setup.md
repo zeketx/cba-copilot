@@ -19,4 +19,27 @@ Copy `backend/.env.example` to `backend/.env` only when you are ready to point A
 
 `uv run python -m ingest load --dry-run` reads the official PDF and prints page, offset, and chunk counts. It does not write to the database. `uv run python -m ingest load` upserts one `source_documents` row and the `cba_chunks` rows.
 
-`uv run python -m ingest embed` fills embeddings for chunks that still have none.
+## Re-index the corpus
+
+The live model is `mongodb/voyage-4-lite` through OpenRouter, at 1024 dimensions. Chunk text is embedded with `input_type` `document`. A query embedding uses the same model with `input_type` `query`. The fixture server keeps the hash embedder, so a key in `backend/.env` does not change an answer from `/api/ask`.
+
+`uv run python -m ingest embed` exits with status 2. It does not open the database and it does not call OpenRouter.
+
+To fill the index, set `OPENROUTER_API_KEY` in the environment or in `backend/.env`. From `backend/`:
+
+```bash
+uv run alembic upgrade head
+uv run python -m ingest embed --live
+```
+
+`alembic upgrade head` changes `cba_chunks.embedding` from `vector(1536)` to `vector(1024)`, drops and recreates the HNSW index, and sets every stored vector to null. `ingest embed --live` then embeds each null chunk. A second run skips chunks that already have a vector.
+
+With `--live` and no `OPENROUTER_API_KEY`, the command exits with status 2 and sends no request.
+
+After the re-index, score the same model from `backend/`. Delete `backend/evals/reports/cache/` first if it still holds a Voyage file from before `input_type` was set.
+
+```bash
+uv run python -m evals.embed_bench --live --models mongodb/voyage-4-lite
+```
+
+Read `backend/evals/reports/embed-bench.md`. The gate is draft hybrid recall@5 of at least 0.93, and query p95 of at most 500 ms. Query p95 times `embed_query` only. The bench ranks an in-memory copy of the corpus. It does not query pgvector.

@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from app.corpus import source_url_for_printed_page
+from app.database.constants import EMBEDDING_DIMENSIONS
 from app.domain import Chunk
 from app.retrieval.embed import HashEmbedder
 from app.retrieval.store import MemoryChunkStore
@@ -33,10 +34,10 @@ def load_demo_chunks() -> tuple[Chunk, ...]:
         )
     return tuple(chunks)
 
-def demo_embedder(dimensions: int = 1536) -> HashEmbedder:
+def demo_embedder(dimensions: int = EMBEDDING_DIMENSIONS) -> HashEmbedder:
     return HashEmbedder(dimensions=dimensions)
 
-def demo_store(dimensions: int = 1536) -> MemoryChunkStore:
+def demo_store(dimensions: int = EMBEDDING_DIMENSIONS) -> MemoryChunkStore:
     embedder = demo_embedder(dimensions)
     chunks = list(load_demo_chunks())
     vectors = {

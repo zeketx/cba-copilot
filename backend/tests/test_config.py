@@ -31,12 +31,34 @@ def test_pooler_url_is_rejected() -> None:
         Settings(database_url="postgresql://postgres:pw@pooler.supabase.com:6543/postgres")
 
 
-def test_embedding_settings_fall_back_to_the_openai_names() -> None:
-    settings = Settings()
+def test_embedding_settings_default_to_voyage_lite() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.embedding_provider == "openrouter"
+    assert settings.embedding_model == "mongodb/voyage-4-lite"
+    assert settings.embedding_dimensions == 1024
+    assert settings.resolved_embedding_provider == "openrouter"
+    assert settings.resolved_embedding_model == "mongodb/voyage-4-lite"
+    assert settings.resolved_embedding_dimensions == 1024
+    assert settings.openai_embedding_dimensions == 1536
+
+
+def test_blank_embedding_fields_resolve_to_voyage() -> None:
+    settings = Settings(
+        embedding_provider="",
+        embedding_model="",
+        embedding_dimensions="",
+        _env_file=None,
+    )
+    assert settings.resolved_embedding_provider == "openrouter"
+    assert settings.resolved_embedding_model == "mongodb/voyage-4-lite"
+    assert settings.resolved_embedding_dimensions == 1024
+    assert settings.embedding_dimensions is None
+
+
+def test_openai_embedding_provider_keeps_the_openai_model() -> None:
+    settings = Settings(embedding_provider="openai", embedding_model="", _env_file=None)
     assert settings.resolved_embedding_provider == "openai"
     assert settings.resolved_embedding_model == "text-embedding-3-small"
-    assert settings.resolved_embedding_dimensions == 1536
-    assert settings.embedding_dimensions is None
 
 
 def test_generic_embedding_settings_override_the_openai_names() -> None:

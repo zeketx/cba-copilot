@@ -88,8 +88,8 @@ def evaluate(
 
 def run_suite() -> list[str]:
     settings = Settings()
-    store = demo_store(settings.openai_embedding_dimensions)
-    embedder = demo_embedder(settings.openai_embedding_dimensions)
+    store = demo_store()
+    embedder = demo_embedder()
     drafter = OverlapDrafter()
     errors: list[str] = []
     for question in load_questions():
