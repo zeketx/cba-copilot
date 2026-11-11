@@ -45,3 +45,17 @@ Index dollars are `usage.prompt_tokens` from OpenRouter, times the price per mil
 Query p50 and p95 time only `embed_query`, one pass. The percentile is nearest-rank with `ceil`. Float32 bytes are `chunks × dimensions × 4`. That is a storage estimate for a vector column. This bench does not write the database.
 
 Do not treat the hash row as a semantic bake-off. It is a signed bag of tokens, so its recall follows lexical overlap after the app's nickname expansion.
+
+## Score the live store
+
+This path reads `cba_chunks` for one source document and ranks with `hybrid_retrieve` and `PostgresChunkStore`. It does not embed the corpus and it does not open the database unless you pass `--database`.
+
+From `backend/`, with `DATABASE_URL`, `EMBEDDING_PROVIDER=openrouter`, `EMBEDDING_MODEL=mongodb/voyage-4-lite`, and `OPENROUTER_API_KEY` set in the environment or in `backend/.env`:
+
+```bash
+uv run python -m evals.embed_bench --database
+```
+
+Without `--database`, the command stays on the in-memory bench and does not connect. With `--database` and no `DATABASE_URL`, or with OpenRouter selected and no key, it exits with status 2 before a connection and before a request.
+
+The report writes the same two files. Draft and all-question rows list hybrid recall@5, recall@8, and MRR. Query p95 times the whole `hybrid_retrieve` call, which is the query embedding plus both Postgres searches. A miss at recall@5 lists the top five stored section labels. A question whose label is absent from the corpus still counts in the average.

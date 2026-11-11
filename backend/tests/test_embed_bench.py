@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from app.config import Settings
 from app.domain import Chunk
+from app.retrieval.store import PostgresChunkStore
 from evals.embed_bench import (
     HASH_MODEL,
     KEY_REQUIRED,
@@ -11,9 +13,10 @@ from evals.embed_bench import (
     catalog_from_payload,
     embed_corpus,
     main,
+    pick_source_document,
     resolve_price,
 )
-from evals.metrics import section_matches
+from evals.metrics import section_for_match, section_matches
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -118,6 +121,33 @@ def _questions(path: Path) -> None:
 """,
         encoding="utf-8",
     )
+
+
+def test_ingest_labels_map_onto_question_needles() -> None:
+    bird = '1. Definitions / (yy) “Qualifying Veteran Free Agent” means three seasons'
+    minimum = '1. Definitions / (ll) “Minimum Team Salary” means the Article VII amount'
+    team = '1. Definitions / (uuu) “Team Salary” means the sum part 2'
+    early = '1. Definitions / (t) “Early Qualifying Veteran Free Agent” means two seasons'
+    doubled = '1. Definitions / (tt) “Something Else” means another term'
+    apron = '2. Salary Cap / (e) (1) “Apron Team Salary” shall mean Team Salary plus bonuses'
+    tight = "6. Exceptions / (j)(1)(i) Standard exception brings back salary"
+    spaced = "8. Trade Rules / (e) (1) Subject to Section 2(e), a veteran may sign and trade"
+    plain = "4. Determination of Team Salary"
+    assert section_matches(section_for_match(bird), "1(yy)")
+    assert section_matches(section_for_match(minimum), "1(ll)")
+    assert section_matches(section_for_match(team), "1(uuu)")
+    assert not section_matches(section_for_match(minimum), "1(l)")
+    assert not section_matches(section_for_match(team), "1(u)")
+    assert section_matches(section_for_match(early), "1(t)")
+    assert not section_matches(section_for_match(doubled), "1(t)")
+    assert section_matches(section_for_match(apron), '2(e)(1) “Apron Team Salary”')
+    assert section_matches(section_for_match(tight), "6(j)(1)(i)")
+    assert section_matches(section_for_match(spaced), "8(e) (1)")
+    assert section_matches(section_for_match(plain), "4 Determination of Team Salary")
+    assert section_for_match("1(yy) Qualifying Veteran Free Agent") == (
+        "1(yy) Qualifying Veteran Free Agent"
+    )
+    assert section_matches(section_for_match("2(e)(4) Transaction"), "2(e)")
 
 
 def test_section_match_stops_at_a_longer_id() -> None:
@@ -322,3 +352,183 @@ def test_draft_questions_are_marked_and_do_not_reuse_harness_ids() -> None:
         assert item["articles"]
         assert item["articles"][0]["section_contains"]
         assert item["articles"][0]["verified"] is True
+
+
+def test_pick_source_document_uses_the_one_row_or_the_corpus_url() -> None:
+    only = pick_source_document([("doc-1", "https://other.example/cba.pdf")], set())
+    assert only == "doc-1"
+    chosen = pick_source_document(
+        [
+            ("doc-1", "https://other.example/cba.pdf"),
+            ("doc-2", "https://corpus.example/cba.pdf"),
+        ],
+        {"https://corpus.example/cba.pdf"},
+    )
+    assert chosen == "doc-2"
+    with pytest.raises(RuntimeError, match="none match"):
+        pick_source_document(
+            [("doc-1", "https://a.example"), ("doc-2", "https://b.example")],
+            {"https://corpus.example/cba.pdf"},
+        )
+    with pytest.raises(RuntimeError, match="No source_documents"):
+        pick_source_document([], set())
+
+
+def test_database_without_url_or_key_does_not_connect(monkeypatch, capsys) -> None:
+    def boom(*_args, **_kwargs):
+        raise AssertionError("database opened")
+
+    monkeypatch.setattr("evals.embed_bench.open_database", boom)
+    monkeypatch.setattr("httpx.Client", boom)
+    missing_url = main(["--database"], settings=Settings(database_url="", _env_file=None))
+    assert missing_url == 2
+    assert "No connection was opened" in capsys.readouterr().err
+    missing_key = main(
+        ["--database"],
+        settings=Settings(
+            database_url="postgresql://postgres:pw@127.0.0.1:5432/cba",
+            embedding_provider="openrouter",
+            embedding_model="mongodb/voyage-4-lite",
+            openrouter_api_key="",
+            _env_file=None,
+        ),
+    )
+    assert missing_key == 2
+    error = capsys.readouterr().err
+    assert "OPENROUTER_API_KEY" in error
+    assert "No request was sent" in error
+
+
+def test_in_memory_bench_does_not_open_the_database(monkeypatch, tmp_path) -> None:
+    def boom(*_args, **_kwargs):
+        raise AssertionError("database opened")
+
+    monkeypatch.setattr("evals.embed_bench.open_database", boom)
+    questions = tmp_path / "questions.yaml"
+    _questions(questions)
+    code = main(
+        ["--models", HASH_MODEL, "--questions", str(questions), "--report-dir", str(tmp_path)],
+        corpus=_corpus(),
+        settings=Settings(_env_file=None),
+    )
+    assert code == 0
+
+
+def test_database_flag_scores_ingest_labels(tmp_path, monkeypatch, capsys) -> None:
+    bird = _chunk(
+        "bird-id",
+        1,
+        "1. Definitions / (yy) “Qualifying Veteran Free Agent” means three seasons",
+        "qualifying veteran free agent bird rights three seasons",
+        "Definitions",
+    )
+    apron = _chunk(
+        "apron-id",
+        7,
+        "2. Salary Cap / (e)(4) restrictions table",
+        "second apron aggregation cash",
+        "Aprons",
+    )
+    other = _chunk(
+        "other-id",
+        7,
+        "6. Exceptions / (f) Taxpayer mid-level",
+        "taxpayer mid-level exception five million",
+        "Exceptions",
+    )
+    chunks = [bird, apron, other]
+
+    class _Result:
+        def __init__(self, ids: list[str]) -> None:
+            self._ids = ids
+
+        def all(self):
+            return [SimpleNamespace(id=item) for item in self._ids]
+
+    class _Session:
+        def __init__(self) -> None:
+            self.sql: list[str] = []
+
+        def execute(self, statement, params=None):
+            sql = str(statement)
+            self.sql.append(sql)
+            if "search_vector" in sql:
+                return _Result(["apron-id", "bird-id", "other-id"])
+            return _Result(["bird-id", "other-id", "apron-id"])
+
+        def close(self) -> None:
+            return None
+
+    class _Engine:
+        def dispose(self) -> None:
+            return None
+
+    session = _Session()
+    store = PostgresChunkStore(session, {chunk.id: chunk for chunk in chunks})
+
+    def open_fake(_settings):
+        return session, store, chunks, _Engine()
+
+    monkeypatch.setattr("evals.embed_bench.open_database", open_fake)
+    questions = tmp_path / "questions.yaml"
+    questions.write_text(
+        """
+- id: bird
+  draft: true
+  question: What makes a player a Qualifying Veteran Free Agent?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(yy)"
+- id: missing-minimum
+  draft: true
+  question: Where does the agreement send you for the Minimum Team Salary amount?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(ll)"
+- id: apron
+  question: Which transactions does the restrictions table mark at the second apron?
+  expect: answer
+  match: any
+  articles:
+    - article: 7
+      section_contains: "2(e)(4)"
+- id: skipped
+  question: How many timeouts may an NHL coach call?
+  expect: refusal
+  articles: []
+""",
+        encoding="utf-8",
+    )
+    code = main(
+        ["--database", "--questions", str(questions), "--report-dir", str(tmp_path / "reports")],
+        settings=Settings(
+            database_url="postgresql://postgres:pw@127.0.0.1:5432/cba",
+            embedding_provider="hash",
+            _env_file=None,
+        ),
+    )
+    assert code == 0
+    assert "1(yy)" not in bird.section
+    assert any("cba_chunks" in sql and "embedding" in sql for sql in session.sql)
+    assert any("search_vector" in sql for sql in session.sql)
+    report = json.loads((tmp_path / "reports" / "embed-bench.json").read_text(encoding="utf-8"))
+    scored = report["models"][0]
+    assert scored["latency_scope"] == "hybrid_retrieve"
+    assert scored["draft_hybrid"]["recall_at_5"] == pytest.approx(0.5)
+    assert scored["draft_hybrid"]["recall_at_8"] == pytest.approx(0.5)
+    assert scored["hybrid"]["recall_at_5"] == pytest.approx(2 / 3)
+    assert scored["question_count"] == 3
+    assert scored["draft_question_count"] == 2
+    assert scored["existing_question_count"] == 1
+    assert "skipped" in scored["skipped"]
+    assert any(item.startswith("missing-minimum:") for item in scored["miss_labels"])
+    assert not any(item.startswith("bird:") for item in scored["miss_labels"])
+    stdout = capsys.readouterr().out
+    assert "draft hybrid" in stdout
+    assert "all hybrid" in stdout
+    assert "query p95" in stdout
+    assert "hybrid_retrieve" in stdout

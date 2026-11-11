@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 
 from app.domain import Chunk
@@ -30,6 +31,42 @@ class RankMetrics:
     mrr: float
 
 
+_DB_SECTION = re.compile(r"^(?P<num>\d+)\.\s+.+?\s+/\s+(?P<rest>.+)$", re.DOTALL)
+_LEADING_MARKERS = re.compile(r"^(?P<markers>(?:\([A-Za-z0-9]+\)\s*)+)(?P<tail>.*)$", re.DOTALL)
+_PLAIN_SECTION = re.compile(r"^(?P<num>\d+)\.\s+(?P<title>.*)$", re.DOTALL)
+
+
+def section_for_match(section: str) -> str:
+    """Fold an ingest label into the string `section_matches` already searches.
+
+    Ingest stores `1. Definitions / (yy) “Qualifying…”`. The questions say `1(yy)`.
+    A heading that spaces its markers, `(e) (1)`, is also kept so `8(e) (1)` still hits.
+    A label that is already `1(yy)` or `6(b)(1)` is returned unchanged.
+    """
+    stripped = section.strip()
+    slash = _DB_SECTION.match(stripped)
+    if slash:
+        number = slash.group("num")
+        rest = slash.group("rest").strip()
+        markers = _LEADING_MARKERS.match(rest)
+        if markers is None:
+            return f"{number} {rest}".strip()
+        raw = markers.group("markers").rstrip()
+        tail = markers.group("tail").lstrip()
+        compact = re.sub(r"\s+", "", raw)
+        primary = f"{number}{compact}"
+        text = f"{primary} {tail}".strip() if tail else primary
+        spaced = f"{number}{raw}"
+        if spaced != primary:
+            extra = f"{spaced} {tail}".strip() if tail else spaced
+            text = f"{text} {extra}"
+        return text
+    plain = _PLAIN_SECTION.match(stripped)
+    if plain:
+        return f"{plain.group('num')} {plain.group('title')}".strip()
+    return stripped
+
+
 def section_matches(section: str, needle: str) -> bool:
     if not needle:
         return False
@@ -49,7 +86,7 @@ def section_matches(section: str, needle: str) -> bool:
 
 def chunk_matches(chunk: Chunk, expected: ExpectedSection) -> bool:
     return chunk.article_number == expected.article and section_matches(
-        chunk.section,
+        section_for_match(chunk.section),
         expected.section_contains,
     )
 
