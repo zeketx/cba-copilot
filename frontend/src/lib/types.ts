@@ -30,7 +30,19 @@ export type PublicRefusal = {
   message: string;
 };
 
-export type PublicResponse = PublicAnswer | PublicRefusal;
+export type PublicAmbiguous = {
+  kind: "ambiguous";
+  question: string;
+  citations: PublicCitation[];
+};
+
+export type PublicMissingInputs = {
+  kind: "missing_inputs";
+  text: string;
+  citations: PublicCitation[];
+};
+
+export type PublicResponse = PublicAnswer | PublicRefusal | PublicAmbiguous | PublicMissingInputs;
 
 export type ThreadSummary = {
   id: string;
@@ -84,6 +96,16 @@ export type WireResponse =
       kind: "refusal";
       reason: "no_evidence" | "citations_dropped";
       message: string;
+    }
+  | {
+      kind: "ambiguous";
+      question: string;
+      citations: WireCitation[];
+    }
+  | {
+      kind: "missing_inputs";
+      text: string;
+      citations: WireCitation[];
     };
 
 function citationFromWire(citation: WireCitation): PublicCitation {
@@ -150,6 +172,20 @@ export function responseFromWire(body: WireResponse): PublicResponse {
   if (body.kind === "refusal") {
     return body;
   }
+  if (body.kind === "ambiguous") {
+    return {
+      kind: "ambiguous",
+      question: body.question,
+      citations: body.citations.map(citationFromWire),
+    };
+  }
+  if (body.kind === "missing_inputs") {
+    return {
+      kind: "missing_inputs",
+      text: body.text,
+      citations: body.citations.map(citationFromWire),
+    };
+  }
   return {
     kind: "answer",
     claims: body.claims.map((claim) => ({
@@ -166,4 +202,6 @@ export const SAMPLE_QUESTIONS = [
   "How the taxpayer mid-level exception changes above the second apron.",
   "What counts toward the cap vs. what doesn't.",
   "How many timeouts may an NHL coach call during a playoff overtime?",
+  "What is the biannual exception?",
+  "What is the Early Bird maximum in dollars?",
 ];

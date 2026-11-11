@@ -11,7 +11,7 @@ from sqlalchemy.engine import Engine
 
 from app.auth.identity import AuthUserId
 from app.chat.model import StoredTurn, ThreadSummary, uuid_chunk_ids
-from app.domain import CopilotResponse, Refusal
+from app.domain import Ambiguous, CitedAnswer, CopilotResponse, MissingInputs, Refusal
 
 _OUTCOME = TypeAdapter(CopilotResponse)
 
@@ -330,10 +330,14 @@ class SqlChatLog:
 def _passage_ids(outcome: CopilotResponse) -> list[str]:
     if isinstance(outcome, Refusal):
         return []
-    ids: list[str] = []
-    for claim in outcome.claims:
-        ids.extend(claim.passage_ids)
-    return ids
+    if isinstance(outcome, CitedAnswer):
+        ids: list[str] = []
+        for claim in outcome.claims:
+            ids.extend(claim.passage_ids)
+        return ids
+    if isinstance(outcome, (Ambiguous, MissingInputs)):
+        return list(outcome.passage_ids)
+    return []
 
 
 def _turns_from_rows(thread_id: UUID, rows: list[object]) -> list[StoredTurn]:

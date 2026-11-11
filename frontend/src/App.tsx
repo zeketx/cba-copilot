@@ -36,6 +36,12 @@ function replyText(response: PublicResponse): string {
   if (response.kind === "refusal") {
     return response.message;
   }
+  if (response.kind === "ambiguous") {
+    return response.question;
+  }
+  if (response.kind === "missing_inputs") {
+    return response.text;
+  }
   return response.claims.map((claim) => claim.text).join("\n\n");
 }
 
@@ -639,30 +645,51 @@ function StaticReply({
       </div>
     );
   }
+  if (response.kind === "ambiguous" || response.kind === "missing_inputs") {
+    const text = response.kind === "ambiguous" ? response.question : response.text;
+    return (
+      <div className="space-y-3">
+        <div className="rounded-card bg-surface px-3 py-2 text-[13px] leading-relaxed text-ink">
+          {text}
+        </div>
+        {citationCards(response.citations, active, onOpen)}
+      </div>
+    );
+  }
   return (
     <>
       {response.claims.map((claim) => (
         <div key={claim.text} className="space-y-3">
           <p className="text-[13px] leading-relaxed text-ink">{claim.text}</p>
-          <ContextCards
-            className="max-w-none"
-            chunks={claim.citations.map((citation) =>
-              citationChunk(citation, active?.passageId === citation.passageId),
-            )}
-            labels={{
-              header: "Retrieved passages",
-              count: String(claim.citations.length),
-            }}
-            onOpen={(_chunk, index) => {
-              const citation = claim.citations[index];
-              if (citation) {
-                onOpen(citation);
-              }
-            }}
-          />
+          {citationCards(claim.citations, active, onOpen)}
         </div>
       ))}
     </>
+  );
+}
+
+function citationCards(
+  citations: PublicCitation[],
+  active: PublicCitation | null,
+  onOpen: (citation: PublicCitation) => void,
+) {
+  return (
+    <ContextCards
+      className="max-w-none"
+      chunks={citations.map((citation) =>
+        citationChunk(citation, active?.passageId === citation.passageId),
+      )}
+      labels={{
+        header: "Retrieved passages",
+        count: String(citations.length),
+      }}
+      onOpen={(_chunk, index) => {
+        const citation = citations[index];
+        if (citation) {
+          onOpen(citation);
+        }
+      }}
+    />
   );
 }
 

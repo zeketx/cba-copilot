@@ -21,7 +21,7 @@ from app.chat.service import ThreadChat
 from app.config import Settings
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
-from app.domain import Chunk, CitedAnswer, Refusal
+from app.domain import Ambiguous, Chunk, CitedAnswer, MissingInputs, Refusal
 from app.pipeline import answer_question
 from app.source_view import ElementPlacement, SpanPlacement, render_source
 
@@ -70,7 +70,20 @@ class PublicRefusal(BaseModel):
     reason: Literal["no_evidence", "citations_dropped"]
     message: str
 
-PublicResponse = Annotated[PublicAnswer | PublicRefusal, Field(discriminator="kind")]
+class PublicAmbiguous(BaseModel):
+    kind: Literal["ambiguous"] = "ambiguous"
+    question: str
+    citations: list[PublicCitation]
+
+class PublicMissingInputs(BaseModel):
+    kind: Literal["missing_inputs"] = "missing_inputs"
+    text: str
+    citations: list[PublicCitation]
+
+PublicResponse = Annotated[
+    PublicAnswer | PublicRefusal | PublicAmbiguous | PublicMissingInputs,
+    Field(discriminator="kind"),
+]
 
 
 class PublicThread(BaseModel):
@@ -91,7 +104,7 @@ class PublicAssistantMessage(BaseModel):
     id: UUID
     role: Literal["assistant"] = "assistant"
     position: int
-    response: PublicAnswer | PublicRefusal
+    response: PublicResponse
 
 
 class StreamChatMessage(BaseModel):
@@ -142,21 +155,42 @@ def _citation(chunk: Chunk, corpus: list[Chunk]) -> PublicCitation:
         placement=placement,
     )
 
-def to_public(
-    response: CitedAnswer | Refusal,
+def _citations(
+    passage_ids: list[str],
     passages: dict[str, Chunk],
     corpus: list[Chunk],
-) -> PublicAnswer | PublicRefusal:
+) -> list[PublicCitation]:
+    return [
+        _citation(passages[passage_id], corpus)
+        for passage_id in passage_ids
+        if passage_id in passages
+    ]
+
+
+def to_public(
+    response: CitedAnswer | Refusal | Ambiguous | MissingInputs,
+    passages: dict[str, Chunk],
+    corpus: list[Chunk],
+) -> PublicResponse:
     if isinstance(response, Refusal):
         return PublicRefusal(reason=response.reason, message=response.message)
-    claims: list[PublicClaim] = []
-    for claim in response.claims:
-        citations = [
-            _citation(passages[passage_id], corpus)
-            for passage_id in claim.passage_ids
-            if passage_id in passages
-        ]
-        claims.append(PublicClaim(text=claim.text, citations=citations))
+    if isinstance(response, Ambiguous):
+        return PublicAmbiguous(
+            question=response.question,
+            citations=_citations(response.passage_ids, passages, corpus),
+        )
+    if isinstance(response, MissingInputs):
+        return PublicMissingInputs(
+            text=response.text,
+            citations=_citations(response.passage_ids, passages, corpus),
+        )
+    claims = [
+        PublicClaim(
+            text=claim.text,
+            citations=_citations(claim.passage_ids, passages, corpus),
+        )
+        for claim in response.claims
+    ]
     return PublicAnswer(claims=claims)
 
 def _public_thread(summary: ThreadSummary) -> PublicThread:
@@ -168,9 +202,13 @@ def _public_thread(summary: ThreadSummary) -> PublicThread:
     )
 
 
-def _stream_text(public: PublicAnswer | PublicRefusal) -> str:
+def _stream_text(public: PublicResponse) -> str:
     if isinstance(public, PublicRefusal):
         return public.message
+    if isinstance(public, PublicAmbiguous):
+        return public.question
+    if isinstance(public, PublicMissingInputs):
+        return public.text
     return "\n\n".join(claim.text for claim in public.claims)
 
 
@@ -186,13 +224,16 @@ def _sse(event: str, payload: dict[str, object]) -> str:
 
 def _turn_events(
     turn: StoredTurn,
-    public: PublicAnswer | PublicRefusal,
+    public: PublicResponse,
 ) -> Iterator[str]:
     for chunk in _delta_chunks(_stream_text(public)):
         yield _sse("delta", {"text": chunk})
     if isinstance(public, PublicAnswer):
         claims = [claim.model_dump(mode="json") for claim in public.claims]
         yield _sse("citations", {"claims": claims})
+    elif isinstance(public, (PublicAmbiguous, PublicMissingInputs)):
+        citations = [citation.model_dump(mode="json") for citation in public.citations]
+        yield _sse("citations", {"citations": citations})
     yield _sse(
         "done",
         {
@@ -321,7 +362,7 @@ def create_app(
         return StreamingResponse(_turn_events(turn, public), media_type="text/event-stream")
 
     @app.post("/api/ask", dependencies=[Depends(get_current_user)])
-    def ask(body: AskRequest) -> PublicAnswer | PublicRefusal:
+    def ask(body: AskRequest) -> PublicResponse:
         result = answer_question(
             body.question,
             store,

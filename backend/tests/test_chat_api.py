@@ -207,6 +207,71 @@ def test_streamed_answer_includes_citations() -> None:
     assert other.json() == []
 
 
+def test_streamed_ambiguous_turn_cites_both_passages() -> None:
+    client, _log = _client()
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [
+                {
+                    "id": str(uuid4()),
+                    "role": "user",
+                    "content": "What is the biannual exception?",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200
+    events = _events(response.text)
+    done = events[-1][1]
+    body = done["response"]
+    assert body["kind"] == "ambiguous"
+    assert body["question"] == "Which season or effective date applies?"
+    assert [citation["passage_id"] for citation in body["citations"]] == [
+        "biannual-2023",
+        "biannual-2024",
+    ]
+    assert "claims" not in body
+    citations = next(payload for name, payload in events if name == "citations")
+    assert citations["citations"] == body["citations"]
+    text = "".join(payload["text"] for name, payload in events if name == "delta")
+    assert text == body["question"]
+    reloaded = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert reloaded.json()[1]["response"] == body
+
+
+def test_streamed_missing_inputs_has_no_computed_number() -> None:
+    client, _log = _client()
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [
+                {
+                    "id": str(uuid4()),
+                    "role": "user",
+                    "content": "What is the Early Bird maximum in dollars?",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200
+    done = _events(response.text)[-1][1]
+    body = done["response"]
+    assert body["kind"] == "missing_inputs"
+    assert body["citations"][0]["passage_id"] == "early-bird"
+    assert "prior regular salary" in body["text"]
+    assert not any(character.isdigit() for character in body["text"])
+
+
 def test_list_does_not_include_another_users_thread() -> None:
     client, log = _client()
     hidden = log.create_thread(OTHER.id)
