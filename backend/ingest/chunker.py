@@ -84,6 +84,132 @@ def _anchored(source_url: str, page: int | None) -> str:
 def _has_body(lines: list[_Line]) -> bool:
     return any(line.text.strip() and not line.text.strip().startswith("#") for line in lines)
 
+# Known words the PDF extractor split with a space. Real two-word phrases are not listed.
+_PDF_WORD_SPLITS: tuple[tuple[str, str], ...] = (
+    ("V eteran", "Veteran"),
+    ("Agen t", "Agent"),
+    ("F ree", "Free"),
+    ("O peration", "Operation"),
+    ("Ro om", "Room"),
+    ("acquir ed", "acquired"),
+    ("assi gnment", "assignment"),
+    ("Ot her", "Other"),
+)
+_ROMAN_MARKERS = {
+    "i",
+    "ii",
+    "iii",
+    "iv",
+    "v",
+    "vi",
+    "vii",
+    "viii",
+    "ix",
+    "x",
+    "xi",
+    "xii",
+    "xiii",
+    "xiv",
+    "xv",
+    "xvi",
+    "xvii",
+    "xviii",
+    "xix",
+    "xx",
+}
+_LEADING_MARKER = re.compile(r"^\(([a-z]+|\d+)\)\s+")
+
+
+def rejoin_pdf_word_splits(value: str) -> str:
+    for broken, fixed in _PDF_WORD_SPLITS:
+        value = value.replace(broken, fixed)
+    return value
+
+
+def _marker_kind(token: str, *, definitions: bool, stack: list[tuple[str, str]]) -> str:
+    if token.isdigit():
+        return "number"
+    if definitions and re.fullmatch(r"([a-z])\1*", token):
+        return "letter"
+    last_kind = stack[-1][0] if stack else ""
+    last_letter = ""
+    for kind, previous in stack:
+        if kind == "letter":
+            last_letter = previous
+    if token in _ROMAN_MARKERS and last_kind in {"number", "roman"}:
+        return "roman"
+    if len(token) == 1 and len(last_letter) == 1 and ord(token) == ord(last_letter) + 1:
+        return "letter"
+    if token in _ROMAN_MARKERS:
+        return "roman"
+    return "letter"
+
+
+def _apply_marker(stack: list[tuple[str, str]], kind: str, token: str) -> list[tuple[str, str]]:
+    if kind == "letter":
+        return [("letter", token)]
+    if kind == "number":
+        kept = [item for item in stack if item[0] == "letter"]
+        return [*kept, ("number", token)]
+    kept = [item for item in stack if item[0] in {"letter", "number"}]
+    return [*kept, ("roman", token)]
+
+
+def _leading_tokens(stripped: str) -> list[str]:
+    tokens: list[str] = []
+    rest = stripped
+    while True:
+        match = _LEADING_MARKER.match(rest)
+        if match is None:
+            break
+        token = match.group(1)
+        if not token.isdigit() and len(token) > 6:
+            break
+        tokens.append(token)
+        rest = rest[match.end() :]
+    return tokens
+
+
+def _parent_prefix(stack: list[tuple[str, str]], token: str, *, definitions: bool) -> str:
+    kind = _marker_kind(token, definitions=definitions, stack=stack)
+    if kind == "letter":
+        kept: list[tuple[str, str]] = []
+    elif kind == "number":
+        kept = [item for item in stack if item[0] == "letter"]
+    else:
+        kept = [item for item in stack if item[0] in {"letter", "number"}]
+    return "".join(f"({item})" for _, item in kept)
+
+
+def _marker_prefixes(section: _Section) -> list[str]:
+    definitions = _is_definition_section(section)
+    stack: list[tuple[str, str]] = []
+    prefixes: list[str] = []
+    for line in section.lines:
+        tokens = _leading_tokens(line.text.strip())
+        if not tokens:
+            prefixes.append("")
+            continue
+        prefixes.append(_parent_prefix(stack, tokens[0], definitions=definitions))
+        for token in tokens:
+            kind = _marker_kind(token, definitions=definitions, stack=stack)
+            stack = _apply_marker(stack, kind, token)
+    return prefixes
+
+
+def _stored_section(name: str, prefix: str, heading: str) -> str:
+    if not heading:
+        return rejoin_pdf_word_splits(name)
+    if prefix:
+        if heading.startswith("("):
+            combined = f"{prefix}{heading}"
+        else:
+            combined = f"{prefix} {heading}".strip()
+        stored = f"{name} / {combined}"
+    else:
+        stored = f"{name} / {heading}"
+    return rejoin_pdf_word_splits(stored)
+
 _DEFINITION_LINE = re.compile(r"^\(([a-z]+)\)\s+(\S.*)$")
 _SUBPARAGRAPH = re.compile(r"^\((?:\d+|[ivxlcdm]+|[A-Z])\)\s+\S")
 _SENTENCE_END = re.compile(r"""[.?!]["”’']?\s*$""")
@@ -163,7 +289,7 @@ def _split_long_definition(lines: list[_Line], max_chars: int) -> list[list[_Lin
 
 def _split_definitions(
     section: _Section, max_section_chars: int
-) -> list[tuple[str, list[_Line]]]:
+) -> list[tuple[str, str, list[_Line]]]:
     expected = "a"
     cuts: list[int] = []
     for index, line in enumerate(section.lines):
@@ -177,30 +303,37 @@ def _split_definitions(
         expected = _next_definition(token)
     if not cuts:
         return []
-    groups: list[tuple[str, list[_Line]]] = []
+    prefixes = _marker_prefixes(section)
+    groups: list[tuple[str, str, list[_Line]]] = []
+    plain = section.section
     if cuts[0] > 0 and _has_body(section.lines[: cuts[0]]):
-        groups.append((section.section, section.lines[: cuts[0]]))
+        groups.append((plain, rejoin_pdf_word_splits(plain), section.lines[: cuts[0]]))
     for position, start in enumerate(cuts):
         end = cuts[position + 1] if position + 1 < len(cuts) else len(section.lines)
         heading = section.lines[start].text.strip()
+        text_label = f"{section.section} / {heading}"
+        stored = _stored_section(section.section, prefixes[start], heading)
         pieces = _split_long_definition(section.lines[start:end], max_section_chars)
         for part, piece in enumerate(pieces, start=1):
-            label = f"{section.section} / {heading}"
-            if part > 1:
-                label = f"{label} part {part}"
+            label = text_label if part == 1 else f"{text_label} part {part}"
+            section_label = stored if part == 1 else f"{stored} part {part}"
             if _has_body(piece):
-                groups.append((label, piece))
+                groups.append((label, section_label, piece))
     return groups
 
 
-def _split_groups(section: _Section, max_section_chars: int) -> list[tuple[str, list[_Line]]]:
+def _split_groups(
+    section: _Section, max_section_chars: int
+) -> list[tuple[str, str, list[_Line]]]:
     if _is_definition_section(section):
         defined = _split_definitions(section, max_section_chars)
         if defined:
             return defined
+    plain = section.section
+    stored_plain = rejoin_pdf_word_splits(plain)
     body = "\n".join(line.text for line in section.lines).strip()
     if len(body) <= max_section_chars:
-        return [(section.section, section.lines)]
+        return [(plain, stored_plain, section.lines)]
 
     cuts = [
         index
@@ -208,19 +341,21 @@ def _split_groups(section: _Section, max_section_chars: int) -> list[tuple[str, 
         if _SUBSECTION_RE.match(line.text.strip())
     ]
     if not cuts:
-        return [(section.section, section.lines)]
+        return [(plain, stored_plain, section.lines)]
 
-    groups: list[tuple[str, list[_Line]]] = []
+    prefixes = _marker_prefixes(section)
+    groups: list[tuple[str, str, list[_Line]]] = []
     if cuts[0] > 0 and _has_body(section.lines[: cuts[0]]):
-        groups.append((section.section, section.lines[: cuts[0]]))
+        groups.append((plain, stored_plain, section.lines[: cuts[0]]))
     for position, start in enumerate(cuts):
         end = cuts[position + 1] if position + 1 < len(cuts) else len(section.lines)
         heading = re.sub(r"^#+\s*", "", section.lines[start].text.strip()).strip()
-        label = f"{section.section} / {heading}"
+        text_label = f"{section.section} / {heading}"
+        section_label = _stored_section(section.section, prefixes[start], heading)
         group_lines = section.lines[start:end]
         if _has_body(group_lines):
-            groups.append((label, group_lines))
-    return groups or [(section.section, section.lines)]
+            groups.append((text_label, section_label, group_lines))
+    return groups or [(plain, stored_plain, section.lines)]
 
 def chunk_markdown(
     text: str,
@@ -284,20 +419,21 @@ def chunk_markdown(
 
     chunks: list[Chunk] = []
     for section in sections:
-        for index, (label, lines) in enumerate(_split_groups(section, max_section_chars)):
+        grouped = _split_groups(section, max_section_chars)
+        for index, (text_label, section_label, lines) in enumerate(grouped):
             body = "\n".join(line.text for line in lines).strip()
             page_start, page_end = _page_span(lines)
             number = section.article_number
             number_bit = f"a{number}" if number is not None else "a"
             chunks.append(
                 Chunk(
-                    id=f"{id_prefix}{number_bit}-{_slug(label)}-{index}",
+                    id=f"{id_prefix}{number_bit}-{_slug(text_label)}-{index}",
                     article_number=number,
                     article_title=section.article_title,
-                    section=label,
+                    section=section_label,
                     page_start=page_start,
                     page_end=page_end,
-                    text=(_header(section, label) + body).strip(),
+                    text=(_header(section, text_label) + body).strip(),
                     source_url=_anchored(source_url, page_start),
                 )
             )

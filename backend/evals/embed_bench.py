@@ -740,6 +740,22 @@ def _model_list(raw: str) -> list[str]:
     return models
 
 
+def passage_snippet(text: str, limit: int = 100) -> str:
+    """Show the passage, skipping the article and section breadcrumb."""
+    body = text
+    head, separator, rest = text.partition("\n\n")
+    if separator and "\nSection " in head and head.startswith(("Article ", "Exhibit ")):
+        body = rest
+    return " ".join(body.split())[:limit]
+
+
+def _display_label(section: str) -> str:
+    label = " ".join(section.split())
+    if len(label) > 120:
+        return label[:117] + "..."
+    return label
+
+
 def hybrid_miss_labels(
     questions: list[BenchQuestion],
     rankings: dict[str, list[Chunk]],
@@ -751,9 +767,10 @@ def hybrid_miss_labels(
             continue
         labels: list[str] = []
         for chunk in ranked[:5]:
-            label = " ".join(chunk.section.split())
-            if len(label) > 120:
-                label = label[:117] + "..."
+            snippet = passage_snippet(chunk.text, 80)
+            label = _display_label(chunk.section)
+            if snippet:
+                label = f"{label} :: {snippet}"
             labels.append(label)
         shown = " | ".join(labels) if labels else "(no rows)"
         lines.append(f"{question.id}: {shown}")
@@ -772,8 +789,8 @@ def lenient_flip_lines(
         if strict >= 1 or loose < 1 or not ranked:
             continue
         top = ranked[0]
-        label = " ".join(top.section.split())
-        snippet = " ".join(top.text.split())[:100]
+        label = _display_label(top.section)
+        snippet = passage_snippet(top.text)
         lines.append(f"{question.id}: {label} | {snippet}")
     return lines
 
