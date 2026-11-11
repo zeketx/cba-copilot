@@ -236,6 +236,8 @@ def create_app(
             candidate_k=settings.retrieval_candidate_k,
             top_k=settings.retrieval_top_k,
             rrf_k=settings.retrieval_rrf_k,
+            context_per_hit=settings.retrieval_context_per_hit,
+            context_max=settings.retrieval_context_max,
         ),
     )
     app.add_middleware(
@@ -328,6 +330,8 @@ def create_app(
             candidate_k=settings.retrieval_candidate_k,
             top_k=settings.retrieval_top_k,
             rrf_k=settings.retrieval_rrf_k,
+            context_per_hit=settings.retrieval_context_per_hit,
+            context_max=settings.retrieval_context_max,
         )
         return to_public(result, by_id, list(by_id.values()))
 

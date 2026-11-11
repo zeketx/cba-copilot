@@ -6,11 +6,12 @@ from pathlib import Path
 
 import yaml
 
-from app.corpus import source_url_for_printed_page
+from app.corpus import load_corpus, pdf_url, source_url_for_printed_page
 from app.database.constants import EMBEDDING_DIMENSIONS
 from app.domain import Chunk
 from app.retrieval.embed import HashEmbedder
 from app.retrieval.store import MemoryChunkStore
+from app.retrieval.types import DocumentMeta
 
 PASSAGES_PATH = Path(__file__).resolve().parents[1] / "evals" / "passages.yaml"
 
@@ -44,4 +45,13 @@ def demo_store(dimensions: int = EMBEDDING_DIMENSIONS) -> MemoryChunkStore:
         chunk.id: embedder.embed_query(f"{chunk.section} {chunk.article_title} {chunk.text}")
         for chunk in chunks
     }
-    return MemoryChunkStore(chunks, vectors)
+    corpus = load_corpus()
+    document = DocumentMeta(
+        id="cba-2023",
+        title=str(corpus["title"]),
+        source_url=pdf_url(),
+        page_offset=int(corpus["pdf_page_offset"]),
+        effective_start=str(corpus["effective_start"]),
+        effective_through=str(corpus["effective_through"]),
+    )
+    return MemoryChunkStore(chunks, vectors, documents=[document])

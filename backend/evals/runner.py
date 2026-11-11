@@ -101,6 +101,8 @@ def run_suite() -> list[str]:
             candidate_k=settings.retrieval_candidate_k,
             top_k=settings.retrieval_top_k,
             rrf_k=settings.retrieval_rrf_k,
+            context_per_hit=settings.retrieval_context_per_hit,
+            context_max=settings.retrieval_context_max,
         )
         response = answer_question(
             asked,
@@ -110,8 +112,12 @@ def run_suite() -> list[str]:
             candidate_k=settings.retrieval_candidate_k,
             top_k=settings.retrieval_top_k,
             rrf_k=settings.retrieval_rrf_k,
+            context_per_hit=settings.retrieval_context_per_hit,
+            context_max=settings.retrieval_context_max,
         )
-        errors.extend(evaluate(question, response, retrieved_ids={item.id for item in retrieved}))
+        errors.extend(
+            evaluate(question, response, retrieved_ids={item.id for item in retrieved.passages()})
+        )
     return errors
 
 def main(argv: list[str] | None = None) -> int:

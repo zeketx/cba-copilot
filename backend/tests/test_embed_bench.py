@@ -574,7 +574,9 @@ def test_database_flag_scores_ingest_labels(tmp_path, monkeypatch, capsys) -> No
             self.sql.append(sql)
             if "search_vector" in sql:
                 return _Result(["apron-id", "bird-id", "other-id"])
-            return _Result(["bird-id", "other-id", "apron-id"])
+            if "<=>" in sql:
+                return _Result(["bird-id", "other-id", "apron-id"])
+            return _Result([])
 
         def close(self) -> None:
             return None
