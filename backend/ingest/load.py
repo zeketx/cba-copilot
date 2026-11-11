@@ -84,15 +84,17 @@ def upsert_document(conn: Connection, **fields: Any) -> uuid.UUID:
     return document_id
 
 
+def stale_chunks_delete(document_id: uuid.UUID, keep: int):
+    return delete(CbaChunk).where(
+        CbaChunk.document_id == document_id,
+        CbaChunk.chunk_index >= keep,
+    )
+
+
 def upsert_chunks(conn: Connection, document_id: uuid.UUID, rows: list[ChunkRow]) -> None:
     if rows:
         conn.execute(chunk_upsert_statement(document_id, rows))
-    conn.execute(
-        delete(CbaChunk).where(
-            CbaChunk.document_id == document_id,
-            CbaChunk.chunk_index >= len(rows),
-        )
-    )
+    conn.execute(stale_chunks_delete(document_id, len(rows)))
 
 
 def embed_missing(

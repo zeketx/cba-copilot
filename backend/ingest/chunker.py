@@ -84,7 +84,120 @@ def _anchored(source_url: str, page: int | None) -> str:
 def _has_body(lines: list[_Line]) -> bool:
     return any(line.text.strip() and not line.text.strip().startswith("#") for line in lines)
 
+_DEFINITION_LINE = re.compile(r"^\(([a-z]+)\)\s+(\S.*)$")
+_SUBPARAGRAPH = re.compile(r"^\((?:\d+|[ivxlcdm]+|[A-Z])\)\s+\S")
+_SENTENCE_END = re.compile(r"""[.?!]["”’']?\s*$""")
+_OPEN_QUOTES = "\"“‘'"
+
+
+def _is_definition_section(section: _Section) -> bool:
+    if section.article_number != 1:
+        return False
+    return re.match(r"^1(?:\.|\s|$)", section.section.strip()) is not None
+
+
+def _definition_token(stripped: str) -> str | None:
+    match = _DEFINITION_LINE.match(stripped)
+    if match is None:
+        return None
+    token = match.group(1)
+    if re.fullmatch(r"([a-z])\1*", token) is None:
+        return None
+    return token
+
+
+def _next_definition(token: str) -> str:
+    letter = token[0]
+    if letter == "z":
+        return "a" * (len(token) + 1)
+    return chr(ord(letter) + 1) * len(token)
+
+
+def _starts_definition(stripped: str, expected: str) -> bool:
+    token = _definition_token(stripped)
+    if token is None:
+        return False
+    rest = stripped.split(")", 1)[1].lstrip()
+    # A quoted term is the defined word. An unquoted (i) or (1) stays in the parent.
+    if rest[:1] in _OPEN_QUOTES:
+        return True
+    return token == expected
+
+
+def _chars(lines: list[_Line]) -> int:
+    return len("\n".join(line.text for line in lines).strip())
+
+
+def _last_text(lines: list[_Line]) -> str:
+    for line in reversed(lines):
+        stripped = line.text.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def _can_cut_before(current: list[_Line], line: _Line) -> bool:
+    stripped = line.text.strip()
+    if not stripped:
+        return False
+    if _SUBPARAGRAPH.match(stripped):
+        return True
+    return _SENTENCE_END.search(_last_text(current)) is not None
+
+
+def _split_long_definition(lines: list[_Line], max_chars: int) -> list[list[_Line]]:
+    if _chars(lines) <= max_chars:
+        return [lines]
+    pieces: list[list[_Line]] = []
+    current: list[_Line] = []
+    for line in lines:
+        over = current and _chars(current) + len(line.text) + 1 > max_chars
+        if over and _can_cut_before(current, line):
+            pieces.append(current)
+            current = []
+        current.append(line)
+    if current:
+        pieces.append(current)
+    return pieces or [lines]
+
+
+def _split_definitions(
+    section: _Section, max_section_chars: int
+) -> list[tuple[str, list[_Line]]]:
+    expected = "a"
+    cuts: list[int] = []
+    for index, line in enumerate(section.lines):
+        stripped = line.text.strip()
+        if not _starts_definition(stripped, expected):
+            continue
+        token = _definition_token(stripped)
+        if token is None:
+            continue
+        cuts.append(index)
+        expected = _next_definition(token)
+    if not cuts:
+        return []
+    groups: list[tuple[str, list[_Line]]] = []
+    if cuts[0] > 0 and _has_body(section.lines[: cuts[0]]):
+        groups.append((section.section, section.lines[: cuts[0]]))
+    for position, start in enumerate(cuts):
+        end = cuts[position + 1] if position + 1 < len(cuts) else len(section.lines)
+        heading = section.lines[start].text.strip()
+        pieces = _split_long_definition(section.lines[start:end], max_section_chars)
+        for part, piece in enumerate(pieces, start=1):
+            label = f"{section.section} / {heading}"
+            if part > 1:
+                label = f"{label} part {part}"
+            if _has_body(piece):
+                groups.append((label, piece))
+    return groups
+
+
 def _split_groups(section: _Section, max_section_chars: int) -> list[tuple[str, list[_Line]]]:
+    if _is_definition_section(section):
+        defined = _split_definitions(section, max_section_chars)
+        if defined:
+            return defined
     body = "\n".join(line.text for line in section.lines).strip()
     if len(body) <= max_section_chars:
         return [(section.section, section.lines)]

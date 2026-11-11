@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
@@ -19,9 +19,16 @@ from app.corpus import load_corpus, pdf_url
 from app.database.constants import EMBEDDING_DIMENSIONS
 from app.domain import Chunk
 from app.retrieval.aliases import expand_query
-from app.retrieval.embed import HashEmbedder, OpenRouterEmbedder, voyage_input_type
+from app.retrieval.embed import (
+    Embedder,
+    HashEmbedder,
+    OpenRouterEmbedder,
+    build_embedder,
+    voyage_input_type,
+)
 from app.retrieval.fusion import reciprocal_rank_fusion
-from app.retrieval.store import MemoryChunkStore
+from app.retrieval.hybrid import hybrid_retrieve
+from app.retrieval.store import ChunkStore, MemoryChunkStore, PostgresChunkStore
 from ingest.cba_text import chunk_cba_text, read_pdf_layout
 
 from evals.metrics import (
@@ -31,7 +38,9 @@ from evals.metrics import (
     aggregate,
     chunk_matches,
     first_relevant_rank,
+    lenient_chunk_matches,
     percentile,
+    recall_at,
 )
 
 HASH_MODEL = "hash"
@@ -58,6 +67,9 @@ LIVE_REQUIRED = (
 KEY_REQUIRED = (
     "OPENROUTER_API_KEY is required to embed with OpenRouter. "
     "Set it in the environment or backend/.env. No request was sent."
+)
+DATABASE_URL_REQUIRED = (
+    "DATABASE_URL is required to score the live store. No connection was opened."
 )
 
 
@@ -108,6 +120,11 @@ class ModelReport:
     cache_bytes: int
     misses: list[str]
     error: str | None = None
+    miss_labels: list[str] = field(default_factory=list)
+    latency_scope: str = "embed_query"
+    lenient_hybrid: RankMetrics | None = None
+    lenient_draft_hybrid: RankMetrics | None = None
+    lenient_flips: list[str] = field(default_factory=list)
 
 
 def load_bench_questions(paths: list[Path]) -> tuple[list[BenchQuestion], list[str]]:
@@ -388,6 +405,16 @@ def score_model(
             storage_float32_bytes=len(chunks) * dimensions * 4,
             cache_bytes=cache_path.stat().st_size if cache_path.exists() else 0,
             misses=misses,
+            miss_labels=hybrid_miss_labels(scored, hybrid_rankings),
+            lenient_hybrid=aggregate(
+                scored, hybrid_rankings, matches=lenient_chunk_matches
+            ),
+            lenient_draft_hybrid=(
+                aggregate(draft, hybrid_rankings, matches=lenient_chunk_matches)
+                if draft
+                else None
+            ),
+            lenient_flips=lenient_flip_lines(scored, hybrid_rankings),
         )
     except RuntimeError as exc:
         return _failed(model, chunks, skipped, price_source, str(exc))
@@ -511,10 +538,7 @@ def render_markdown(reports: list[ModelReport], *, price_fetch: str, generated_a
             "Index cost uses the token total stored for the corpus. "
             "A full cache hit adds zero dollars on this run."
         ),
-        (
-            "Query latency is one pass over `embed_query` only. "
-            "The nearest-rank percentile uses `ceil`."
-        ),
+        _latency_sentence(reports),
         "",
         (
             "| model | dims | dense R@5 | hybrid R@5 | dense R@8 | hybrid R@8 | "
@@ -527,29 +551,30 @@ def render_markdown(reports: list[ModelReport], *, price_fetch: str, generated_a
         ),
     ]
     for report in reports:
-        if report.error or report.dense is None or report.hybrid is None:
+        if report.error or report.hybrid is None:
             lines.append(
                 f"| {report.model} |  |  |  |  |  |  |  |  |  |  |  |  |  |"
             )
             continue
+        dense = report.dense
         lines.append(
             "| "
             + " | ".join(
                 [
                     report.model,
-                    str(report.dimensions),
-                    _rate(report.dense.recall_at_5),
+                    str(report.dimensions or ""),
+                    _rate(dense.recall_at_5) if dense else "",
                     _rate(report.hybrid.recall_at_5),
-                    _rate(report.dense.recall_at_8),
+                    _rate(dense.recall_at_8) if dense else "",
                     _rate(report.hybrid.recall_at_8),
-                    _rate(report.dense.mrr),
+                    _rate(dense.mrr) if dense else "",
                     _rate(report.hybrid.mrr),
                     _money(report.index_cost_usd),
                     _money(report.index_cost_this_run_usd),
                     _money(report.per_1k_queries_usd),
                     _ms(report.query_latency_p50_ms),
                     _ms(report.query_latency_p95_ms),
-                    str(report.storage_float32_bytes),
+                    str(report.storage_float32_bytes or ""),
                 ]
             )
             + " |"
@@ -579,6 +604,44 @@ def render_markdown(reports: list[ModelReport], *, price_fetch: str, generated_a
                 f"dense MRR {_rate(report.draft_dense.mrr)}, "
                 f"hybrid MRR {_rate(report.draft_hybrid.mrr)}."
             )
+        elif report.draft_hybrid:
+            lines.append(
+                "Draft only, strict. "
+                f"Hybrid recall@5 {_rate(report.draft_hybrid.recall_at_5)}, "
+                f"hybrid recall@8 {_rate(report.draft_hybrid.recall_at_8)}, "
+                f"hybrid MRR {_rate(report.draft_hybrid.mrr)}."
+            )
+        if report.lenient_draft_hybrid:
+            lines.append(
+                "Draft only, lenient. "
+                f"Hybrid recall@5 {_rate(report.lenient_draft_hybrid.recall_at_5)}, "
+                f"hybrid recall@8 {_rate(report.lenient_draft_hybrid.recall_at_8)}, "
+                f"hybrid MRR {_rate(report.lenient_draft_hybrid.mrr)}."
+            )
+        if report.hybrid is not None and (
+            report.latency_scope == "hybrid_retrieve" or report.lenient_hybrid is not None
+        ):
+            lines.append(
+                "All scored questions, strict. "
+                f"Hybrid recall@5 {_rate(report.hybrid.recall_at_5)}, "
+                f"hybrid recall@8 {_rate(report.hybrid.recall_at_8)}, "
+                f"hybrid MRR {_rate(report.hybrid.mrr)}."
+            )
+        if report.lenient_hybrid is not None:
+            lines.append(
+                "All scored questions, lenient. "
+                f"Hybrid recall@5 {_rate(report.lenient_hybrid.recall_at_5)}, "
+                f"hybrid recall@8 {_rate(report.lenient_hybrid.recall_at_8)}, "
+                f"hybrid MRR {_rate(report.lenient_hybrid.mrr)}."
+            )
+        if report.lenient_flips:
+            lines.append("Questions that miss under strict and hit under lenient:")
+            for item in report.lenient_flips:
+                lines.append(f"- {item}")
+        if report.miss_labels:
+            lines.append("Hybrid misses at recall@5, top labels:")
+            for item in report.miss_labels:
+                lines.append(f"- {item}")
         lines.append(
             f"Price source {report.price_source}. "
             f"Index tokens {report.index_tokens}. "
@@ -594,6 +657,18 @@ def render_markdown(reports: list[ModelReport], *, price_fetch: str, generated_a
         )
         lines.append("")
     return "\n".join(lines)
+
+
+def _latency_sentence(reports: list[ModelReport]) -> str:
+    if any(report.latency_scope == "hybrid_retrieve" for report in reports):
+        return (
+            "Query latency times `hybrid_retrieve`: the query embedding plus both Postgres "
+            "searches. The nearest-rank percentile uses `ceil`."
+        )
+    return (
+        "Query latency is one pass over `embed_query` only. "
+        "The nearest-rank percentile uses `ceil`."
+    )
 
 
 def _rate(value: float) -> str:
@@ -665,6 +740,308 @@ def _model_list(raw: str) -> list[str]:
     return models
 
 
+def hybrid_miss_labels(
+    questions: list[BenchQuestion],
+    rankings: dict[str, list[Chunk]],
+) -> list[str]:
+    lines: list[str] = []
+    for question in questions:
+        ranked = rankings.get(question.id, [])
+        if recall_at(ranked, question, 5) >= 1:
+            continue
+        labels: list[str] = []
+        for chunk in ranked[:5]:
+            label = " ".join(chunk.section.split())
+            if len(label) > 120:
+                label = label[:117] + "..."
+            labels.append(label)
+        shown = " | ".join(labels) if labels else "(no rows)"
+        lines.append(f"{question.id}: {shown}")
+    return lines
+
+
+def lenient_flip_lines(
+    questions: list[BenchQuestion],
+    rankings: dict[str, list[Chunk]],
+) -> list[str]:
+    lines: list[str] = []
+    for question in questions:
+        ranked = rankings.get(question.id, [])
+        strict = recall_at(ranked, question, 5)
+        loose = recall_at(ranked, question, 5, matches=lenient_chunk_matches)
+        if strict >= 1 or loose < 1 or not ranked:
+            continue
+        top = ranked[0]
+        label = " ".join(top.section.split())
+        snippet = " ".join(top.text.split())[:100]
+        lines.append(f"{question.id}: {label} | {snippet}")
+    return lines
+
+
+def database_block_reason(settings: Settings) -> str | None:
+    if not settings.database_url.strip():
+        return DATABASE_URL_REQUIRED
+    provider = settings.resolved_embedding_provider
+    if provider == "openrouter":
+        if not settings.embedding_model.strip():
+            return (
+                "EMBEDDING_MODEL is required when EMBEDDING_PROVIDER is openrouter. "
+                "No connection was opened."
+            )
+        if not settings.openrouter_api_key.strip():
+            return KEY_REQUIRED
+        return None
+    if provider == "openai" and not settings.openai_api_key.strip():
+        return "OPENAI_API_KEY is required to embed the query. No connection was opened."
+    if provider not in {"hash", "openai", "openrouter"}:
+        return "EMBEDDING_PROVIDER must be hash, openai, or openrouter. No connection was opened."
+    return None
+
+
+def known_source_urls() -> set[str]:
+    urls = {pdf_url()}
+    manifest = PDF_PATH.parent / "manifest.json"
+    if not manifest.is_file():
+        return urls
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    if isinstance(payload, dict) and isinstance(payload.get("url"), str):
+        url = payload["url"].strip()
+        if url:
+            urls.add(url)
+    return urls
+
+
+def pick_source_document(rows: list[tuple[object, str]], known_urls: set[str]) -> object:
+    if not rows:
+        raise RuntimeError("No source_documents row. No chunks were read.")
+    if len(rows) == 1:
+        return rows[0][0]
+    for document_id, url in rows:
+        if url in known_urls:
+            return document_id
+    raise RuntimeError(
+        "More than one source document is stored, and none match the corpus URL. "
+        "No chunks were scored."
+    )
+
+
+def chunk_from_row(row: object) -> Chunk:
+    return Chunk(
+        id=str(row.id),
+        article_number=row.article_number,
+        article_title=row.article_title or "",
+        section=row.section or "",
+        page_start=row.page_start,
+        page_end=row.page_end,
+        text=row.text,
+        source_url=row.source_url,
+    )
+
+
+def rank_with_hybrid(
+    store: ChunkStore,
+    embedder: Embedder,
+    questions: list[BenchQuestion],
+    *,
+    candidate_k: int,
+    rrf_k: int,
+    top_k: int,
+) -> tuple[dict[str, list[Chunk]], list[float]]:
+    rankings: dict[str, list[Chunk]] = {}
+    latencies: list[float] = []
+    for question in questions:
+        started = time.perf_counter()
+        ranked = hybrid_retrieve(
+            store,
+            question.question,
+            embedder,
+            candidate_k=candidate_k,
+            top_k=top_k,
+            rrf_k=rrf_k,
+        )
+        latencies.append((time.perf_counter() - started) * 1000)
+        rankings[question.id] = ranked
+    return rankings, latencies
+
+
+def open_database(settings: Settings):
+    from app.database.models import CbaChunk, SourceDocument
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine(settings.sqlalchemy_database_url)
+    session = sessionmaker(bind=engine)()
+    try:
+        documents = session.execute(select(SourceDocument.id, SourceDocument.source_url)).all()
+        document_id = pick_source_document(
+            [(row.id, row.source_url) for row in documents],
+            known_source_urls(),
+        )
+        rows = session.execute(
+            select(CbaChunk)
+            .where(CbaChunk.document_id == document_id)
+            .order_by(CbaChunk.chunk_index)
+        ).scalars()
+        chunks = [chunk_from_row(row) for row in rows]
+        store = PostgresChunkStore(session, {chunk.id: chunk for chunk in chunks})
+        return session, store, chunks, engine
+    except Exception:
+        session.close()
+        engine.dispose()
+        raise
+
+
+def _database_report(
+    settings: Settings,
+    chunks: list[Chunk],
+    questions: list[BenchQuestion],
+    skipped: list[str],
+    rankings: dict[str, list[Chunk]],
+    latencies: list[float],
+    query_tokens: int,
+) -> ModelReport:
+    draft = [question for question in questions if question.draft]
+    existing = [question for question in questions if not question.draft]
+    provider = settings.resolved_embedding_provider
+    model = HASH_MODEL if provider == "hash" else settings.resolved_embedding_model
+    dimensions = settings.resolved_embedding_dimensions
+    return ModelReport(
+        model=model,
+        dimensions=dimensions,
+        chunk_count=len(chunks),
+        question_count=len(questions),
+        draft_question_count=len(draft),
+        existing_question_count=len(existing),
+        unscored=[],
+        unmatched=_unmatched(chunks, questions),
+        skipped=skipped,
+        dense=None,
+        hybrid=aggregate(questions, rankings),
+        draft_dense=None,
+        draft_hybrid=aggregate(draft, rankings) if draft else None,
+        existing_dense=None,
+        existing_hybrid=aggregate(existing, rankings) if existing else None,
+        index_tokens=0,
+        index_tokens_this_run=0,
+        query_tokens=query_tokens,
+        price_per_million=None,
+        price_source="not priced",
+        index_cost_usd=None,
+        index_cost_this_run_usd=None,
+        per_1k_queries_usd=None,
+        query_latency_p50_ms=percentile(latencies, 50) if latencies else None,
+        query_latency_p95_ms=percentile(latencies, 95) if latencies else None,
+        query_count=len(latencies),
+        context_length=None,
+        storage_float32_bytes=len(chunks) * dimensions * 4,
+        cache_bytes=0,
+        misses=[],
+        miss_labels=hybrid_miss_labels(questions, rankings),
+        latency_scope="hybrid_retrieve",
+        lenient_hybrid=aggregate(questions, rankings, matches=lenient_chunk_matches),
+        lenient_draft_hybrid=(
+            aggregate(draft, rankings, matches=lenient_chunk_matches) if draft else None
+        ),
+        lenient_flips=lenient_flip_lines(questions, rankings),
+    )
+
+
+def _print_metrics(kind: str, metrics: RankMetrics) -> None:
+    print(
+        f"{kind} "
+        f"R@5 {_rate(metrics.recall_at_5)} "
+        f"R@8 {_rate(metrics.recall_at_8)} "
+        f"MRR {_rate(metrics.mrr)}"
+    )
+
+
+def _print_database_summary(report: ModelReport) -> None:
+    if report.draft_hybrid is not None:
+        _print_metrics("strict draft", report.draft_hybrid)
+    if report.lenient_draft_hybrid is not None:
+        _print_metrics("lenient draft", report.lenient_draft_hybrid)
+    if report.hybrid is not None:
+        _print_metrics("strict all", report.hybrid)
+    if report.lenient_hybrid is not None:
+        _print_metrics("lenient all", report.lenient_hybrid)
+    print(f"query p95 {_ms(report.query_latency_p95_ms)} ms (hybrid_retrieve)")
+    if report.lenient_flips:
+        print("lenient flips:")
+        for line in report.lenient_flips:
+            print(line)
+    if report.miss_labels:
+        print("strict misses at R@5:")
+        for line in report.miss_labels:
+            print(line)
+
+
+def _run_database(
+    settings: Settings,
+    question_paths: list[Path] | None,
+    report_dir: Path,
+) -> int:
+    reason = database_block_reason(settings)
+    if reason is not None:
+        print(reason, file=sys.stderr)
+        return 2
+    questions, skipped = load_bench_questions(question_paths or [QUESTIONS_PATH, DRAFT_PATH])
+    try:
+        embedder = build_embedder(settings)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    opened = None
+    try:
+        opened = open_database(settings)
+        _session, store, chunks, _engine = opened
+        before = int(getattr(embedder, "prompt_tokens", 0))
+        top_k = max(settings.retrieval_candidate_k, settings.retrieval_top_k, 8)
+        rankings, latencies = rank_with_hybrid(
+            store,
+            embedder,
+            questions,
+            candidate_k=settings.retrieval_candidate_k,
+            rrf_k=settings.retrieval_rrf_k,
+            top_k=top_k,
+        )
+        query_tokens = int(getattr(embedder, "prompt_tokens", 0)) - before
+        report = _database_report(
+            settings,
+            chunks,
+            questions,
+            skipped,
+            rankings,
+            latencies,
+            query_tokens,
+        )
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    finally:
+        if opened is not None:
+            opened[0].close()
+            opened[3].dispose()
+        close = getattr(embedder, "close", None)
+        if callable(close):
+            close()
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    payload = {
+        "generated_at": generated_at,
+        "price_fetch": "skipped",
+        "candidate_k": settings.retrieval_candidate_k,
+        "rrf_k": settings.retrieval_rrf_k,
+        "embedding_dimensions_constant": EMBEDDING_DIMENSIONS,
+        "latency_scope": "hybrid_retrieve",
+        "models": [_report_dict(report)],
+    }
+    markdown = render_markdown(reports=[report], price_fetch="skipped", generated_at=generated_at)
+    json_path, md_path = write_reports(report_dir, payload, markdown)
+    _print_database_summary(report)
+    print(f"Wrote {md_path}")
+    print(f"Wrote {json_path}")
+    return 1 if report.error else 0
+
+
 def main(
     argv: list[str] | None = None,
     *,
@@ -683,6 +1060,15 @@ def main(
         ),
     )
     parser.add_argument("--live", action="store_true", help="Allow OpenRouter embedding calls.")
+    parser.add_argument(
+        "--database",
+        action="store_true",
+        help=(
+            "Score hybrid_retrieve against DATABASE_URL through PostgresChunkStore. "
+            "Does not connect unless this flag is set. "
+            "Requires the embedding key for the configured provider."
+        ),
+    )
     parser.add_argument("--pdf", type=Path, default=PDF_PATH)
     parser.add_argument("--report-dir", type=Path, default=REPORT_DIR)
     parser.add_argument("--questions", action="append", type=Path)
@@ -692,12 +1078,14 @@ def main(
         help="Check draft section labels against the corpus and do not embed.",
     )
     args = parser.parse_args(argv)
+    loaded_settings = settings if settings is not None else Settings()
+    if args.database:
+        return _run_database(loaded_settings, args.questions, args.report_dir)
     models = _model_list(args.models)
     remote = [model for model in models if model != HASH_MODEL]
     if remote and not args.live and not args.check_questions:
         print(LIVE_REQUIRED, file=sys.stderr)
         return 2
-    loaded_settings = settings if settings is not None else Settings()
     missing_key = remote and args.live and not args.check_questions
     if missing_key and not loaded_settings.openrouter_api_key.strip():
         print(KEY_REQUIRED, file=sys.stderr)

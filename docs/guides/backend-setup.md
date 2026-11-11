@@ -42,4 +42,12 @@ After the re-index, score the same model from `backend/`. Delete `backend/evals/
 uv run python -m evals.embed_bench --live --models mongodb/voyage-4-lite
 ```
 
-Read `backend/evals/reports/embed-bench.md`. The gate is draft hybrid recall@5 of at least 0.93, and query p95 of at most 500 ms. Query p95 times `embed_query` only. The bench ranks an in-memory copy of the corpus. It does not query pgvector.
+Read `backend/evals/reports/embed-bench.md`. The in-memory gate is draft hybrid recall@5 of at least 0.93, and query p95 of at most 500 ms. That p95 times `embed_query` only. The in-memory bench does not query pgvector.
+
+After `ingest load` has rewritten chunk text, score the live store. `ingest load` updates `cba_chunks` in place by `chunk_index`, so a longer Article I shifts later rows and clears their embeddings. `ingest embed --live` fills every null vector.
+
+```bash
+uv run python -m evals.embed_bench --database
+```
+
+That command needs the same `DATABASE_URL` and OpenRouter settings. It refuses without `--database`. The live gate from issue 11 is draft hybrid recall@5 of at least 0.90, Bird rights, Team Salary, and Minimum Team Salary inside the top 5, and query p95 of at most 500 ms. This p95 times `hybrid_retrieve`.

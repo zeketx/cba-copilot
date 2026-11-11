@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from app.config import Settings
 from app.retrieval.embed import HashEmbedder, OpenAIEmbedder
-from ingest.load import chunk_upsert_statement, document_upsert_statement
+from ingest.load import chunk_upsert_statement, document_upsert_statement, stale_chunks_delete
 from ingest.rows import ChunkRow, chunk_rows, references
 from sqlalchemy.dialects import postgresql
 
@@ -113,3 +113,14 @@ def test_upsert_statements_conflict_targets_omit_search_vector() -> None:
     assert "IS DISTINCT FROM" in chunk_sql
     insert_prefix = chunk_sql.split("ON CONFLICT", 1)[0]
     assert "search_vector" not in insert_prefix
+
+
+def test_stale_chunk_delete_is_limited_to_one_document() -> None:
+    sql = str(stale_chunks_delete(uuid4(), 12).compile(dialect=postgresql.dialect()))
+    assert "cba_chunks" in sql
+    assert "document_id" in sql
+    assert "chunk_index" in sql
+    assert ">=" in sql
+    assert "source_documents" not in sql
+    assert "chat_" not in sql
+    assert "users" not in sql
