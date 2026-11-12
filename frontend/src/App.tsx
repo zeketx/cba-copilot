@@ -25,6 +25,7 @@ import {
 import {
   SAMPLE_QUESTIONS,
   type ChatMessage,
+  type PublicClaim,
   type PublicCitation,
   type PublicResponse,
   type ThreadSummary,
@@ -33,10 +34,17 @@ import {
 const ACTIVE_THREAD_KEY = "cba.active_thread_id";
 
 function replyText(response: PublicResponse): string {
-  if (response.kind === "refusal") {
-    return response.message;
+  switch (response.kind) {
+    case "refusal":
+    case "clarification":
+      return response.message;
+    case "answer":
+      return response.claims.map((claim) => claim.text).join("\n\n");
+    default: {
+      const _exhaustive: never = response;
+      return _exhaustive;
+    }
   }
-  return response.claims.map((claim) => claim.text).join("\n\n");
 }
 
 export function App() {
@@ -623,25 +631,18 @@ export function App() {
   );
 }
 
-function StaticReply({
-  response,
+function ClaimCards({
+  claims,
   active,
   onOpen,
 }: {
-  response: PublicResponse;
+  claims: PublicClaim[];
   active: PublicCitation | null;
   onOpen: (citation: PublicCitation) => void;
 }) {
-  if (response.kind === "refusal") {
-    return (
-      <div className="rounded-card bg-red-tint px-3 py-2 text-[13px] leading-relaxed text-ink">
-        {response.message}
-      </div>
-    );
-  }
   return (
     <>
-      {response.claims.map((claim) => (
+      {claims.map((claim) => (
         <div key={claim.text} className="space-y-3">
           <p className="text-[13px] leading-relaxed text-ink">{claim.text}</p>
           <ContextCards
@@ -664,6 +665,40 @@ function StaticReply({
       ))}
     </>
   );
+}
+
+function StaticReply({
+  response,
+  active,
+  onOpen,
+}: {
+  response: PublicResponse;
+  active: PublicCitation | null;
+  onOpen: (citation: PublicCitation) => void;
+}) {
+  switch (response.kind) {
+    case "refusal":
+      return (
+        <div className="rounded-card bg-red-tint px-3 py-2 text-[13px] leading-relaxed text-ink">
+          {response.message}
+        </div>
+      );
+    case "clarification":
+      return (
+        <>
+          <div className="rounded-card bg-surface px-3 py-2 text-[13px] leading-relaxed text-ink">
+            {response.message}
+          </div>
+          <ClaimCards claims={response.claims} active={active} onOpen={onOpen} />
+        </>
+      );
+    case "answer":
+      return <ClaimCards claims={response.claims} active={active} onOpen={onOpen} />;
+    default: {
+      const _exhaustive: never = response;
+      return _exhaustive;
+    }
+  }
 }
 
 function citationChunk(citation: PublicCitation, selected: boolean): ContextChunk {
