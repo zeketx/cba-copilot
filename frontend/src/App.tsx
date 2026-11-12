@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/beautifui/Button";
 import ContextCards, { type ContextChunk } from "@/components/beautifui/ContextCards";
 import LoadingState from "@/components/beautifui/LoadingState";
+import SidebarNav from "@/components/beautifui/SidebarNav";
 import { StreamText } from "@/components/beautifui/StreamText";
 import { SourcePanel } from "@/components/chat/SourcePanel";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
@@ -13,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createThread, listThreads, loadMessages, streamAsk } from "@/lib/api";
+import { createThread, deleteThread, listThreads, loadMessages, renameThread, streamAsk } from "@/lib/api";
 import { loadDefinitions } from "@/lib/definitions";
 import { ApiError, apiRequest } from "@/lib/http";
 import {
@@ -214,6 +215,63 @@ export function App() {
             ? caught.message
             : "The request failed.";
       setError(message);
+    }
+  }
+
+  function signOut() {
+    clearAccessToken();
+    sessionStorage.removeItem(ACTIVE_THREAD_KEY);
+    setSessionToken(null);
+    setThreads([]);
+    setActiveThreadId(null);
+    setMessages([]);
+    setLiveDelta(null);
+    setError(null);
+    setGlossaryOpen(false);
+    setNotAllowed(false);
+  }
+
+  function requestFailedMessage(caught: unknown): string {
+    if (caught instanceof ApiError && caught.kind === "network") {
+      return "The request did not reach the server.";
+    }
+    if (caught instanceof Error) {
+      return caught.message;
+    }
+    return "The request failed.";
+  }
+
+  async function renameActiveThread(id: string, title: string) {
+    try {
+      const updated = await renameThread(id, title);
+      setThreads((current) =>
+        [...current.map((item) => (item.id === updated.id ? updated : item))].sort(
+          (left, right) => right.updatedAt.localeCompare(left.updatedAt),
+        ),
+      );
+      setError(null);
+    } catch (caught) {
+      if (!handleRequestError(caught)) {
+        setError(requestFailedMessage(caught));
+      }
+    }
+  }
+
+  async function deleteActiveThread(id: string) {
+    try {
+      await deleteThread(id);
+      setThreads((current) => current.filter((item) => item.id !== id));
+      if (activeThreadId === id) {
+        sessionStorage.removeItem(ACTIVE_THREAD_KEY);
+        setActiveThreadId(null);
+        setMessages([]);
+        setLiveDelta(null);
+      }
+      setError(null);
+    } catch (caught) {
+      if (!handleRequestError(caught)) {
+        setError(requestFailedMessage(caught));
+      }
     }
   }
 
@@ -490,42 +548,21 @@ export function App() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-48 shrink-0 flex-col border-r border-line md:flex">
-          <div className="p-3">
-            <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => void startThread()}>
-              New chat
-            </Button>
-          </div>
-          <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-            {threads.map((thread) => (
-              <button
-                key={thread.id}
-                type="button"
-                onClick={() => void openThread(thread.id)}
-                className={`mb-1 w-full rounded-lg px-2 py-1.5 text-left text-[13px] leading-snug ${
-                  thread.id === activeThreadId ? "bg-field text-ink" : "text-ink-2 hover:bg-field"
-                }`}
-              >
-                {thread.title.trim() === "" ? "New chat" : thread.title}
-              </button>
-            ))}
-          </nav>
-        </aside>
+        <SidebarNav
+          fill
+          className="hidden border-r border-line md:flex"
+          recents={threads.map((thread) => ({ id: thread.id, label: thread.title }))}
+          activeId={activeThreadId}
+          activeNav={glossaryOpen ? "definitions" : "chats"}
+          userEmail={signInEmail}
+          onNewChat={() => void startThread()}
+          onPick={(id) => void openThread(id)}
+          onNavigate={(key) => setGlossaryOpen(key === "definitions")}
+          onRename={(id, title) => void renameActiveThread(id, title)}
+          onDelete={(id) => void deleteActiveThread(id)}
+          onSignOut={signOut}
+        />
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2 md:hidden">
-            {threads.map((thread) => (
-              <button
-                key={thread.id}
-                type="button"
-                onClick={() => void openThread(thread.id)}
-                className={`shrink-0 rounded-lg px-2 py-1 text-[12px] ${
-                  thread.id === activeThreadId ? "bg-field text-ink" : "text-ink-2"
-                }`}
-              >
-                {thread.title.trim() === "" ? "New chat" : thread.title}
-              </button>
-            ))}
-          </div>
           <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
             {notAllowed ? (
               <p className="mx-auto max-w-2xl text-[13px] text-red">
