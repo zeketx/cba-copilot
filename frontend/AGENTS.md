@@ -25,7 +25,7 @@ Chat states:
 - Empty thread. Sample questions from `SAMPLE_QUESTIONS`.
 - Thinking. `ThinkingState` until the first SSE `delta`.
 - Streaming. Live delta text with the foundation caret. After `done` with no deltas, `StreamText` reveals the full reply. Do not use the Beautiful UI `StreamingText` gallery (follow-ups, demo sources, loop). `StreamText` is the primitive that fits this thread.
-- Grounding refusal. `kind: "refusal"` on a saved assistant turn, red-tint card.
+- Grounding refusal. `kind: "refusal"` on a saved assistant turn, red-tint card. Answer claim prose uses `react-markdown` (no raw HTML). Citation chips, claim cards, user bubbles, refusals, and clarifications stay plain text.
 - Transport error. `chatRequestError` in `src/lib/request-error.ts`. A 502 is this banner plus retry, never the refusal card.
 
 Leaving a thread (New chat, another thread, sign out) must abort the in-flight ask and drop `pending`/`revealing` so the next ask can POST.

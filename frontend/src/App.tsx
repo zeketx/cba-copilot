@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import { Button } from "@/components/beautifui/Button";
 import ContextCards, { type ContextChunk } from "@/components/beautifui/ContextCards";
 import SidebarNav from "@/components/beautifui/SidebarNav";
@@ -763,20 +764,34 @@ export function App() {
   );
 }
 
+function AnswerProse({ text }: { text: string }) {
+  return (
+    <div className="text-[13px] leading-relaxed text-ink [&_a]:text-accent [&_code]:rounded-sm [&_code]:bg-field [&_code]:px-1 [&_code]:font-mono [&_code]:text-[12px] [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-medium [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
+      <Markdown>{text}</Markdown>
+    </div>
+  );
+}
+
 function ClaimCards({
   claims,
   active,
   onOpen,
+  markdown = false,
 }: {
   claims: PublicClaim[];
   active: PublicCitation | null;
   onOpen: (citation: PublicCitation) => void;
+  markdown?: boolean;
 }) {
   return (
     <>
       {claims.map((claim) => (
         <div key={claim.text} className="space-y-3">
-          <p className="text-[13px] leading-relaxed text-ink">{claim.text}</p>
+          {markdown ? (
+            <AnswerProse text={claim.text} />
+          ) : (
+            <p className="text-[13px] leading-relaxed text-ink">{claim.text}</p>
+          )}
           <ContextCards
             className="max-w-none"
             chunks={claim.citations.map((citation) =>
@@ -825,7 +840,7 @@ function StaticReply({
         </>
       );
     case "answer":
-      return <ClaimCards claims={response.claims} active={active} onOpen={onOpen} />;
+      return <ClaimCards claims={response.claims} active={active} onOpen={onOpen} markdown />;
     default: {
       const _exhaustive: never = response;
       return _exhaustive;
