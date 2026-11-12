@@ -13,6 +13,11 @@ import {
   type WireThread,
 } from "@/lib/types";
 
+export async function fetchMe(): Promise<{ email: string }> {
+  const response = await apiRequest("/api/me");
+  return await readJson<{ email: string }>(response);
+}
+
 export async function listThreads(): Promise<ThreadSummary[]> {
   const response = await apiRequest("/api/threads");
   const body = await readJson<WireThread[]>(response);

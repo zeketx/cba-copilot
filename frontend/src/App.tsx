@@ -15,7 +15,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createThread, deleteThread, listThreads, loadMessages, renameThread, streamAsk } from "@/lib/api";
+import {
+  createThread,
+  deleteThread,
+  fetchMe,
+  listThreads,
+  loadMessages,
+  renameThread,
+  streamAsk,
+} from "@/lib/api";
 import { loadDefinitions } from "@/lib/definitions";
 import { ApiError, apiRequest } from "@/lib/http";
 import { chatRequestError, isAbortError, type ChatRequestError } from "@/lib/request-error";
@@ -43,6 +51,8 @@ type AskTurn =
   | { phase: "revealing"; threadId: string; turnId: string; text: string };
 
 type VisibleError = ChatRequestError & { retryText: string | null };
+
+type SignOutReason = "user" | "session_ended";
 
 function replyText(response: PublicResponse): string {
   switch (response.kind) {
@@ -72,6 +82,8 @@ export function App() {
   const [active, setActive] = useState<PublicCitation | null>(null);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(() => getAccessToken());
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [signOutReason, setSignOutReason] = useState<SignOutReason | null>(null);
   const [requestEmail, setRequestEmail] = useState("");
   const [requestState, setRequestState] = useState<
     "idle" | "sending" | "sent" | "leaving" | "failed"
@@ -105,10 +117,11 @@ export function App() {
     let cancelled = false;
     void (async () => {
       try {
-        const listed = await listThreads();
+        const [me, listed] = await Promise.all([fetchMe(), listThreads()]);
         if (cancelled) {
           return;
         }
+        setSessionEmail(me.email);
         setThreads(listed);
         const hint = sessionStorage.getItem(ACTIVE_THREAD_KEY);
         const chosen = listed.find((thread) => thread.id === hint)?.id ?? null;
@@ -166,6 +179,7 @@ export function App() {
     if (!email) {
       return;
     }
+    setSignOutReason(null);
     setSignInNotice(null);
     try {
       await requestSignInCode(email);
@@ -181,6 +195,7 @@ export function App() {
     if (!email || !code) {
       return;
     }
+    setSignOutReason(null);
     setSignInNotice(null);
     try {
       await completeSignIn(email, code);
@@ -206,7 +221,7 @@ export function App() {
     }
     const mapped = chatRequestError(caught);
     if (mapped.signOut) {
-      signOut();
+      signOut("session_ended");
       return true;
     }
     if (
@@ -242,17 +257,22 @@ export function App() {
     }
   }
 
-  function signOut() {
+  function signOut(reason: SignOutReason) {
     abandonAsk();
     clearAccessToken();
     sessionStorage.removeItem(ACTIVE_THREAD_KEY);
     setSessionToken(null);
+    setSessionEmail(null);
+    setSignOutReason(reason);
     setThreads([]);
     setActiveThreadId(null);
     setMessages([]);
     setError(null);
     setGlossaryOpen(false);
     setNotAllowed(false);
+    if (reason === "session_ended") {
+      setGateView("login");
+    }
   }
 
   async function renameChat(id: string, title: string) {
@@ -421,6 +441,11 @@ export function App() {
     }
   }
 
+  const sessionEndedNotice =
+    signOutReason === "session_ended" ? (
+      <p className="mt-3 text-[13px] text-ink-3">Your session ended. Sign in again.</p>
+    ) : null;
+
   const gatePanel =
     gateView === "request" ? (
       <form
@@ -433,6 +458,7 @@ export function App() {
           <DialogTitle>Request access</DialogTitle>
           <DialogDescription>Leave an email. This does not create an account.</DialogDescription>
         </DialogHeader>
+        {sessionEndedNotice}
         <label className="sr-only" htmlFor="access-email">
           Email
         </label>
@@ -503,6 +529,7 @@ export function App() {
             If this is your first time, enter the email we invited and send a code.
           </DialogDescription>
         </DialogHeader>
+        {sessionEndedNotice}
         <label className="sr-only" htmlFor="sign-in-email">
           Sign-in email
         </label>
@@ -511,7 +538,10 @@ export function App() {
           type="email"
           autoComplete="email"
           value={signInEmail}
-          onChange={(event) => setSignInEmail(event.target.value)}
+          onChange={(event) => {
+            setSignOutReason(null);
+            setSignInEmail(event.target.value);
+          }}
           placeholder="invited@example.com"
           className="mt-4"
         />
@@ -523,7 +553,10 @@ export function App() {
           inputMode="numeric"
           autoComplete="one-time-code"
           value={signInCode}
-          onChange={(event) => setSignInCode(event.target.value)}
+          onChange={(event) => {
+            setSignOutReason(null);
+            setSignInCode(event.target.value);
+          }}
           placeholder="123456"
           className="mt-2"
         />
@@ -597,13 +630,13 @@ export function App() {
           recents={threads.map((thread) => ({ id: thread.id, label: thread.title }))}
           activeId={activeThreadId}
           activeNav={glossaryOpen ? "definitions" : "chats"}
-          userEmail={signInEmail}
+          userEmail={sessionEmail ?? undefined}
           onNewChat={() => void startThread()}
           onPick={(id) => void openThread(id)}
           onNavigate={(key) => setGlossaryOpen(key === "definitions")}
           onRename={(id, title) => void renameChat(id, title)}
           onDelete={(id) => void deleteChat(id)}
-          onSignOut={signOut}
+          onSignOut={() => signOut("user")}
         />
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2 md:hidden">

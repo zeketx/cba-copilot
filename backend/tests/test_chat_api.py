@@ -75,6 +75,20 @@ def _events(body: str) -> list[tuple[str, dict[str, object]]]:
     return events
 
 
+def test_me_returns_the_verified_email() -> None:
+    client, _log = _client()
+    response = client.get("/api/me", headers={"Authorization": "Bearer fan"})
+    assert response.status_code == 200
+    assert response.json() == {"email": "fan@example.com"}
+
+
+def test_me_without_a_token_is_unauthorized() -> None:
+    client, _log = _client()
+    response = client.get("/api/me")
+    assert response.status_code == 401
+    assert response.json()["detail"]["error"] == "unauthorized"
+
+
 def test_stream_without_a_token_is_unauthorized() -> None:
     client, log = _client()
     thread = log.create_thread(FAN.id)

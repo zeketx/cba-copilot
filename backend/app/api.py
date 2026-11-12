@@ -47,6 +47,10 @@ class AccessRequestResponse(BaseModel):
     email: str
     created_at: datetime
 
+
+class MeResponse(BaseModel):
+    email: str
+
 class PublicCitation(BaseModel):
     passage_id: str
     article_number: int | None
@@ -293,6 +297,10 @@ def create_app(
     def request_access(body: AccessRequestBody, request: Request) -> AccessRequestResponse:
         record = request.app.state.gate.submit(Email.parse(body.email))
         return AccessRequestResponse(email=record.email.value, created_at=record.created_at)
+
+    @app.get("/api/me")
+    def me(user: Annotated[AppUser, Depends(get_current_user)]) -> MeResponse:
+        return MeResponse(email=user.email.value)
 
     @app.post("/api/threads")
     def create_thread(
