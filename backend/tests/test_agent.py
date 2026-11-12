@@ -12,8 +12,8 @@ def test_stand_in_model_answer_keeps_a_retrieved_citation() -> None:
     agent = build_agent(
         TestModel(
             custom_output_args={
+                "status": "answer",
                 "claims": [{"text": "Cited from the passage.", "passage_ids": [passage.id]}],
-                "insufficient_evidence": False,
             }
         )
     )
@@ -32,8 +32,8 @@ def test_stand_in_model_unknown_citation_becomes_a_refusal() -> None:
     agent = build_agent(
         TestModel(
             custom_output_args={
+                "status": "answer",
                 "claims": [{"text": "Not in the set.", "passage_ids": ["not-retrieved"]}],
-                "insufficient_evidence": False,
             }
         )
     )
@@ -60,6 +60,34 @@ def test_live_clients_refuse_before_a_call() -> None:
         assert "disabled" in str(exc)
     else:
         raise AssertionError("embedding guard did not raise")
+
+
+def test_stand_in_model_ambiguous_draft_is_a_clarification() -> None:
+    chunks = load_demo_chunks()
+    by_id = {chunk.id: chunk for chunk in chunks}
+    bird = by_id["bird"]
+    early = by_id["early-bird"]
+    agent = build_agent(
+        TestModel(
+            custom_output_args={
+                "status": "ambiguous",
+                "claims": [
+                    {"text": bird.text.strip(), "passage_ids": [bird.id]},
+                    {"text": early.text.strip(), "passage_ids": [early.id]},
+                ],
+            }
+        )
+    )
+    response = answer_question(
+        "Bird vs. Early Bird rights in plain English.",
+        demo_store(),
+        demo_embedder(),
+        AgentDrafter(agent),
+    )
+    assert response.kind == "clarification"
+    assert response.reason == "ambiguous"
+    cited = {passage_id for claim in response.claims for passage_id in claim.passage_ids}
+    assert cited == {bird.id, early.id}
 
 
 def test_agent_output_type_is_the_draft() -> None:
