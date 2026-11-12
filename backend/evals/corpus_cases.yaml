@@ -1,0 +1,175 @@
+- id: whole-rule
+  kind: whole_rule
+  question: >
+    What happens if a team uses an Aggregated Standard Traded Player Exception
+    in a trade that would put Apron Team Salary over the Second Apron Level?
+  expected_sections:
+    - article: 7
+      section_contains: "2(e)"
+      page_start: 190
+      page_end: 191
+      note: >
+        Article VII Section 2(e)(4) Transaction Restrictions Table. The fixture
+        passage states a team may not acquire a player using an Aggregated
+        Standard Traded Player Exception if that trade would put Apron Team
+        Salary over the Second Apron Level.
+
+- id: exception
+  kind: exception
+  question: >
+    When is a player still eligible for NBA Most Valuable Player if he did not
+    play sixty-five Regular Season games?
+  expected_sections:
+    - article: 29
+      section_contains: "6"
+      page_start: 432
+      page_end: 433
+      note: >
+        Article XXIX Section 6. The general rule is sixty-five Regular Season
+        games. The same section allows sixty-two games with a season-ending
+        injury if the player appeared in 85 percent of his team's games before
+        that injury.
+  required_phrases:
+    - sixty-five
+    - sixty-two
+    - season-ending injury
+
+- id: cross-reference
+  kind: cross_reference
+  question: >
+    How does the Taxpayer Mid-Level Salary Exception change above the Second
+    Apron Level, and which transaction table covers that limit?
+  expected_sections:
+    - article: 7
+      section_contains: "6(f)"
+      page_start: 237
+      page_end: 238
+      note: >
+        Article VII Section 6(f) states the exception amount and points at Row K
+        of the Transaction Restrictions Table for the Second Apron limit.
+    - article: 7
+      section_contains: "2(e)"
+      page_start: 190
+      page_end: 191
+      note: >
+        Article VII Section 2(e)(4) is that table, including the second-apron
+        trade rows the 6(f) passage refers to.
+
+- id: two-passages
+  kind: two_passages
+  question: What counts toward the cap as Salary, and how is Team Salary determined?
+  expected_sections:
+    - article: 1
+      section_contains: "1(lll)"
+      page_start: 9
+      page_end: 9
+      note: >
+        Article I Section 1(lll) defines Salary. The fixture text does not point
+        at Article VII Section 4.
+    - article: 7
+      section_contains: "4 Determination of Team Salary"
+      page_start: 211
+      page_end: 225
+      note: >
+        Article VII Section 4 determines Team Salary. The fixture text does not
+        point at Article I Section 1(lll).
+
+- id: season-or-date
+  kind: season_or_date
+  question: How much is the Taxpayer Mid-Level Salary Exception?
+  expected_sections:
+    - article: 7
+      section_contains: "6(f)"
+      page_start: 237
+      page_end: 238
+      note: >
+        Article VII Section 6(f) sets 5 million dollars for 2023-24 and says
+        later years scale with the Salary Cap, so the amount depends on the
+        season.
+
+- id: computation
+  kind: computation
+  question: >
+    An Early Qualifying Veteran Free Agent has a prior regular salary of
+    10000000 and the prior average player salary is 12000000. What is the
+    first-year cap under the veteran free agent exception?
+  expected_sections:
+    - article: 7
+      section_contains: "6(b)"
+      page_start: 231
+      page_end: 232
+      note: >
+        Article VII Section 6(b), the Veteran Free Agent Exception. For an Early
+        Qualifying Veteran Free Agent it caps the first-year salary at the
+        greater of 175 percent of the prior regular salary or 105 percent of the
+        prior average player salary. The 1(t) definition only names the status.
+        max(1.75 * 10000000, 1.05 * 12000000) = 17500000.
+  expected_number: 17500000
+
+- id: missing-inputs
+  kind: missing_inputs
+  question: >
+    What is the first-year salary cap for an Early Qualifying Veteran Free Agent
+    under the veteran free agent exception?
+  expected_sections:
+    - article: 7
+      section_contains: "6(b)"
+      page_start: 231
+      page_end: 232
+      note: >
+        The same 6(b) passage states the 175 percent / 105 percent operation,
+        and the question omits both salaries.
+
+- id: definition
+  kind: definition
+  question: What does Salary include, and does it include Unlikely Bonuses?
+  expected_sections:
+    - article: 1
+      section_contains: "1(lll)"
+      page_start: 9
+      page_end: 9
+      note: >
+        Article I Section 1(lll). The fixture definition names Compensation and
+        Unlikely Bonuses and contains no numerals.
+
+- id: no-evidence
+  kind: no_evidence
+  question: How many timeouts may an NHL coach call during a playoff overtime?
+  expected_sections: []
+
+- id: ambiguous
+  kind: ambiguous
+  question: >
+    How many seasons can a contract signed with the mid-level exception run for
+    a team that is over the Salary Cap?
+  expected_sections:
+    - article: 7
+      section_contains: "6(e)"
+      page_start: 236
+      page_end: 237
+      note: >
+        Article VII Section 6(e), the Non-Taxpayer Mid-Level Salary Exception,
+        allows contracts of up to four seasons.
+    - article: 7
+      section_contains: "6(f)"
+      page_start: 237
+      page_end: 238
+      note: >
+        Article VII Section 6(f), the Taxpayer Mid-Level Salary Exception,
+        allows contracts of up to two seasons. The question does not say which
+        apron the team is under, so neither passage controls.
+
+- id: bad-citation
+  kind: bad_citation
+  question: What can't a second-apron team do in a trade?
+  expected_sections:
+    - article: 7
+      section_contains: "2(e)"
+      page_start: 190
+      page_end: 191
+      note: >
+        Uses the second-apron trade question so retrieval returns a real
+        passage. The runner then appends a claim whose quote is not in that
+        passage.
+  injected_text: A second-apron team may aggregate salaries without limit.
+  injected_quote: this quote is not in any retrieved CBA passage

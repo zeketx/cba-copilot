@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
 from pydantic_ai import Agent
+from pydantic_ai.models import Model
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
+from app.config import Settings
 from app.domain import Chunk, DraftAnswer, DraftClaim
 from app.retrieval.aliases import expand_query
 from app.retrieval.text import tokens
@@ -79,8 +87,29 @@ def build_agent(model: object) -> Agent[None, DraftAnswer]:
     return Agent(model, output_type=DraftAnswer, instructions=_INSTRUCTIONS)
 
 
-def refuse_live_model(model_name: str) -> None:
-    raise RuntimeError(
-        f"Live model {model_name} is disabled in this skeleton. "
-        "Add credits and remove this guard before a live run."
-    )
+def _openai_model(name: str, settings: Settings) -> Model:
+    return OpenAIChatModel(name, provider=OpenAIProvider(api_key=settings.openai_api_key))
+
+
+def _google_model(name: str, settings: Settings) -> Model:
+    return GoogleModel(name, provider=GoogleProvider(api_key=settings.gemini_api_key))
+
+
+def _openrouter_model(name: str, settings: Settings) -> Model:
+    return OpenAIChatModel(name, provider=OpenRouterProvider(api_key=settings.openrouter_api_key))
+
+
+_LIVE_MODELS: dict[str, Callable[[str, Settings], Model]] = {
+    "openai": _openai_model,
+    "google": _google_model,
+    "openrouter": _openrouter_model,
+}
+
+
+def build_live_model(settings: Settings) -> Model:
+    name = settings.answer_model_id.split(":", 1)[-1]
+    return _LIVE_MODELS[settings.answer_provider](name, settings)
+
+
+def build_live_drafter(settings: Settings) -> AgentDrafter:
+    return AgentDrafter(build_agent(build_live_model(settings)))
