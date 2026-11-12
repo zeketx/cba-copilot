@@ -5,12 +5,19 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export class ApiError extends Error {
   readonly kind: "network" | "http";
   readonly status: number | null;
+  readonly code: string | null;
 
-  constructor(kind: "network" | "http", message: string, status: number | null = null) {
+  constructor(
+    kind: "network" | "http",
+    message: string,
+    status: number | null = null,
+    code: string | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.kind = kind;
     this.status = status;
+    this.code = code;
   }
 }
 
