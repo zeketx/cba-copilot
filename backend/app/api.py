@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Literal
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -17,13 +18,15 @@ from app.auth.dependencies import gate_from_settings, get_current_user, http_err
 from app.auth.identity import AppUser, AuthError, Email
 from app.chat.log import ChatLog, MemoryChatLog, SqlChatLog
 from app.chat.model import StoredTurn, ThreadSummary
-from app.chat.service import ThreadChat
+from app.chat.service import AnswerFailed, AnswerFn, ThreadChat
 from app.config import Settings
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
-from app.domain import Chunk, CitedAnswer, Refusal
+from app.domain import Chunk, Claim, Clarification, CopilotResponse, Refusal
 from app.pipeline import answer_question
 from app.source_view import ElementPlacement, SpanPlacement, render_source
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.auth.gate import AccessGate
@@ -70,7 +73,17 @@ class PublicRefusal(BaseModel):
     reason: Literal["no_evidence", "citations_dropped"]
     message: str
 
-PublicResponse = Annotated[PublicAnswer | PublicRefusal, Field(discriminator="kind")]
+
+class PublicClarification(BaseModel):
+    kind: Literal["clarification"] = "clarification"
+    reason: Literal["ambiguous", "missing_inputs"]
+    message: str
+    claims: list[PublicClaim]
+
+PublicResponse = Annotated[
+    PublicAnswer | PublicRefusal | PublicClarification,
+    Field(discriminator="kind"),
+]
 
 
 class PublicThread(BaseModel):
@@ -91,7 +104,7 @@ class PublicAssistantMessage(BaseModel):
     id: UUID
     role: Literal["assistant"] = "assistant"
     position: int
-    response: PublicAnswer | PublicRefusal
+    response: PublicAnswer | PublicRefusal | PublicClarification
 
 
 class StreamChatMessage(BaseModel):
@@ -142,21 +155,32 @@ def _citation(chunk: Chunk, corpus: list[Chunk]) -> PublicCitation:
         placement=placement,
     )
 
-def to_public(
-    response: CitedAnswer | Refusal,
+def _public_claims(
+    claims: list[Claim],
     passages: dict[str, Chunk],
     corpus: list[Chunk],
-) -> PublicAnswer | PublicRefusal:
-    if isinstance(response, Refusal):
-        return PublicRefusal(reason=response.reason, message=response.message)
-    claims: list[PublicClaim] = []
-    for claim in response.claims:
+) -> list[PublicClaim]:
+    public: list[PublicClaim] = []
+    for claim in claims:
         citations = [
             _citation(passages[passage_id], corpus)
             for passage_id in claim.passage_ids
             if passage_id in passages
         ]
-        claims.append(PublicClaim(text=claim.text, citations=citations))
+        public.append(PublicClaim(text=claim.text, citations=citations))
+    return public
+
+
+def to_public(
+    response: CopilotResponse,
+    passages: dict[str, Chunk],
+    corpus: list[Chunk],
+) -> PublicAnswer | PublicRefusal | PublicClarification:
+    if isinstance(response, Refusal):
+        return PublicRefusal(reason=response.reason, message=response.message)
+    claims = _public_claims(response.claims, passages, corpus)
+    if isinstance(response, Clarification):
+        return PublicClarification(reason=response.reason, message=response.message, claims=claims)
     return PublicAnswer(claims=claims)
 
 def _public_thread(summary: ThreadSummary) -> PublicThread:
@@ -168,8 +192,8 @@ def _public_thread(summary: ThreadSummary) -> PublicThread:
     )
 
 
-def _stream_text(public: PublicAnswer | PublicRefusal) -> str:
-    if isinstance(public, PublicRefusal):
+def _stream_text(public: PublicAnswer | PublicRefusal | PublicClarification) -> str:
+    if isinstance(public, PublicRefusal | PublicClarification):
         return public.message
     return "\n\n".join(claim.text for claim in public.claims)
 
@@ -186,11 +210,11 @@ def _sse(event: str, payload: dict[str, object]) -> str:
 
 def _turn_events(
     turn: StoredTurn,
-    public: PublicAnswer | PublicRefusal,
+    public: PublicAnswer | PublicRefusal | PublicClarification,
 ) -> Iterator[str]:
     for chunk in _delta_chunks(_stream_text(public)):
         yield _sse("delta", {"text": chunk})
-    if isinstance(public, PublicAnswer):
+    if not isinstance(public, PublicRefusal):
         claims = [claim.model_dump(mode="json") for claim in public.claims]
         yield _sse("citations", {"claims": claims})
     yield _sse(
@@ -214,6 +238,7 @@ def create_app(
     *,
     gate: AccessGate | None = None,
     log: ChatLog | None = None,
+    answer: AnswerFn | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
     store = demo_store()
@@ -222,13 +247,9 @@ def create_app(
     by_id = {chunk.id: chunk for chunk in load_demo_chunks()}
     corpus = list(by_id.values())
     chat_log = log if log is not None else _chat_log(settings)
-    app = FastAPI(title="CBA Copilot", version="0.1.0")
-    app.state.gate = gate if gate is not None else gate_from_settings(settings, threads=chat_log)
-    app.state.chat_log = chat_log
-    app.state.chat = ThreadChat(
-        app.state.gate,
-        chat_log,
-        lambda question: answer_question(
+
+    def run_answer(question: str) -> CopilotResponse:
+        return answer_question(
             question,
             store,
             embedder,
@@ -238,8 +259,13 @@ def create_app(
             rrf_k=settings.retrieval_rrf_k,
             context_per_hit=settings.retrieval_context_per_hit,
             context_max=settings.retrieval_context_max,
-        ),
-    )
+        )
+
+    answer_fn = answer if answer is not None else run_answer
+    app = FastAPI(title="CBA Copilot", version="0.1.0")
+    app.state.gate = gate if gate is not None else gate_from_settings(settings, threads=chat_log)
+    app.state.chat_log = chat_log
+    app.state.chat = ThreadChat(app.state.gate, chat_log, answer_fn)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
@@ -317,22 +343,19 @@ def create_app(
             turn = request.app.state.chat.ask(user, body.thread_id, last.id, last.content)
         except AuthError as exc:
             raise http_error(exc) from None
+        except AnswerFailed:
+            logger.exception("answer failed")
+            raise HTTPException(status_code=502, detail={"error": "answer_failed"}) from None
         public = to_public(turn.outcome, by_id, corpus)
         return StreamingResponse(_turn_events(turn, public), media_type="text/event-stream")
 
     @app.post("/api/ask", dependencies=[Depends(get_current_user)])
-    def ask(body: AskRequest) -> PublicAnswer | PublicRefusal:
-        result = answer_question(
-            body.question,
-            store,
-            embedder,
-            drafter,
-            candidate_k=settings.retrieval_candidate_k,
-            top_k=settings.retrieval_top_k,
-            rrf_k=settings.retrieval_rrf_k,
-            context_per_hit=settings.retrieval_context_per_hit,
-            context_max=settings.retrieval_context_max,
-        )
+    def ask(body: AskRequest) -> PublicAnswer | PublicRefusal | PublicClarification:
+        try:
+            result = answer_fn(body.question)
+        except Exception:
+            logger.exception("answer failed")
+            raise HTTPException(status_code=502, detail={"error": "answer_failed"}) from None
         return to_public(result, by_id, list(by_id.values()))
 
     @app.get("/api/definitions")

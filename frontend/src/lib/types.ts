@@ -30,7 +30,14 @@ export type PublicRefusal = {
   message: string;
 };
 
-export type PublicResponse = PublicAnswer | PublicRefusal;
+export type PublicClarification = {
+  kind: "clarification";
+  reason: "ambiguous" | "missing_inputs";
+  message: string;
+  claims: PublicClaim[];
+};
+
+export type PublicResponse = PublicAnswer | PublicRefusal | PublicClarification;
 
 export type ThreadSummary = {
   id: string;
@@ -84,6 +91,12 @@ export type WireResponse =
       kind: "refusal";
       reason: "no_evidence" | "citations_dropped";
       message: string;
+    }
+  | {
+      kind: "clarification";
+      reason: "ambiguous" | "missing_inputs";
+      message: string;
+      claims: { text: string; citations: WireCitation[] }[];
     };
 
 function citationFromWire(citation: WireCitation): PublicCitation {
@@ -146,17 +159,36 @@ export function messageFromWire(body: WireChatMessage): ChatMessage {
   };
 }
 
+function claimsFromWire(
+  claims: { text: string; citations: WireCitation[] }[],
+): PublicClaim[] {
+  return claims.map((claim) => ({
+    text: claim.text,
+    citations: claim.citations.map(citationFromWire),
+  }));
+}
+
 export function responseFromWire(body: WireResponse): PublicResponse {
-  if (body.kind === "refusal") {
-    return body;
+  switch (body.kind) {
+    case "refusal":
+      return body;
+    case "clarification":
+      return {
+        kind: "clarification",
+        reason: body.reason,
+        message: body.message,
+        claims: claimsFromWire(body.claims),
+      };
+    case "answer":
+      return {
+        kind: "answer",
+        claims: claimsFromWire(body.claims),
+      };
+    default: {
+      const _exhaustive: never = body;
+      return _exhaustive;
+    }
   }
-  return {
-    kind: "answer",
-    claims: body.claims.map((claim) => ({
-      text: claim.text,
-      citations: claim.citations.map(citationFromWire),
-    })),
-  };
 }
 
 export const SAMPLE_QUESTIONS = [

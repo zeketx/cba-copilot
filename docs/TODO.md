@@ -124,11 +124,11 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 - [x] `validate_draft` keeps a claim only when every passage id was retrieved. If one valid claim remains, that claim stays. If none remain, the reason is `citations_dropped` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] No claims, or `insufficient_evidence`, refuses with `no_evidence` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] Tests in `tests/test_grounding.py` and `tests/test_agent.py` use stand-in models and do not call the network ([#1](https://github.com/zeketx/cba-copilot/pull/1))
-- [ ] Add `ambiguous` and `missing_inputs`. Ask which season or effective date applies when more than one passage matches and the question names neither
-- [ ] Persist the turn only after the validator accepts it
-- [ ] Stream text deltas first, then citation parts. Map auth, missing thread, retrieval, and grounding failures to 401, 403, 404, 422, and 502
+- [x] Add `ambiguous` and `missing_inputs`. Ask which season or effective date applies when more than one passage matches and the question names neither ([#18](https://github.com/zeketx/cba-copilot/pull/18)). `DraftAnswer.status` replaces the `insufficient_evidence` flag, and `validate_draft` turns those statuses into a `clarification` turn. The server writes the clarification message. An ambiguous turn must cite two retrieved passages, and a missing-inputs turn must name an input and cite one retrieved passage. Otherwise the turn refuses. The offline drafter never emits them. Stand-in model tests cover both
+- [x] Persist the turn only after the validator accepts it ([#18](https://github.com/zeketx/cba-copilot/pull/18)). A refusal or a clarification is a valid turn and is stored. An exception from retrieval or the drafter stores nothing, so a retry with the same turn id runs again
+- [x] Stream text deltas first, then citation parts. Map auth, missing thread, retrieval, and grounding failures to 401, 403, 404, 422, and 502 ([#18](https://github.com/zeketx/cba-copilot/pull/18)). A missing token is 401. Another user's thread or an email that is not on the allow-list is 403. A missing thread is 404. A bad request body is 422. A retrieval or drafter exception is 502 `answer_failed`. A grounding refusal is a 200 turn, not an HTTP error
 
-**Exit:** one question from `backend/evals/questions.yaml` returns a cited answer through the API, and an off-corpus question returns `no_evidence`. The cited quote is contained in the retrieved passage.
+**Exit:** one question from `backend/evals/questions.yaml` returns a cited answer through the API, and an off-corpus question returns `no_evidence`. The cited quote is contained in the retrieved passage. On 2026-11-11, on the fixture app, "What can't a second-apron team do in a trade?" streamed deltas, then citations, then `done`. It cited Article VII 2(e)(4) and 6(f), and each claim was found verbatim in its passage. The NHL timeout question returned `no_evidence`. A drafter that raised returned 502 and left the thread empty. This was not run against the live store, because an agent session may not call OpenRouter.
 
 ## 9. Analyst UI
 
