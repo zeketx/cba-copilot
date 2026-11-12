@@ -6,7 +6,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from pydantic import TypeAdapter
-from sqlalchemy import create_engine, func, insert, select, update
+from sqlalchemy import create_engine, delete, func, insert, select, update
 from sqlalchemy.engine import Engine
 
 from app.auth.identity import AuthUserId
@@ -22,6 +22,10 @@ class ChatLog(Protocol):
     def create_thread(self, owner: AuthUserId) -> ThreadSummary: ...
 
     def list_threads(self, owner: AuthUserId) -> list[ThreadSummary]: ...
+
+    def rename_thread(self, thread_id: UUID, title: str) -> ThreadSummary: ...
+
+    def delete_thread(self, thread_id: UUID) -> None: ...
 
     def list_turns(self, thread_id: UUID) -> list[StoredTurn]: ...
 
@@ -66,6 +70,26 @@ class MemoryChatLog:
                 if self._owners[thread_id] == owner
             ]
         return sorted(owned, key=lambda item: item.updated_at, reverse=True)
+
+    def rename_thread(self, thread_id: UUID, title: str) -> ThreadSummary:
+        with self._lock:
+            summary = self._threads[thread_id]
+            updated = ThreadSummary(
+                id=summary.id,
+                title=title,
+                created_at=summary.created_at,
+                updated_at=datetime.now(timezone.utc),
+            )
+            self._threads[thread_id] = updated
+            return updated
+
+    def delete_thread(self, thread_id: UUID) -> None:
+        with self._lock:
+            turns = self._turns.pop(thread_id, [])
+            for turn in turns:
+                self._by_turn_id.pop(turn.turn_id, None)
+            self._owners.pop(thread_id, None)
+            self._threads.pop(thread_id, None)
 
     def list_turns(self, thread_id: UUID) -> list[StoredTurn]:
         with self._lock:
@@ -183,6 +207,36 @@ class SqlChatLog:
             )
             for row in rows
         ]
+
+    def rename_thread(self, thread_id: UUID, title: str) -> ThreadSummary:
+        from app.database.models import ChatThread
+
+        with self._connect().begin() as connection:
+            row = connection.execute(
+                update(ChatThread)
+                .where(ChatThread.id == thread_id)
+                .values(title=title, updated_at=func.now())
+                .returning(
+                    ChatThread.id,
+                    ChatThread.title,
+                    ChatThread.created_at,
+                    ChatThread.updated_at,
+                )
+            ).one_or_none()
+        if row is None:
+            raise KeyError(thread_id)
+        return ThreadSummary(
+            id=row.id,
+            title=row.title,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    def delete_thread(self, thread_id: UUID) -> None:
+        from app.database.models import ChatThread
+
+        with self._connect().begin() as connection:
+            connection.execute(delete(ChatThread).where(ChatThread.id == thread_id))
 
     def list_turns(self, thread_id: UUID) -> list[StoredTurn]:
         from app.database.models import ChatMessage
