@@ -8,6 +8,8 @@ Checked boxes match `main` as of 2026-11-11. These PRs are on `main`: the scaffo
 
 ## 0. Already in the repo
 
+**Story:** As the owner, I want a scaffold with a license and secret-free env examples, so anyone can start without credentials.
+
 - [x] `README.md` describes cited, refusal-first Q&A over the 2023 NBA CBA ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] `LICENSE` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] `.cursor/settings.json` enables pstack ([#1](https://github.com/zeketx/cba-copilot/pull/1))
@@ -22,6 +24,8 @@ Checked boxes match `main` as of 2026-11-11. These PRs are on `main`: the scaffo
 
 ## 1. Accounts and local corpus
 
+**Story:** As the owner, I want the official CBA PDF downloaded with its source and dates recorded, so every answer traces to one known file.
+
 - [x] Create the Supabase project in `docs/guides/supabase-setup.md` and stop before any paid project. The project is `nba-cba-copilot`, ref `wxfscyrhpqnbimjdqvyf`, region `us-east-2`. The public schema had no tables on 2026-11-08. Invite-only auth later landed in [#9](https://github.com/zeketx/cba-copilot/pull/9)
 - [x] Copy credentials into `backend/.env`. The service role and `DATABASE_URL` stay backend-only. The URL uses `db.wxfscyrhpqnbimjdqvyf.supabase.co` on port 5432. A login as `postgres` succeeded on 2026-11-08. The file is gitignored
 - [x] The download script records the URL, the sha256, the cover date, and the printed term in a gitignored manifest ([#2](https://github.com/zeketx/cba-copilot/pull/2)). `data/corpus.json` has the URL, the dates, and a printed-to-viewer offset of 24, and it has no hash
@@ -30,6 +34,8 @@ Checked boxes match `main` as of 2026-11-11. These PRs are on `main`: the scaffo
 **Exit:** `backend/.env` is filled, and `data/downloads/` contains the official PDF plus a manifest with its hash. A second download does not commit the PDF.
 
 ## 2. Boot both services
+
+**Story:** As a developer, I want the backend and frontend to run locally from one settings module, so I can try the demo offline.
 
 Backend (`docs/guides/backend-setup.md`):
 
@@ -45,6 +51,8 @@ Frontend (`docs/guides/frontend-setup.md`):
 **Exit:** both processes run locally and the frontend can reach `/api/health`. On 2026-11-08 the proof used backend port 8011 and frontend port 5174, because 8000 and 5173 were already in use. The committed Vite proxy still points at `http://127.0.0.1:8000`. The proxied health body was `{"ok":"true","mode":"fake"}`.
 
 ## 3. Schema
+
+**Story:** As the owner, I want the CBA and chat tables in Postgres with vector and full-text indexes, so the app can search the agreement and save chats.
 
 `source_documents`, `cba_chunks`, `users`, `chat_threads`, `chat_messages`, and `message_citations` are on the hosted database. Auth is in the app ([#9](https://github.com/zeketx/cba-copilot/pull/9)). Row policies for the chat tables are still open.
 
@@ -68,6 +76,8 @@ Frontend (`docs/guides/frontend-setup.md`):
 
 ## 4. Auth
 
+**Story:** As an invited analyst, I want to sign in with an email code, so only approved people can use the copilot.
+
 Access is invite-only ([#9](https://github.com/zeketx/cba-copilot/pull/9)). Public sign-up stays off until the owner opens it. A visitor can leave an email to request access. That request does not create an account. The owner sends the invite from Authentication, then Users, then Add user, then Send invitation. That control is not on Project Overview. A row in `public.users` does not send an invite. Supabase rejects a new account that was not invited. The app also rejects a signed-in email that is not on the allow-list. The link in the invite email does not open this app yet. Until the phase 11 redirect exists, an invited person uses Send code.
 
 - [x] A public form takes an email and stores an access request. It does not create a user ([#4](https://github.com/zeketx/cba-copilot/pull/4), on `main` via [#9](https://github.com/zeketx/cba-copilot/pull/9)). `c0a2023b0004` is on the hosted database. On 2026-11-10 `POST /api/access-requests` returned 200, a second post kept the same `created_at`, and that request did not add a `users` row
@@ -81,6 +91,8 @@ Access is invite-only ([#9](https://github.com/zeketx/cba-copilot/pull/9)). Publ
 **Exit:** an invited person reaches a protected route. A request with no token gets 401. A person who was not invited gets 403. The 401 is proven. The invited sign-in is not, because the dashboard invite has not been sent.
 
 ## 5. Chat shell
+
+**Story:** As an analyst, I want my question answered in a streaming chat that is saved, so I can come back to my research.
 
 The screen lists the signed-in user's threads, streams a reply, and reloads that history. The screen uses Beautiful UI (`https://www.beautifului.dev/`): the foundation theme, `Button`, `StreamText`, `ContextCards`, and `LoadingState`.
 
@@ -97,6 +109,8 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 
 ## 6. Ingestion
 
+**Story:** As the owner, I want the PDF stored as whole article and section chunks with page numbers and embeddings, so search returns complete rules.
+
 - [x] Parse the official PDF into text that keeps the source URL, the printed page, and the viewer page. Measure the offset from the file. Do not assume an offset. `ingest/pdf.py` reads the printed page from each running header ([#9](https://github.com/zeketx/cba-copilot/pull/9)). All 560 article pages give an offset of 24. Exhibits, viewer pages 585 to 676, are not ingested yet
 - [x] Upsert one `source_documents` row with that text, the source URL, the hash, the cover date, and the printed term. A second run updates the same row. Migration `c0a2023b0005` adds the columns and a unique `source_url` ([#9](https://github.com/zeketx/cba-copilot/pull/9))
 - [x] `chunk_markdown` in `ingest/chunker.py` chunks by article and section, keeps a section whole across a page, and does not start a chunk on a page marker. Article I definitions are one chunk per lettered definition ([#12](https://github.com/zeketx/cba-copilot/pull/12)). Section labels keep the full parent path, and known PDF word splits are rejoined in the section column only ([#14](https://github.com/zeketx/cba-copilot/pull/14)). Tests are in `tests/test_chunker.py` and do not use the network
@@ -108,6 +122,8 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 **Exit:** the official PDF is queryable as rows in `source_documents` and `cba_chunks`, with embeddings, both page numbers, and a populated `search_vector`. The PDF file is still gitignored. On 2026-11-10 two `ingest load` runs left one document and 857 chunks with the same ids. After the Article I split and the label reload, the live store has 915 chunks with Voyage embeddings at 1024 dimensions. Every chunk has both page numbers and a populated `search_vector`. Exhibits, viewer pages 585 to 676, are still not ingested.
 
 ## 7. Hybrid retrieval
+
+**Story:** As an analyst, I want my question matched by meaning and by exact CBA terms, so the right section comes back.
 
 - [x] `reciprocal_rank_fusion` uses `k=60` unless `RETRIEVAL_RRF_K` sets another value ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] `vector_search_sql` and `keyword_search_sql` are fixed statements. No model-written SQL ([#1](https://github.com/zeketx/cba-copilot/pull/1))
@@ -121,6 +137,8 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 
 ## 8. Grounded agent
 
+**Story:** As an analyst, I want every answer to cite a retrieved passage or refuse, so I never get an unsupported claim.
+
 - [x] `validate_draft` keeps a claim only when every passage id was retrieved. If one valid claim remains, that claim stays. If none remain, the reason is `citations_dropped` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] No claims, or `insufficient_evidence`, refuses with `no_evidence` ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] Tests in `tests/test_grounding.py` and `tests/test_agent.py` use stand-in models and do not call the network ([#1](https://github.com/zeketx/cba-copilot/pull/1))
@@ -131,6 +149,8 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 **Exit:** one question from `backend/evals/questions.yaml` returns a cited answer through the API, and an off-corpus question returns `no_evidence`. The cited quote is contained in the retrieved passage. On 2026-11-11, on the fixture app, "What can't a second-apron team do in a trade?" streamed deltas, then citations, then `done`. It cited Article VII 2(e)(4) and 6(f), and each claim was found verbatim in its passage. The NHL timeout question returned `no_evidence`. A drafter that raised returned 502 and left the thread empty. This was not run against the live store, because an agent session may not call OpenRouter.
 
 ## 9. Analyst UI
+
+**Story:** As an analyst, I want to open the cited PDF page, manage my chats, and see clear errors, so I can check an answer in one place.
 
 - [x] The demo renders each claim and a chip with the article, the section, and the page ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] A click opens a source panel for that passage ([#1](https://github.com/zeketx/cba-copilot/pull/1))
@@ -146,6 +166,8 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 Open: after an expired token, the app returns to the access screen without saying the session ended. The workspace menu shows no email after a reload. A real Supabase sign-in has not been run, because the invite has not been sent.
 
 ## 10. Prove the corpus
+
+**Story:** As the owner, I want one live run that tests every grounding rule, so I can show the copilot only says what the CBA says.
 
 `backend/evals/questions.yaml` is a fixture list. Do not check a box from that file. Run these against the ingested PDF and record the result under `docs/phase10/runs/<timestamp>/`.
 
@@ -165,6 +187,8 @@ Open: after an expired token, the app returns to the access screen without sayin
 
 ## 11. Deploy
 
+**Story:** As an analyst, I want the app on a hosted URL, so I can use it without running anything locally.
+
 Default host is Railway, one frontend service and one backend service, until you name another.
 
 - [ ] Frontend service (Vite static build) and backend service (Uvicorn) on that host
@@ -178,6 +202,8 @@ Default host is Railway, one frontend service and one backend service, until you
 **Exit:** the smoke test passes on the hosted URL. The PDF is not in the deploy image and not in git.
 
 ## 12. UI fine touches
+
+**Story:** As an analyst, I want copyable citations, keyboard focus, and a narrow layout that works, so long research sessions stay easy.
 
 These wait until phase 11's exit passes.
 

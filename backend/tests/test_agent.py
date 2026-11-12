@@ -1,4 +1,5 @@
-from app.assistant.drafter import AgentDrafter, build_agent, refuse_live_model
+import pytest
+from app.assistant.drafter import AgentDrafter, build_agent, build_live_model
 from app.config import Settings
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import DraftAnswer
@@ -86,13 +87,7 @@ def test_stand_in_model_unknown_citation_becomes_a_refusal() -> None:
     assert response.reason == "citations_dropped"
 
 
-def test_live_clients_refuse_before_a_call() -> None:
-    try:
-        refuse_live_model("gpt-4o")
-    except RuntimeError as exc:
-        assert "disabled" in str(exc)
-    else:
-        raise AssertionError("live model guard did not raise")
+def test_live_embedder_refuses_before_a_call() -> None:
     try:
         OpenAIEmbedder(Settings()).embed_query("aprons")
     except RuntimeError as exc:
@@ -140,3 +135,30 @@ def test_stand_in_model_ambiguous_draft_is_a_clarification() -> None:
 def test_agent_output_type_is_the_draft() -> None:
     agent = build_agent(TestModel())
     assert agent.output_type is DraftAnswer
+
+
+@pytest.mark.parametrize(
+    ("provider", "model", "key_field", "expected_name"),
+    [
+        ("openai", "", "openai_api_key", "gpt-4o"),
+        ("google", "gemini-2.5-flash", "gemini_api_key", "gemini-2.5-flash"),
+        ("openrouter", "openai/gpt-4o", "openrouter_api_key", "openai/gpt-4o"),
+    ],
+)
+def test_live_model_takes_its_key_from_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    model: str,
+    key_field: str,
+    expected_name: str,
+) -> None:
+    for name in ("OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(
+        _env_file=None,
+        answer_provider=provider,
+        answer_model=model,
+        **{key_field: "test-key"},
+    )
+    built = build_live_model(settings)
+    assert built.model_name == expected_name
