@@ -1,8 +1,8 @@
-from app.domain import AMBIGUOUS_MESSAGE, Chunk, Claim, DraftAnswer
+from app.domain import AMBIGUOUS_MESSAGE, Chunk, DraftAnswer, DraftClaim
 from app.grounding.validate import validate_draft
 
 
-def _passage(passage_id: str) -> Chunk:
+def _passage(passage_id: str, text: str = "Second apron trade limits.") -> Chunk:
     return Chunk(
         id=passage_id,
         article_number=7,
@@ -10,27 +10,62 @@ def _passage(passage_id: str) -> Chunk:
         section="2(e)",
         page_start=190,
         page_end=191,
-        text="Second apron trade limits.",
+        text=text,
         source_url="https://example.test/cba.pdf#page=214",
     )
+
+
+def _claim(
+    text: str,
+    passage_ids: list[str],
+    quote: str = "Second apron trade limits.",
+) -> DraftClaim:
+    return DraftClaim(text=text, quote=quote, passage_ids=passage_ids)
 
 
 def test_keeps_a_claim_cited_to_a_retrieved_passage() -> None:
     passage = _passage("p1")
     result = validate_draft(
-        DraftAnswer(claims=[Claim(text="No aggregation.", passage_ids=["p1"])]),
+        DraftAnswer(claims=[_claim("No aggregation.", ["p1"])]),
         [passage],
     )
     assert result.kind == "answer"
     assert result.claims[0].passage_ids == ["p1"]
+    assert "quote" not in result.claims[0].model_dump()
+
+
+def test_keeps_a_claim_when_the_normalized_quote_is_in_the_passage() -> None:
+    passage = _passage("p1", "Second   apron\ntrade limits.")
+    result = validate_draft(
+        DraftAnswer(
+            claims=[_claim("No aggregation.", ["p1"], quote="  Second apron trade limits.  ")]
+        ),
+        [passage],
+    )
+    assert result.kind == "answer"
+    assert result.claims[0].text == "No aggregation."
+
+
+def test_drops_a_claim_whose_quote_is_not_in_the_cited_passage() -> None:
+    result = validate_draft(
+        DraftAnswer(
+            claims=[
+                _claim("Invented.", ["p1"], quote="not in the passage"),
+                _claim("Clean.", ["p1"]),
+            ]
+        ),
+        [_passage("p1")],
+    )
+    assert result.kind == "answer"
+    assert [claim.text for claim in result.claims] == ["Clean."]
 
 
 def test_drops_a_claim_with_any_unknown_citation() -> None:
     result = validate_draft(
         DraftAnswer(
             claims=[
-                Claim(text="Mixed.", passage_ids=["p1", "missing"]),
-                Claim(text="Clean.", passage_ids=["p1"]),
+                _claim("Mixed.", ["p1", "missing"]),
+                _claim("Clean.", ["p1"]),
             ]
         ),
         [_passage("p1")],
@@ -41,7 +76,25 @@ def test_drops_a_claim_with_any_unknown_citation() -> None:
 
 def test_refusal_when_every_claim_is_dropped() -> None:
     result = validate_draft(
-        DraftAnswer(claims=[Claim(text="Invented.", passage_ids=["nope"])]),
+        DraftAnswer(claims=[_claim("Invented.", ["nope"])]),
+        [_passage("p1")],
+    )
+    assert result.kind == "refusal"
+    assert result.reason == "citations_dropped"
+
+
+def test_refusal_when_every_quote_misses_the_passage() -> None:
+    result = validate_draft(
+        DraftAnswer(claims=[_claim("Invented.", ["p1"], quote="absent span")]),
+        [_passage("p1")],
+    )
+    assert result.kind == "refusal"
+    assert result.reason == "citations_dropped"
+
+
+def test_drops_an_empty_quote() -> None:
+    result = validate_draft(
+        DraftAnswer(claims=[_claim("Empty quote.", ["p1"], quote="   ")]),
         [_passage("p1")],
     )
     assert result.kind == "refusal"
@@ -62,8 +115,8 @@ def test_ambiguous_with_two_retrieved_passages_is_a_clarification() -> None:
         DraftAnswer(
             status="ambiguous",
             claims=[
-                Claim(text="Season A.", passage_ids=["p1"]),
-                Claim(text="Season B.", passage_ids=["p2"]),
+                _claim("Season A.", ["p1"]),
+                _claim("Season B.", ["p2"]),
             ],
         ),
         [_passage("p1"), _passage("p2")],
@@ -80,8 +133,8 @@ def test_ambiguous_with_one_valid_passage_drops_citations() -> None:
         DraftAnswer(
             status="ambiguous",
             claims=[
-                Claim(text="Kept.", passage_ids=["p1"]),
-                Claim(text="Gone.", passage_ids=["missing"]),
+                _claim("Kept.", ["p1"]),
+                _claim("Gone.", ["missing"]),
             ],
         ),
         [_passage("p1")],
@@ -94,7 +147,7 @@ def test_missing_inputs_with_a_name_is_a_clarification() -> None:
     result = validate_draft(
         DraftAnswer(
             status="missing_inputs",
-            claims=[Claim(text="Needs a salary.", passage_ids=["p1"])],
+            claims=[_claim("Needs a salary.", ["p1"])],
             missing_inputs=["  prior salary  ", ""],
         ),
         [_passage("p1")],
@@ -109,7 +162,7 @@ def test_missing_inputs_with_no_names_is_no_evidence() -> None:
     result = validate_draft(
         DraftAnswer(
             status="missing_inputs",
-            claims=[Claim(text="Needs a salary.", passage_ids=["p1"])],
+            claims=[_claim("Needs a salary.", ["p1"])],
             missing_inputs=["  ", ""],
         ),
         [_passage("p1")],

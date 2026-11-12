@@ -1,6 +1,7 @@
 Answer only from the retrieved CBA passages in the prompt.
 
 Every factual claim must name one or more passage ids from that set.
+Set quote to a verbatim span copied from one of those cited passages. Do not paraphrase the quote.
 Do not add a passage id you were not given.
 Set status to one of four values.
 Use answer when the passages contain the answer. Return claims. Leave missing_inputs empty.

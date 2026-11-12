@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 from app.corpus import pdf_url
 from app.demo import demo_embedder, demo_store
-from app.domain import Chunk, Claim, DraftAnswer
+from app.domain import Chunk, DraftAnswer, DraftClaim
 from app.grounding.validate import validate_draft
 from app.pipeline import answer_question
 from app.retrieval.embed import HashEmbedder
@@ -281,12 +281,28 @@ def test_context_passages_count_as_retrieved() -> None:
     result = hybrid_retrieve(store, query, embedder, top_k=1, candidate_k=5)
     assert [item.id for item in result.context] == ["neighbor"]
     kept = validate_draft(
-        DraftAnswer(claims=[Claim(text="Neighbor rule.", passage_ids=["neighbor"])]),
+        DraftAnswer(
+            claims=[
+                DraftClaim(
+                    text="Neighbor rule.",
+                    quote="quiet hallway",
+                    passage_ids=["neighbor"],
+                )
+            ]
+        ),
         result.passages(),
     )
     assert kept.kind == "answer"
     dropped = validate_draft(
-        DraftAnswer(claims=[Claim(text="Missing.", passage_ids=["not-retrieved"])]),
+        DraftAnswer(
+            claims=[
+                DraftClaim(
+                    text="Missing.",
+                    quote="quiet hallway",
+                    passage_ids=["not-retrieved"],
+                )
+            ]
+        ),
         result.passages(),
     )
     assert dropped.kind == "refusal"
@@ -295,7 +311,15 @@ def test_context_passages_count_as_retrieved() -> None:
 
     class _Drafter:
         def draft(self, question: str, passages: list[Chunk]) -> DraftAnswer:
-            return DraftAnswer(claims=[Claim(text="Neighbor rule.", passage_ids=["neighbor"])])
+            return DraftAnswer(
+                claims=[
+                    DraftClaim(
+                        text="Neighbor rule.",
+                        quote="quiet hallway",
+                        passage_ids=["neighbor"],
+                    )
+                ]
+            )
 
     response = answer_question(query, store, embedder, _Drafter(), top_k=1, candidate_k=5)
     assert response.kind == "answer"

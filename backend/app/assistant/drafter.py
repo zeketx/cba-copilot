@@ -6,7 +6,7 @@ from typing import Protocol
 
 from pydantic_ai import Agent
 
-from app.domain import Chunk, Claim, DraftAnswer
+from app.domain import Chunk, DraftAnswer, DraftClaim
 from app.retrieval.aliases import expand_query
 from app.retrieval.text import tokens
 
@@ -55,7 +55,14 @@ class OverlapDrafter:
         chosen = [
             passage for score, passage in ranked if _in_citation_band(score, best)
         ]
-        claims = [Claim(text=passage.text.strip(), passage_ids=[passage.id]) for passage in chosen]
+        claims = [
+            DraftClaim(
+                text=passage.text.strip(),
+                quote=passage.text.strip(),
+                passage_ids=[passage.id],
+            )
+            for passage in chosen
+        ]
         return DraftAnswer(claims=claims)
 
 

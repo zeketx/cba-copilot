@@ -20,12 +20,18 @@ class Claim(BaseModel):
     text: str
     passage_ids: list[str] = Field(min_length=1)
 
+
+class DraftClaim(BaseModel):
+    text: str
+    quote: str
+    passage_ids: list[str] = Field(min_length=1)
+
 DraftStatus = Literal["answer", "insufficient_evidence", "ambiguous", "missing_inputs"]
 
 
 class DraftAnswer(BaseModel):
     status: DraftStatus = "answer"
-    claims: list[Claim] = Field(default_factory=list)
+    claims: list[DraftClaim] = Field(default_factory=list)
     missing_inputs: list[str] = Field(default_factory=list)
 
 class CitedAnswer(BaseModel):
@@ -52,7 +58,7 @@ NO_EVIDENCE_MESSAGE = (
 )
 CITATIONS_DROPPED_MESSAGE = (
     "Every claim cited a passage that was not in the retrieved set, "
-    "so there is no answer to return."
+    "or a quote that was not in a cited passage, so there is no answer to return."
 )
 AMBIGUOUS_MESSAGE = (
     "More than one retrieved passage applies, and none says which one controls. "
