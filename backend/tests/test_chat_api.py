@@ -5,7 +5,10 @@ from app.api import create_app
 from app.auth.gate import AccessGate, MemoryLedger
 from app.auth.identity import AuthUserId, Email, EmailAllowList, Unauthenticated, VerifiedIdentity
 from app.chat.log import MemoryChatLog
+from app.chat.service import AnswerFn
 from app.config import Settings
+from app.demo import load_demo_chunks
+from app.domain import AMBIGUOUS_MESSAGE, Claim, Clarification, CopilotResponse, Refusal
 from fastapi.testclient import TestClient
 
 
@@ -40,7 +43,11 @@ def _settings() -> Settings:
     )
 
 
-def _client(log: MemoryChatLog | None = None) -> tuple[TestClient, MemoryChatLog]:
+def _client(
+    log: MemoryChatLog | None = None,
+    *,
+    answer: AnswerFn | None = None,
+) -> tuple[TestClient, MemoryChatLog]:
     chat_log = log if log is not None else MemoryChatLog()
     gate = AccessGate(
         allow=EmailAllowList.parse("fan@example.com,other@example.com"),
@@ -48,7 +55,7 @@ def _client(log: MemoryChatLog | None = None) -> tuple[TestClient, MemoryChatLog
         ledger=MemoryLedger(),
         threads=chat_log,
     )
-    return TestClient(create_app(_settings(), gate=gate, log=chat_log)), chat_log
+    return TestClient(create_app(_settings(), gate=gate, log=chat_log, answer=answer)), chat_log
 
 
 def _events(body: str) -> list[tuple[str, dict[str, object]]]:
@@ -226,3 +233,124 @@ def test_list_does_not_include_another_users_thread() -> None:
         headers={"Authorization": "Bearer fan"},
     )
     assert missing.status_code == 404
+
+
+def test_stream_answer_emits_deltas_then_citations_then_done() -> None:
+    client, _log = _client()
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [
+                {
+                    "id": str(uuid4()),
+                    "role": "user",
+                    "content": "What can't a second-apron team do in a trade?",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200
+    names = [name for name, _payload in _events(response.text)]
+    first_delta = names.index("delta")
+    citations = names.index("citations")
+    done = names.index("done")
+    assert first_delta < citations < done
+    assert max(index for index, name in enumerate(names) if name == "delta") < citations
+
+
+def test_failed_answer_is_502_leaves_no_messages_and_retries() -> None:
+    log = MemoryChatLog()
+    calls = {"n": 0}
+
+    def answer(_question: str) -> CopilotResponse:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("drafter exploded")
+        return Refusal(reason="no_evidence", message="Recovered.")
+
+    client, _log = _client(log, answer=answer)
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    turn_id = str(uuid4())
+    body = {
+        "threadId": thread_id,
+        "messages": [{"id": turn_id, "role": "user", "content": "What is the cap?"}],
+    }
+    failed = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json=body,
+    )
+    assert failed.status_code == 502
+    assert failed.json()["detail"]["error"] == "answer_failed"
+    empty = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert empty.status_code == 200
+    assert empty.json() == []
+    retried = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json=body,
+    )
+    assert retried.status_code == 200
+    events = _events(retried.text)
+    assert events[-1][0] == "done"
+    assert events[-1][1]["response"]["kind"] == "refusal"
+    loaded = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert loaded.json()[0]["id"] == turn_id
+    assert loaded.json()[1]["response"]["kind"] == "refusal"
+
+
+def test_streamed_clarification_then_reload() -> None:
+    bird = next(chunk for chunk in load_demo_chunks() if chunk.id == "bird")
+    early = next(chunk for chunk in load_demo_chunks() if chunk.id == "early-bird")
+
+    def answer(_question: str) -> CopilotResponse:
+        return Clarification(
+            reason="ambiguous",
+            message=AMBIGUOUS_MESSAGE,
+            claims=[
+                Claim(text="Bird rights.", passage_ids=[bird.id]),
+                Claim(text="Early Bird rights.", passage_ids=[early.id]),
+            ],
+        )
+
+    client, _log = _client(answer=answer)
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    turn_id = str(uuid4())
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [{"id": turn_id, "role": "user", "content": "Which Bird rights?"}],
+        },
+    )
+    assert response.status_code == 200
+    events = _events(response.text)
+    names = [name for name, _payload in events]
+    assert names[0] == "delta"
+    assert "citations" in names
+    assert names[-1] == "done"
+    assert max(index for index, name in enumerate(names) if name == "delta") < names.index(
+        "citations"
+    )
+    assert names.index("citations") < names.index("done")
+    done = events[-1][1]
+    assert done["response"]["kind"] == "clarification"
+    text = "".join(payload["text"] for name, payload in events if name == "delta")
+    assert text == done["response"]["message"] == AMBIGUOUS_MESSAGE
+    citations = next(payload for name, payload in events if name == "citations")
+    assert citations["claims"] == done["response"]["claims"]
+    reloaded = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert reloaded.json()[1]["response"]["kind"] == "clarification"
