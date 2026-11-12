@@ -22,9 +22,9 @@ Evidence is adequate only when one of the fused hits shares at least two content
 
 ## Generation and checks
 
-The PydanticAI agent returns a `DraftAnswer`. The default demo drafter quotes overlapping passages instead of calling a model. Tests also drive the agent with PydanticAI's `TestModel`, which returns a fixed object and does not call an API.
+The PydanticAI agent returns a `DraftAnswer` of `DraftClaim` rows. Each draft claim carries a `quote`, a verbatim span copied from a cited passage. The default demo drafter sets that quote to the overlapping passage text. Tests also drive the agent with PydanticAI's `TestModel`, which returns a fixed object and does not call an API.
 
-`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. That set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`. An `ambiguous` or `missing_inputs` draft becomes a clarification when the kept claims meet that status. A failed answer call is HTTP 502 `answer_failed` and does not persist the turn.
+`validate_draft` keeps a claim only when every passage id was retrieved and the whitespace-normalized quote is a substring of at least one cited passage. The public `Claim` drops the quote. The retrieved set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`. An `ambiguous` or `missing_inputs` draft becomes a clarification when the kept claims meet that status. A failed answer call is HTTP 502 `answer_failed` and does not persist the turn.
 
 ## What the skeleton does not do
 

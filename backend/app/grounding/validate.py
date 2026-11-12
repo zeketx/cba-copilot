@@ -13,18 +13,40 @@ from app.domain import (
     Clarification,
     CopilotResponse,
     DraftAnswer,
+    DraftClaim,
     DraftStatus,
     Refusal,
 )
 
 
+def normalize_space(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _quote_in_cited_passages(claim: DraftClaim, by_id: dict[str, Chunk]) -> bool:
+    quote = normalize_space(claim.quote)
+    if not quote:
+        return False
+    return any(quote in normalize_space(by_id[passage_id].text) for passage_id in claim.passage_ids)
+
+
+def _to_claim(claim: DraftClaim) -> Claim:
+    return Claim(text=claim.text, passage_ids=claim.passage_ids)
+
+
 def _kept_claims(draft: DraftAnswer, passages: list[Chunk]) -> list[Claim]:
-    allowed = {passage.id for passage in passages}
-    return [
-        claim
-        for claim in draft.claims
-        if claim.passage_ids and all(passage_id in allowed for passage_id in claim.passage_ids)
-    ]
+    by_id = {passage.id: passage for passage in passages}
+    allowed = set(by_id)
+    kept: list[Claim] = []
+    for claim in draft.claims:
+        if not claim.passage_ids:
+            continue
+        if not all(passage_id in allowed for passage_id in claim.passage_ids):
+            continue
+        if not _quote_in_cited_passages(claim, by_id):
+            continue
+        kept.append(_to_claim(claim))
+    return kept
 
 
 def _no_evidence(_draft: DraftAnswer, _kept: list[Claim]) -> Refusal:

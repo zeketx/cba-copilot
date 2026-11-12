@@ -9,11 +9,18 @@ from pydantic_ai.models.test import TestModel
 
 def test_stand_in_model_answer_keeps_a_retrieved_citation() -> None:
     passage = load_demo_chunks()[0]
+    quote = " ".join(passage.text.split())[:80]
     agent = build_agent(
         TestModel(
             custom_output_args={
                 "status": "answer",
-                "claims": [{"text": "Cited from the passage.", "passage_ids": [passage.id]}],
+                "claims": [
+                    {
+                        "text": "Cited from the passage.",
+                        "quote": quote,
+                        "passage_ids": [passage.id],
+                    }
+                ],
             }
         )
     )
@@ -28,12 +35,44 @@ def test_stand_in_model_answer_keeps_a_retrieved_citation() -> None:
     assert response.claims[0].passage_ids == [passage.id]
 
 
+def test_stand_in_model_quote_missing_from_passage_is_dropped() -> None:
+    passage = load_demo_chunks()[0]
+    agent = build_agent(
+        TestModel(
+            custom_output_args={
+                "status": "answer",
+                "claims": [
+                    {
+                        "text": "A number the passage never states.",
+                        "quote": "this span is not in the retrieved passage",
+                        "passage_ids": [passage.id],
+                    }
+                ],
+            }
+        )
+    )
+    response = answer_question(
+        "What can't a second-apron team do in a trade?",
+        demo_store(),
+        demo_embedder(),
+        AgentDrafter(agent),
+    )
+    assert response.kind == "refusal"
+    assert response.reason == "citations_dropped"
+
+
 def test_stand_in_model_unknown_citation_becomes_a_refusal() -> None:
     agent = build_agent(
         TestModel(
             custom_output_args={
                 "status": "answer",
-                "claims": [{"text": "Not in the set.", "passage_ids": ["not-retrieved"]}],
+                "claims": [
+                    {
+                        "text": "Not in the set.",
+                        "quote": "Not in the set.",
+                        "passage_ids": ["not-retrieved"],
+                    }
+                ],
             }
         )
     )
@@ -72,8 +111,16 @@ def test_stand_in_model_ambiguous_draft_is_a_clarification() -> None:
             custom_output_args={
                 "status": "ambiguous",
                 "claims": [
-                    {"text": bird.text.strip(), "passage_ids": [bird.id]},
-                    {"text": early.text.strip(), "passage_ids": [early.id]},
+                    {
+                        "text": bird.text.strip(),
+                        "quote": bird.text.strip(),
+                        "passage_ids": [bird.id],
+                    },
+                    {
+                        "text": early.text.strip(),
+                        "quote": early.text.strip(),
+                        "passage_ids": [early.id],
+                    },
                 ],
             }
         )
