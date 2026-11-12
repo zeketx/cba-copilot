@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/beautifui/Button";
 import ContextCards, { type ContextChunk } from "@/components/beautifui/ContextCards";
-import LoadingState from "@/components/beautifui/LoadingState";
 import SidebarNav from "@/components/beautifui/SidebarNav";
 import { StreamText } from "@/components/beautifui/StreamText";
+import ThinkingState from "@/components/beautifui/ThinkingState";
 import { SourcePanel } from "@/components/chat/SourcePanel";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
 import {
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { createThread, deleteThread, listThreads, loadMessages, renameThread, streamAsk } from "@/lib/api";
 import { loadDefinitions } from "@/lib/definitions";
 import { ApiError, apiRequest } from "@/lib/http";
+import { chatRequestError, isAbortError, type ChatRequestError } from "@/lib/request-error";
 import {
   clearAccessToken,
   completeSignIn,
@@ -33,6 +34,14 @@ import {
 } from "@/lib/types";
 
 const ACTIVE_THREAD_KEY = "cba.active_thread_id";
+
+type AskTurn =
+  | { phase: "idle" }
+  | { phase: "thinking"; threadId: string; turnId: string; question: string }
+  | { phase: "streaming"; threadId: string; turnId: string; question: string; text: string }
+  | { phase: "revealing"; threadId: string; turnId: string; text: string };
+
+type VisibleError = ChatRequestError & { retryText: string | null };
 
 function replyText(response: PublicResponse): string {
   switch (response.kind) {
@@ -54,10 +63,11 @@ export function App() {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [liveDelta, setLiveDelta] = useState<string | null>(null);
+  const [askTurn, setAskTurn] = useState<AskTurn>({ phase: "idle" });
+  const askGeneration = useRef(0);
+  const abortAsk = useRef<AbortController | null>(null);
   const settleThread = useRef<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<VisibleError | null>(null);
   const [active, setActive] = useState<PublicCitation | null>(null);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(() => getAccessToken());
@@ -181,26 +191,46 @@ export function App() {
     }
   }
 
-  function handleRequestError(caught: unknown): boolean {
-    if (caught instanceof ApiError && caught.status === 401) {
-      clearAccessToken();
-      setSessionToken(getAccessToken());
-      setNotAllowed(false);
-      setGateView("login");
+  function abandonAsk() {
+    askGeneration.current += 1;
+    abortAsk.current?.abort();
+    abortAsk.current = null;
+    settleThread.current = null;
+    setAskTurn({ phase: "idle" });
+  }
+
+  function handleRequestError(caught: unknown, retryText: string | null = null): boolean {
+    if (isAbortError(caught)) {
       return true;
     }
-    if (caught instanceof ApiError && caught.status === 403 && caught.message === "not_allowed") {
+    const mapped = chatRequestError(caught);
+    if (mapped.signOut) {
+      signOut();
+      return true;
+    }
+    if (
+      caught instanceof ApiError &&
+      caught.status === 403 &&
+      (caught.code === "not_allowed" || caught.message === "not_allowed")
+    ) {
       setNotAllowed(true);
       return true;
     }
+    if (mapped.refreshThreads) {
+      sessionStorage.removeItem(ACTIVE_THREAD_KEY);
+      setActiveThreadId(null);
+      setMessages([]);
+      void listThreads().then(setThreads, () => undefined);
+    }
+    setError({ ...mapped, retryText: mapped.retry ? retryText : null });
     return false;
   }
 
   async function openThread(threadId: string) {
+    abandonAsk();
     sessionStorage.setItem(ACTIVE_THREAD_KEY, threadId);
     setActiveThreadId(threadId);
     setError(null);
-    setLiveDelta(null);
     try {
       setMessages(await loadMessages(threadId));
     } catch (caught) {
@@ -208,37 +238,20 @@ export function App() {
         return;
       }
       setMessages([]);
-      const message =
-        caught instanceof ApiError && caught.kind === "network"
-          ? "The request did not reach the server."
-          : caught instanceof Error
-            ? caught.message
-            : "The request failed.";
-      setError(message);
     }
   }
 
   function signOut() {
+    abandonAsk();
     clearAccessToken();
     sessionStorage.removeItem(ACTIVE_THREAD_KEY);
     setSessionToken(null);
     setThreads([]);
     setActiveThreadId(null);
     setMessages([]);
-    setLiveDelta(null);
     setError(null);
     setGlossaryOpen(false);
     setNotAllowed(false);
-  }
-
-  function requestFailedMessage(caught: unknown): string {
-    if (caught instanceof ApiError && caught.kind === "network") {
-      return "The request did not reach the server.";
-    }
-    if (caught instanceof Error) {
-      return caught.message;
-    }
-    return "The request failed.";
   }
 
   async function renameChat(id: string, title: string) {
@@ -251,9 +264,7 @@ export function App() {
       );
       setError(null);
     } catch (caught) {
-      if (!handleRequestError(caught)) {
-        setError(requestFailedMessage(caught));
-      }
+      handleRequestError(caught);
     }
   }
 
@@ -263,41 +274,33 @@ export function App() {
       setThreads((current) => current.filter((item) => item.id !== id));
       if (activeThreadId === id) {
         sessionStorage.removeItem(ACTIVE_THREAD_KEY);
+        abandonAsk();
         setActiveThreadId(null);
         setMessages([]);
-        setLiveDelta(null);
       }
       setError(null);
     } catch (caught) {
-      if (!handleRequestError(caught)) {
-        setError(requestFailedMessage(caught));
-      }
+      handleRequestError(caught);
     }
   }
 
   async function startThread() {
+    abandonAsk();
+    setError(null);
+    setMessages([]);
     try {
       const thread = await createThread();
       sessionStorage.setItem(ACTIVE_THREAD_KEY, thread.id);
       setThreads((current) => [thread, ...current.filter((item) => item.id !== thread.id)]);
       setActiveThreadId(thread.id);
       setMessages([]);
-      setLiveDelta(null);
-      setError(null);
     } catch (caught) {
-      if (!handleRequestError(caught)) {
-        const message =
-          caught instanceof ApiError && caught.kind === "network"
-            ? "The request did not reach the server."
-            : caught instanceof Error
-              ? caught.message
-              : "The request failed.";
-        setError(message);
-      }
+      handleRequestError(caught);
     }
   }
 
   async function settleLive() {
+    const generation = askGeneration.current;
     const threadId = settleThread.current;
     if (threadId === null) {
       return;
@@ -305,21 +308,24 @@ export function App() {
     settleThread.current = null;
     try {
       const [loaded, listed] = await Promise.all([loadMessages(threadId), listThreads()]);
+      if (generation !== askGeneration.current) {
+        return;
+      }
       setMessages(loaded);
       setThreads(listed);
-      setLiveDelta(null);
+      setAskTurn({ phase: "idle" });
     } catch (caught) {
-      if (!handleRequestError(caught)) {
-        setError(caught instanceof Error ? caught.message : "The request failed.");
+      if (generation !== askGeneration.current) {
+        return;
       }
-    } finally {
-      setPending(false);
+      setAskTurn({ phase: "idle" });
+      handleRequestError(caught);
     }
   }
 
   async function ask(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || pending) {
+    if (!trimmed || askTurn.phase !== "idle") {
       return;
     }
     if (getAccessToken() === null) {
@@ -327,21 +333,31 @@ export function App() {
       setSessionToken(null);
       return;
     }
-    setPending(true);
+    const generation = ++askGeneration.current;
+    const controller = new AbortController();
+    abortAsk.current = controller;
     setError(null);
     setQuestion("");
-    setLiveDelta(null);
     const turnId = crypto.randomUUID();
     let threadId = activeThreadId;
     let appended = false;
+    let streamed = "";
     try {
       if (threadId === null) {
         const thread = await createThread();
+        if (generation !== askGeneration.current) {
+          return;
+        }
         threadId = thread.id;
         sessionStorage.setItem(ACTIVE_THREAD_KEY, thread.id);
         setThreads((current) => [thread, ...current]);
         setActiveThreadId(thread.id);
       }
+      if (threadId === null) {
+        return;
+      }
+      const boundThreadId = threadId;
+      setAskTurn({ phase: "thinking", threadId: boundThreadId, turnId, question: trimmed });
       setMessages((current) => [
         ...current,
         {
@@ -352,28 +368,54 @@ export function App() {
         },
       ]);
       appended = true;
-      const finished = await streamAsk(threadId, [
-        { id: turnId, role: "user", content: trimmed },
-      ]);
-      settleThread.current = threadId;
-      setLiveDelta(replyText(finished.response));
+      const finished = await streamAsk(
+        boundThreadId,
+        [{ id: turnId, role: "user", content: trimmed }],
+        {
+          signal: controller.signal,
+          onDelta: (chunk) => {
+            if (generation !== askGeneration.current) {
+              return;
+            }
+            streamed += chunk;
+            setAskTurn({
+              phase: "streaming",
+              threadId: boundThreadId,
+              turnId,
+              question: trimmed,
+              text: streamed,
+            });
+          },
+        },
+      );
+      if (generation !== askGeneration.current) {
+        return;
+      }
+      abortAsk.current = null;
+      settleThread.current = boundThreadId;
+      if (streamed !== "") {
+        await settleLive();
+        return;
+      }
+      setAskTurn({
+        phase: "revealing",
+        threadId: boundThreadId,
+        turnId,
+        text: replyText(finished.response),
+      });
     } catch (caught) {
+      if (generation !== askGeneration.current || isAbortError(caught)) {
+        return;
+      }
+      abortAsk.current = null;
       settleThread.current = null;
       if (appended) {
         setMessages((current) => current.filter((message) => message.id !== turnId));
       }
-      setLiveDelta(null);
-      setPending(false);
-      if (handleRequestError(caught)) {
+      setAskTurn({ phase: "idle" });
+      if (handleRequestError(caught, trimmed)) {
         return;
       }
-      const message =
-        caught instanceof ApiError && caught.kind === "network"
-          ? "The request did not reach the server."
-          : caught instanceof Error
-            ? caught.message
-            : "The request failed.";
-      setError(message);
       setQuestion(trimmed);
     }
   }
@@ -583,13 +625,14 @@ export function App() {
                 This email is signed in and is not on the allow-list.
               </p>
             ) : null}
-                {messages.length === 0 ? (
-                  <div className="mx-auto max-w-2xl rounded-card bg-surface p-4 shadow-card">
-                    <p className="text-[13px] leading-relaxed text-ink">
+                {messages.length === 0 && askTurn.phase === "idle" ? (
+                  <div className="mx-auto max-w-2xl px-1 py-10">
+                    <p className="text-[15px] font-medium text-ink">Ask about the 2023 CBA</p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
                       Fixture mode. Replies use the checked-in demo passages. They are not a live
                       reading of the official PDF, and they are not legal advice.
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       {SAMPLE_QUESTIONS.map((sample) => (
                         <Button
                           key={sample}
@@ -611,8 +654,10 @@ export function App() {
                   }
                   const next = messages[index + 1];
                   const assistant = next?.role === "assistant" ? next : null;
-                      const showLive =
-                        liveDelta !== null && assistant === null && index === messages.length - 1;
+                      const showTurn =
+                        askTurn.phase !== "idle" &&
+                        assistant === null &&
+                        index === messages.length - 1;
                   return (
                     <article key={message.id} className="mx-auto max-w-2xl space-y-3">
                       <div className="flex justify-end pl-14">
@@ -627,20 +672,51 @@ export function App() {
                           onOpen={setActive}
                         />
                       ) : null}
-                      {showLive ? (
+                      {showTurn && askTurn.phase === "thinking" ? (
+                        <ThinkingState
+                          variant="Steps"
+                          active="Reading the CBA"
+                          done="Read the CBA"
+                          rows={[
+                            { primary: "Reading the question" },
+                            { primary: "Retrieving fixture passages" },
+                            { primary: "Drafting a grounded answer" },
+                          ]}
+                        />
+                      ) : null}
+                      {showTurn && askTurn.phase === "streaming" ? (
                         <p className="text-[13px] leading-relaxed text-ink">
-                          <StreamText text={liveDelta} onDone={() => void settleLive()} />
+                          {askTurn.text}
+                          <span aria-hidden className="stream-caret is-streaming" />
+                        </p>
+                      ) : null}
+                      {showTurn && askTurn.phase === "revealing" ? (
+                        <p className="text-[13px] leading-relaxed text-ink">
+                          <StreamText text={askTurn.text} onDone={() => void settleLive()} />
                         </p>
                       ) : null}
                     </article>
                   );
                 })}
-                {pending && liveDelta === null ? (
-                  <div className="mx-auto max-w-2xl">
-                    <LoadingState variant="Orbit" label="Reading the fixture" />
+                {error ? (
+                  <div
+                    role="alert"
+                    className="mx-auto flex max-w-2xl flex-col gap-2 rounded-card border border-line bg-surface px-3 py-3 shadow-card"
+                  >
+                    <p className="text-[13px] leading-relaxed text-ink">{error.copy}</p>
+                    {error.retry && error.retryText ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="self-start"
+                        onClick={() => void ask(error.retryText ?? "")}
+                      >
+                        Try again
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
-                {error ? <p className="mx-auto max-w-2xl text-[13px] text-red">{error}</p> : null}
           </div>
             <form
               className="border-t border-line px-4 py-3"
@@ -661,8 +737,13 @@ export function App() {
                   className="min-h-4.5 bg-transparent text-[13px] leading-[1.4] text-ink outline-none placeholder:text-ink-3"
                 />
                 <div className="flex items-center justify-end">
-                  <Button type="submit" variant="primary" size="sm" disabled={pending || question.trim() === ""}>
-                    {pending ? "Asking" : "Ask"}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    disabled={askTurn.phase !== "idle" || question.trim() === ""}
+                  >
+                    {askTurn.phase !== "idle" ? "Asking" : "Ask"}
                   </Button>
                 </div>
               </div>

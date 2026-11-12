@@ -47,6 +47,7 @@ export async function loadMessages(threadId: string): Promise<ChatMessage[]> {
 export async function streamAsk(
   threadId: string,
   messages: StreamChatMessage[],
+  options: { onDelta?: (text: string) => void; signal?: AbortSignal } = {},
 ): Promise<{ threadId: string; turnId: string; response: PublicResponse }> {
   const headers = new Headers({ "Content-Type": "application/json" });
   const token = getAccessToken();
@@ -60,8 +61,12 @@ export async function streamAsk(
       method: "POST",
       headers,
       body: JSON.stringify({ threadId, messages }),
+      signal: options.signal,
     });
-  } catch {
+  } catch (caught) {
+    if (options.signal?.aborted || (caught instanceof DOMException && caught.name === "AbortError")) {
+      throw caught;
+    }
     throw new ApiError("network", "The request did not reach the server.");
   }
   if (!response.ok) {
@@ -71,7 +76,8 @@ export async function streamAsk(
     value: { threadId: string; turnId: string; response: PublicResponse } | null;
   } = { value: null };
   await readSse(response, (event, data) => {
-    if (event === "delta") {
+    if (event === "delta" && isRecord(data) && typeof data.text === "string") {
+      options.onDelta?.(data.text);
       return;
     }
     if (event === "done" && isRecord(data)) {
@@ -109,7 +115,7 @@ async function httpError(response: Response): Promise<ApiError> {
   try {
     const body = (await response.json()) as { detail?: { error?: string } };
     if (typeof body.detail?.error === "string") {
-      return new ApiError("http", body.detail.error, response.status);
+      return new ApiError("http", body.detail.error, response.status, body.detail.error);
     }
   } catch {
     return new ApiError("http", `The API returned ${response.status}.`, response.status);
