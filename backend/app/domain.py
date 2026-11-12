@@ -20,10 +20,13 @@ class Claim(BaseModel):
     text: str
     passage_ids: list[str] = Field(min_length=1)
 
-class DraftAnswer(BaseModel):
+DraftStatus = Literal["answer", "insufficient_evidence", "ambiguous", "missing_inputs"]
 
+
+class DraftAnswer(BaseModel):
+    status: DraftStatus = "answer"
     claims: list[Claim] = Field(default_factory=list)
-    insufficient_evidence: bool = False
+    missing_inputs: list[str] = Field(default_factory=list)
 
 class CitedAnswer(BaseModel):
     kind: Literal["answer"] = "answer"
@@ -34,7 +37,14 @@ class Refusal(BaseModel):
     reason: Literal["no_evidence", "citations_dropped"]
     message: str
 
-CopilotResponse = Annotated[CitedAnswer | Refusal, Field(discriminator="kind")]
+
+class Clarification(BaseModel):
+    kind: Literal["clarification"] = "clarification"
+    reason: Literal["ambiguous", "missing_inputs"]
+    message: str
+    claims: list[Claim] = Field(min_length=1)
+
+CopilotResponse = Annotated[CitedAnswer | Refusal | Clarification, Field(discriminator="kind")]
 
 NO_EVIDENCE_MESSAGE = (
     "The retrieved passages from the 2023 NBA Collective Bargaining Agreement "
@@ -43,4 +53,8 @@ NO_EVIDENCE_MESSAGE = (
 CITATIONS_DROPPED_MESSAGE = (
     "Every claim cited a passage that was not in the retrieved set, "
     "so there is no answer to return."
+)
+AMBIGUOUS_MESSAGE = (
+    "More than one retrieved passage applies, and none says which one controls. "
+    "Which season or effective date do you mean?"
 )

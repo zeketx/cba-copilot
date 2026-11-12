@@ -50,7 +50,7 @@ class OverlapDrafter:
                 ranked.append((overlap, passage))
         ranked.sort(key=lambda item: (-item[0], item[1].id))
         if not ranked:
-            return DraftAnswer(claims=[], insufficient_evidence=True)
+            return DraftAnswer(status="insufficient_evidence")
         best = ranked[0][0]
         chosen = [
             passage for score, passage in ranked if _in_citation_band(score, best)
