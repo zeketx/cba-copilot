@@ -241,7 +241,7 @@ export function App() {
     return "The request failed.";
   }
 
-  async function renameActiveThread(id: string, title: string) {
+  async function renameChat(id: string, title: string) {
     try {
       const updated = await renameThread(id, title);
       setThreads((current) =>
@@ -257,7 +257,7 @@ export function App() {
     }
   }
 
-  async function deleteActiveThread(id: string) {
+  async function deleteChat(id: string) {
     try {
       await deleteThread(id);
       setThreads((current) => current.filter((item) => item.id !== id));
@@ -558,11 +558,25 @@ export function App() {
           onNewChat={() => void startThread()}
           onPick={(id) => void openThread(id)}
           onNavigate={(key) => setGlossaryOpen(key === "definitions")}
-          onRename={(id, title) => void renameActiveThread(id, title)}
-          onDelete={(id) => void deleteActiveThread(id)}
+          onRename={(id, title) => void renameChat(id, title)}
+          onDelete={(id) => void deleteChat(id)}
           onSignOut={signOut}
         />
         <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2 md:hidden">
+            {threads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={() => void openThread(thread.id)}
+                className={`shrink-0 rounded-lg px-2 py-1 text-[12px] ${
+                  thread.id === activeThreadId ? "bg-field text-ink" : "text-ink-2"
+                }`}
+              >
+                {thread.title.trim() === "" ? "New chat" : thread.title}
+              </button>
+            ))}
+          </div>
           <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
             {notAllowed ? (
               <p className="mx-auto max-w-2xl text-[13px] text-red">
