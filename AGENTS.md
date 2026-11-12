@@ -34,6 +34,7 @@ cba-copilot/
 - Chunk on article and section boundaries. Do not split a rule across arbitrary pages.
 - A claim that cites a passage outside the retrieved set is dropped. If none remain, refuse.
 - Keep the demo and the tests free of network calls.
+- Every phase in `docs/TODO.md` opens with a one-line `**Story:**` in the form "As a ..., I want ..., so ...". Add one when you add a phase, and update it when the phase's goal changes.
 
 ## Dependencies
 
