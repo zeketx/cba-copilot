@@ -354,3 +354,95 @@ def test_streamed_clarification_then_reload() -> None:
         headers={"Authorization": "Bearer fan"},
     )
     assert reloaded.json()[1]["response"]["kind"] == "clarification"
+
+
+def test_rename_shows_in_thread_list() -> None:
+    client, _log = _client()
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    renamed = client.patch(
+        f"/api/threads/{thread_id}",
+        headers={"Authorization": "Bearer fan"},
+        json={"title": "  Apron trades  "},
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["id"] == thread_id
+    assert renamed.json()["title"] == "Apron trades"
+    listed = client.get("/api/threads", headers={"Authorization": "Bearer fan"})
+    assert listed.json()[0]["id"] == thread_id
+    assert listed.json()[0]["title"] == "Apron trades"
+
+
+def test_blank_title_is_unprocessable() -> None:
+    client, _log = _client()
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    blank = client.patch(
+        f"/api/threads/{thread_id}",
+        headers={"Authorization": "Bearer fan"},
+        json={"title": "   "},
+    )
+    assert blank.status_code == 422
+    too_long = client.patch(
+        f"/api/threads/{thread_id}",
+        headers={"Authorization": "Bearer fan"},
+        json={"title": "a" * 81},
+    )
+    assert too_long.status_code == 422
+    listed = client.get("/api/threads", headers={"Authorization": "Bearer fan"})
+    assert listed.json()[0]["title"] == ""
+
+
+def test_delete_removes_thread_and_messages() -> None:
+    client, _log = _client()
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    deleted = client.delete(
+        f"/api/threads/{thread_id}",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert deleted.status_code == 204
+    listed = client.get("/api/threads", headers={"Authorization": "Bearer fan"})
+    assert listed.json() == []
+    missing = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["error"] == "not_found"
+
+
+def test_rename_and_delete_are_forbidden_for_another_user() -> None:
+    client, log = _client()
+    thread = log.create_thread(FAN.id)
+    renamed = client.patch(
+        f"/api/threads/{thread.id}",
+        headers={"Authorization": "Bearer other"},
+        json={"title": "stolen"},
+    )
+    assert renamed.status_code == 403
+    assert renamed.json()["detail"]["error"] == "not_owner"
+    deleted = client.delete(
+        f"/api/threads/{thread.id}",
+        headers={"Authorization": "Bearer other"},
+    )
+    assert deleted.status_code == 403
+    assert deleted.json()["detail"]["error"] == "not_owner"
+    listed = client.get("/api/threads", headers={"Authorization": "Bearer fan"})
+    assert listed.json()[0]["id"] == str(thread.id)
+    assert listed.json()[0]["title"] == ""
+
+
+def test_rename_and_delete_missing_thread_are_not_found() -> None:
+    client, _log = _client()
+    missing_id = uuid4()
+    renamed = client.patch(
+        f"/api/threads/{missing_id}",
+        headers={"Authorization": "Bearer fan"},
+        json={"title": "gone"},
+    )
+    assert renamed.status_code == 404
+    assert renamed.json()["detail"]["error"] == "not_found"
+    deleted = client.delete(
+        f"/api/threads/{missing_id}",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert deleted.status_code == 404
+    assert deleted.json()["detail"]["error"] == "not_found"

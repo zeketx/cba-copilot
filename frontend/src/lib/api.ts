@@ -24,6 +24,20 @@ export async function createThread(): Promise<ThreadSummary> {
   return threadFromWire(await readJson<WireThread>(response));
 }
 
+export async function renameThread(id: string, title: string): Promise<ThreadSummary> {
+  const response = await apiRequest(`/api/threads/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  return threadFromWire(await readJson<WireThread>(response));
+}
+
+export async function deleteThread(id: string): Promise<void> {
+  const response = await apiRequest(`/api/threads/${id}`, { method: "DELETE" });
+  await readJson<undefined>(response);
+}
+
 export async function loadMessages(threadId: string): Promise<ChatMessage[]> {
   const response = await apiRequest(`/api/threads/${threadId}/messages`);
   const body = await readJson<WireChatMessage[]>(response);
@@ -84,6 +98,9 @@ export async function streamAsk(
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw await httpError(response);
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
   return (await response.json()) as T;
 }

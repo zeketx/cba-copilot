@@ -18,6 +18,6 @@ pnpm typecheck
 pnpm build
 ```
 
-The UI is [Beautiful UI](https://www.beautifului.dev/), MIT. Source is in `src/components/beautifui/` and the theme is `src/beautifui/foundation.css`. Pass content through props. Theme through the foundation tokens (`--ink`, `--surface`, `--accent`) rather than one-off colors.
+The UI is [Beautiful UI](https://www.beautifului.dev/), MIT. Source is in `src/components/beautifui/` (`Button`, `ContextCards`, `LoadingState`, `StreamText`, `SidebarNav`, `GlideMenu`) and the theme is `src/beautifui/foundation.css` plus `src/beautifui/sidebar-nav.css`. Pass content through props. Theme through the foundation tokens (`--ink`, `--surface`, `--accent`) rather than one-off colors. Icons in vendored components are inline SVG because the registry's `@central-icons-react/round-outlined-radius-2-stroke-2` package is commercially licensed.
 
 `shadow-plugin` is there because the foundation imports it. `class-variance-authority` is there because `Button` uses it. Add another primitive with `pnpm dlx shadcn@latest add https://www.beautifului.dev/r/<name>.json`, then move the CLI output into `src/` so the `@/` alias and `tsc` include it.

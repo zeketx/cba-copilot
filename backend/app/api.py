@@ -93,6 +93,18 @@ class PublicThread(BaseModel):
     updated_at: datetime
 
 
+class RenameThreadBody(BaseModel):
+    title: str
+
+    @field_validator("title")
+    @classmethod
+    def stripped_title(cls, value: str) -> str:
+        title = value.strip()
+        if not title or len(title) > 80:
+            raise ValueError("title must be 1 to 80 characters")
+        return title
+
+
 class PublicUserMessage(BaseModel):
     id: UUID
     role: Literal["user"] = "user"
@@ -269,7 +281,7 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -307,6 +319,31 @@ def create_app(
         except AuthError as exc:
             raise http_error(exc) from None
         return {"id": str(thread_id)}
+
+    @app.patch("/api/threads/{thread_id}")
+    def rename_thread(
+        thread_id: UUID,
+        body: RenameThreadBody,
+        request: Request,
+        user: Annotated[AppUser, Depends(get_current_user)],
+    ) -> PublicThread:
+        try:
+            request.app.state.gate.open_thread(user, thread_id)
+        except AuthError as exc:
+            raise http_error(exc) from None
+        return _public_thread(request.app.state.chat_log.rename_thread(thread_id, body.title))
+
+    @app.delete("/api/threads/{thread_id}", status_code=204)
+    def delete_thread(
+        thread_id: UUID,
+        request: Request,
+        user: Annotated[AppUser, Depends(get_current_user)],
+    ) -> None:
+        try:
+            request.app.state.gate.open_thread(user, thread_id)
+        except AuthError as exc:
+            raise http_error(exc) from None
+        request.app.state.chat_log.delete_thread(thread_id)
 
     @app.get("/api/threads/{thread_id}/messages")
     def thread_messages(
