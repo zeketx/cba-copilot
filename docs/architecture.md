@@ -8,7 +8,7 @@ A chunk is one article section. If that section is long and it has subsection he
 
 Each chunk carries the article number, the article title, the section, the PDF page range, and a source url with a `#page=` anchor.
 
-The response type is a cited answer or a refusal. A claim cannot exist without a passage id. A refusal cannot carry claims.
+The response type is a cited answer, a refusal, or a clarification. A claim cannot exist without a passage id. A refusal cannot carry claims.
 
 ## Retrieval
 
@@ -24,7 +24,7 @@ Evidence is adequate only when one of the fused hits shares at least two content
 
 The PydanticAI agent returns a `DraftAnswer`. The default demo drafter quotes overlapping passages instead of calling a model. Tests also drive the agent with PydanticAI's `TestModel`, which returns a fixed object and does not call an API.
 
-`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. That set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`.
+`validate_draft` drops a claim when any of its passage ids is outside the retrieved set. That set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`. An `ambiguous` or `missing_inputs` draft becomes a clarification when the kept claims meet that status. A failed answer call is HTTP 502 `answer_failed` and does not persist the turn.
 
 ## What the skeleton does not do
 
