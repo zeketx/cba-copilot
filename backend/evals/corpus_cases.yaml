@@ -9,10 +9,10 @@
       page_start: 190
       page_end: 191
       note: >
-        Article VII Section 2(e)(4) Transaction Restrictions Table. The fixture
-        passage states a team may not acquire a player using an Aggregated
-        Standard Traded Player Exception if that trade would put Apron Team
-        Salary over the Second Apron Level.
+        Article VII Section 2(e). Row H of the 2(e)(4) Transaction Restrictions
+        Table sets the Second Apron Level for a trade using the Aggregated
+        Standard Traded Player Exception, and 2(e)(2)(i)(A) prohibits a table
+        transaction that puts Apron Team Salary over its Applicable Apron Level.
 
 - id: exception
   kind: exception
@@ -45,15 +45,16 @@
       page_start: 237
       page_end: 238
       note: >
-        Article VII Section 6(f) states the exception amount and points at Row K
-        of the Transaction Restrictions Table for the Second Apron limit.
+        Article VII Section 6(f) states the exception amount and term. It does
+        not name the table.
     - article: 7
       section_contains: "2(e)"
       page_start: 190
       page_end: 191
       note: >
-        Article VII Section 2(e)(4) is that table, including the second-apron
-        trade rows the 6(f) passage refers to.
+        Article VII Section 2(e)(4), the Transaction Restrictions Table. Row K
+        names the Taxpayer Mid-Level Salary Exception "as described in Section
+        6(f)", so the table points at 6(f).
 
 - id: two-passages
   kind: two_passages
@@ -64,14 +65,15 @@
       page_start: 9
       page_end: 9
       note: >
-        Article I Section 1(lll) defines Salary. The fixture text does not point
-        at Article VII Section 4.
+        Article I Section 1(lll) defines Salary. It does not point at Article
+        VII Section 4.
     - article: 7
-      section_contains: "4 Determination of Team Salary"
+      section_contains: "4(a)"
       page_start: 211
-      page_end: 225
+      page_end: 217
       note: >
-        Article VII Section 4 determines Team Salary. The fixture text does not
+        Article VII Section 4(a), Computation, lists the amounts included in
+        Team Salary. The Section 4 chunk is only the heading. 4(a) does not
         point at Article I Section 1(lll).
 
 - id: season-or-date
@@ -99,10 +101,11 @@
       page_start: 231
       page_end: 232
       note: >
-        Article VII Section 6(b), the Veteran Free Agent Exception. For an Early
-        Qualifying Veteran Free Agent it caps the first-year salary at the
+        Article VII Section 6(b)(3)(i), the Veteran Free Agent Exception. For an
+        Early Qualifying Veteran Free Agent it caps the first-year salary at the
         greater of 175 percent of the prior regular salary or 105 percent of the
-        prior average player salary. The 1(t) definition only names the status.
+        prior average player salary. Ingest stores 6(b)(3)(i) inside the 6(b)(2)
+        chunk. The 1(t) definition only names the status.
         max(1.75 * 10000000, 1.05 * 12000000) = 17500000.
   expected_number: 17500000
 
@@ -129,8 +132,8 @@
       page_start: 9
       page_end: 9
       note: >
-        Article I Section 1(lll). The fixture definition names Compensation and
-        Unlikely Bonuses and contains no numerals.
+        Article I Section 1(lll). The definition names Compensation, excludes
+        Unlikely Bonuses, and contains no numerals.
 
 - id: no-evidence
   kind: no_evidence
