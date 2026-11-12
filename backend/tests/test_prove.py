@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from app.config import Settings
 from app.domain import (
     CitedAnswer,
@@ -11,6 +12,8 @@ from app.domain import (
     Refusal,
 )
 from app.grounding.validate import validate_draft
+from evals.embed_bench import PDF_PATH, load_cba_chunks
+from evals.metrics import chunk_matches
 from evals.prove import (
     CorpusCase,
     GradeContext,
@@ -369,3 +372,22 @@ def test_missing_live_settings_names_the_variable() -> None:
 
 def test_parse_numbers_ignores_commas() -> None:
     assert 17500000 in parse_numbers("the cap is 17,500,000 dollars")
+
+
+@pytest.mark.skipif(not PDF_PATH.is_file(), reason="the official CBA PDF is gitignored")
+def test_every_expected_section_has_a_rule_in_the_official_pdf() -> None:
+    chunks = load_cba_chunks(PDF_PATH)
+    missing: list[str] = []
+    for case in load_cases():
+        for spec in case.expected_sections:
+            ruled = [
+                chunk
+                for chunk in chunks
+                if chunk_matches(chunk, spec.as_expected())
+                and len(chunk.text.split("\n", 2)[-1].split()) > 12
+                and (spec.page_start is None or (chunk.page_end or 0) >= spec.page_start)
+                and (spec.page_end is None or (chunk.page_start or 0) <= spec.page_end)
+            ]
+            if not ruled:
+                missing.append(f"{case.id}: article {spec.article} {spec.section_contains}")
+    assert missing == []
