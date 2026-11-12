@@ -134,13 +134,16 @@ The screen lists the signed-in user's threads, streams a reply, and reloads that
 
 - [x] The demo renders each claim and a chip with the article, the section, and the page ([#1](https://github.com/zeketx/cba-copilot/pull/1))
 - [x] A click opens a source panel for that passage ([#1](https://github.com/zeketx/cba-copilot/pull/1))
-- [ ] The panel opens the official PDF at the viewer page. It currently shows an HTML excerpt
-- [ ] Empty thread state, streaming state, and friendly errors for auth, network, and answer failure. A shared 502 is not labeled as a grounding refusal
-- [ ] Rename and delete a chat from the sidebar
-- [ ] Render assistant answer Markdown. Citations and user bubbles stay plain text
-- [ ] Browser pass: sign in, ask, read a citation, open an old thread, rename, delete, sign out
+- [x] The panel opens the official PDF at the viewer page ([#19](https://github.com/zeketx/cba-copilot/pull/19), in review). The panel shows the PDF by default, and a toggle shows the stored passage. The subtitle names the printed page and the viewer page
+- [x] Empty thread state, streaming state, and friendly errors for auth, network, and answer failure. A shared 502 is not labeled as a grounding refusal ([#21](https://github.com/zeketx/cba-copilot/pull/21), in review). A 502 shows "The answer service failed. Nothing was saved." with a retry, in a neutral card. New chat or a thread switch during an answer cancels it, so the next ask is not stuck
+- [x] Rename and delete a chat from the sidebar, using the Beautiful UI sidebar ([#20](https://github.com/zeketx/cba-copilot/pull/20), in review). `PATCH` and `DELETE /api/threads/{id}` run the same owner check as reading a thread
+- [x] Render assistant answer Markdown. Citations and user bubbles stay plain text ([#22](https://github.com/zeketx/cba-copilot/pull/22), in review). `react-markdown` with no raw HTML
+- [x] Browser pass: sign in, ask, read a citation, open an old thread, rename, delete, sign out. On 2026-11-12, on a local merge of #19 through #22 with a dev token in place of Supabase sign-in, each step worked. The citation opened PDF page 214 for printed page 190. The renamed and deleted chats matched the server's thread list
+- [x] Use Beautiful UI components instead of new ones. The sidebar, row menu, and thinking state are vendored from beautifului.dev. Icons are inline SVG, because the registry's icon package needs a paid license
 
 **Exit:** a person can verify a claim from the citation without leaving the page, on the official PDF.
+
+Open: after an expired token, the app returns to the access screen without saying the session ended. The workspace menu shows no email after a reload. A real Supabase sign-in has not been run, because the invite has not been sent.
 
 ## 10. Prove the corpus
 
