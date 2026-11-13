@@ -166,7 +166,7 @@ def test_live_model_takes_its_key_from_settings(
     assert built.model_name == expected_name
 
 
-def test_answer_model_runs_at_temperature_zero() -> None:
+def test_answer_model_runs_with_budget_settings() -> None:
     seen: list[object] = []
 
     def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -182,4 +182,4 @@ def test_answer_model_runs_at_temperature_zero() -> None:
 
     draft = AgentDrafter(build_agent(FunctionModel(respond))).draft("q", [])
     assert draft.status == "insufficient_evidence"
-    assert seen == [{"temperature": 0}]
+    assert seen == [{"temperature": 0, "timeout": 45, "max_tokens": 1024}]
