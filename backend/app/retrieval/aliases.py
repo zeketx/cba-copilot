@@ -29,9 +29,14 @@ def expand_query(question: str) -> str:
     lowered = question.lower()
     extras: list[str] = []
     for phrase, expansion in ALIASES:
-        pattern = rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])"
-        if re.search(pattern, lowered):
-            extras.append(expansion)
+        # A hyphen is a boundary so "non-taxpayer" does not also expand "taxpayer".
+        pattern = rf"(?<![a-z0-9-]){re.escape(phrase)}(?![a-z0-9-])"
+        if not re.search(pattern, lowered):
+            continue
+        # "salary cap" already states the idea; adding "team salary" drowns hits.
+        if phrase == "cap" and re.search(r"(?<![a-z0-9-])salary cap(?![a-z0-9-])", lowered):
+            continue
+        extras.append(expansion)
     if not extras:
         return question
     return f"{question} {' '.join(extras)}"
