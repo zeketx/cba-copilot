@@ -31,7 +31,7 @@ def test_keeps_a_claim_cited_to_a_retrieved_passage() -> None:
     )
     assert result.kind == "answer"
     assert result.claims[0].passage_ids == ["p1"]
-    assert "quote" not in result.claims[0].model_dump()
+    assert result.claims[0].quote == "Second apron trade limits."
 
 
 def test_keeps_a_claim_when_the_normalized_quote_is_in_the_passage() -> None:

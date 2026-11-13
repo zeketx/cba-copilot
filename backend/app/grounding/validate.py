@@ -31,7 +31,7 @@ def _quote_in_cited_passages(claim: DraftClaim, by_id: dict[str, Chunk]) -> bool
 
 
 def _to_claim(claim: DraftClaim) -> Claim:
-    return Claim(text=claim.text, passage_ids=claim.passage_ids)
+    return Claim(text=claim.text, passage_ids=claim.passage_ids, quote=claim.quote)
 
 
 def _kept_claims(draft: DraftAnswer, passages: list[Chunk]) -> list[Claim]:

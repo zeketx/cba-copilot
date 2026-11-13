@@ -173,6 +173,8 @@ Open: after an expired token, the app returns to the access screen without sayin
 
 The runner and the eleven cases are on `main` ([#24](https://github.com/zeketx/cba-copilot/pull/24)). On 2026-11-12 each case label was checked offline against the chunked PDF. The two-passages case named `4 Determination of Team Salary`, which matches only the heading chunk, so it now names `4(a)`. `test_every_expected_section_has_a_rule_in_the_official_pdf` repeats that check whenever the PDF is on disk. The owner runs `uv run python -m evals.prove --live` from `backend/`, because it calls OpenRouter.
 
+Live runs on 2026-11-12 used `deepseek/deepseek-v4.1-flash-1017`. Run `20261113T013036Z` passed 4 of 11. Five of its failures were correct answers that paraphrased, because the grader required the claim text verbatim. `Claim` now keeps the validated quote, and the grader checks the quote. Run `20261113T013506Z` passed 7 of 11. Whole-rule dropped every claim, exception paraphrased "sixty-five" as "65", computation asked for inputs it was given, and missing-inputs computed nothing but did not ask. Whole-rule, computation, and ambiguous changed result between the two runs. No box is checked until one run passes every case.
+
 - [ ] One section contains the whole rule. Pass when every factual sentence cites that section and the quote contains the claim
 - [ ] The same section contains an exception. Pass when the claim quotes the exception, along with the general rule
 - [ ] A section points at another section. Pass when both sections are cited
@@ -225,4 +227,5 @@ These are open after the work merged on the evening of 2026-11-10. They are not 
 - [ ] Retrieval and question-design follow-up for `second-apron-trade` and `cap-inclusions` in `backend/evals/questions.yaml`. The `2(e)` label on `second-apron-trade` is verified against the CBA (Article VII 2(e)(4) transaction table, printed page 187); the miss is real, not a bad label. `cap-inclusions` needs both Article I 1(lll) and Article VII 4
 - [ ] Review the 30 draft questions in `backend/evals/draft_questions.yaml`
 - [ ] The chunker stores Article VII 6(b)(3)(i), the Early Qualifying Veteran Free Agent rule, inside the 6(b)(2) chunk, and labels 6(b)(3)(ii) as `6(b)(2)(ii)`. A citation of that rule shows the wrong section
+- [ ] `ingest load` text puts a space before a joined hyphen: 767 times in 294 of 915 chunks, such as `Mid -Level`, `Two -Way`, `sixty -two`, and `2023 -24`. A quote that writes the hyphen correctly is not in the stored passage and is dropped. The fix is in `ingest/pdf.py`, then a reload and a re-embed by the owner. The embed bench reads the PDF another way and does not show it
 - [ ] `cap-inclusions` in `backend/evals/questions.yaml` names `4 Determination of Team Salary`, which matches only the heading chunk on the live store. That may explain part of its miss

@@ -207,7 +207,7 @@ def missing_sections(
 
 
 def claim_supported(claim: Claim, ctx: GradeContext) -> bool:
-    needle = normalize_space(claim.text)
+    needle = normalize_space(claim.quote)
     if not needle:
         return False
     return any(needle in normalize_space(chunk.text) for chunk in chunks_for_claim(claim, ctx))
@@ -230,7 +230,7 @@ def _fail(*reasons: str) -> Verdict:
 
 def _unsupported(response: CopilotResponse, ctx: GradeContext) -> str | None:
     if any(not claim_supported(claim, ctx) for claim in response_claims(response)):
-        return "claim text is not in a cited passage"
+        return "claim quote is not in a cited passage"
     return None
 
 
