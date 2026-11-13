@@ -10,7 +10,7 @@ The hosted backend must connect as `cba_copilot_app`, not as `postgres`. That ro
 
 A second run of the script leaves the same grants. It does not create a second role.
 
-Do not run this script from an agent session. Do not grant `SUPERUSER`. Do not use `service_role` as `DATABASE_URL`.
+Run this script only with the owner's go-ahead. Set the password as a SCRAM verifier or in the dashboard so the plain password never reaches SQL logs. Do not grant `SUPERUSER`. Do not use `service_role` as `DATABASE_URL`.
 
 `cba_copilot_app` has `BYPASSRLS` so its grants work while row level security stays on with no policies. That is not superuser. `anon` and `authenticated` still have no row access.
 
