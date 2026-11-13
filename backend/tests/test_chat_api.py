@@ -2,14 +2,17 @@ import json
 from uuid import uuid4
 
 from app.api import create_app
+from app.assistant.drafter import AgentDrafter, build_agent
 from app.auth.gate import AccessGate, MemoryLedger
 from app.auth.identity import AuthUserId, Email, EmailAllowList, Unauthenticated, VerifiedIdentity
 from app.chat.log import MemoryChatLog
 from app.chat.service import AnswerFn
 from app.config import Settings
-from app.demo import load_demo_chunks
+from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import AMBIGUOUS_MESSAGE, Claim, Clarification, CopilotResponse, Refusal
+from app.pipeline import answer_question
 from fastapi.testclient import TestClient
+from pydantic_ai.models.function import FunctionModel
 
 
 class StaticVerifier:
@@ -320,6 +323,44 @@ def test_failed_answer_is_502_leaves_no_messages_and_retries() -> None:
     )
     assert loaded.json()[0]["id"] == turn_id
     assert loaded.json()[1]["response"]["kind"] == "refusal"
+
+
+def test_raising_stand_in_drafter_is_502_and_stores_nothing() -> None:
+    def respond(_messages: object, _info: object) -> object:
+        raise RuntimeError("drafter exploded")
+
+    def answer(question: str) -> CopilotResponse:
+        return answer_question(
+            question,
+            demo_store(),
+            demo_embedder(),
+            AgentDrafter(build_agent(FunctionModel(respond))),
+        )
+
+    client, _log = _client(answer=answer)
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    failed = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [
+                {
+                    "id": str(uuid4()),
+                    "role": "user",
+                    "content": "What can't a second-apron team do in a trade?",
+                }
+            ],
+        },
+    )
+    assert failed.status_code == 502
+    assert failed.json()["detail"]["error"] == "answer_failed"
+    empty = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert empty.status_code == 200
+    assert empty.json() == []
 
 
 def test_streamed_clarification_then_reload() -> None:
