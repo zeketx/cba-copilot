@@ -11,7 +11,7 @@ uv run uvicorn app.main:app --reload
 
 `GET /api/health` returns `{"ok":"true","mode":"fake"}`.
 
-`POST /api/ask` with `{"question":"..."}` answers from the fixture corpus. No API key is required.
+`POST /api/ask` with `{"question":"..."}` answers from the fixture corpus. No API key is required. A question and each chat message may be at most 4,000 characters. `POST /api/chat/stream` accepts at most 32 messages. A longer question, a longer message, or more messages returns 422 and does not answer.
 
 `uv run python -m evals.runner` runs the six questions on stand-in models. `--live` exits with status 2 and does not call a model.
 

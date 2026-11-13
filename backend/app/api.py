@@ -36,8 +36,13 @@ if TYPE_CHECKING:
     from app.auth.gate import AccessGate
 
 
+# Character length, same as len(). Oversized bodies are 422 before an answer runs.
+MAX_MESSAGE_CHARS = 4_000
+MAX_CHAT_MESSAGES = 32
+
+
 class AskRequest(BaseModel):
-    question: str = Field(min_length=1)
+    question: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 class AccessRequestBody(BaseModel):
     email: str
@@ -130,14 +135,14 @@ class PublicAssistantMessage(BaseModel):
 class StreamChatMessage(BaseModel):
     id: UUID
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 
 class StreamAskRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     thread_id: UUID = Field(alias="threadId")
-    messages: list[StreamChatMessage] = Field(min_length=1)
+    messages: list[StreamChatMessage] = Field(min_length=1, max_length=MAX_CHAT_MESSAGES)
 
     @model_validator(mode="after")
     def last_message_is_user(self) -> StreamAskRequest:
