@@ -1,0 +1,643 @@
+{
+  "live": true,
+  "cases": [
+    {
+      "id": "whole-rule",
+      "kind": "whole_rule",
+      "question": "What happens if a team uses an Aggregated Standard Traded Player Exception in a trade that would put Apron Team Salary over the Second Apron Level?\n",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "The Transaction Restrictions Table assigns the Second Apron Level as the Applicable Apron Level for a team that acquires a player using an Aggregated Standard Traded Player Exception (row H).",
+            "passage_ids": [
+              "5a922031-541f-45a8-a1d5-fab5036eda71"
+            ],
+            "quote": "Team acquires a player using an Aggregated \nStandard Traded Player Exception (as described \nin Section 6(j)(1)(ii) below)"
+          },
+          {
+            "text": "Because the Applicable Apron Level for that transaction is the Second Apron Level, the trade is prohibited: a team may not engage in a Transaction Restrictions Table transaction if, immediately following it, the team's Apron Team Salary for that Salary Cap Year would exceed the Applicable Apron Level corresponding to that transaction.",
+            "passage_ids": [
+              "072a812f-c61c-4604-b2ad-820f19cb30e0"
+            ],
+            "quote": "A Team may not engage in a transaction set forth in \nthe Transaction Restrictions Table if, immediately \nfollowing such transaction, the Team\u2019s Apron Team \nSalary for such Salary Cap Year would exceed the \n\u201cApplicable Apron Level \u201d that corresponds with \nsuch transaction in the table"
+          },
+          {
+            "text": "The CBA's own worked example applies this to the Aggregated Standard Traded Player Exception: Team D's proposed trade using that exception, which would leave a 2024-25 Apron Team Salary of $195 million, is prohibited because that exceeds the $189.5 million 2024-25 Second Apron Level.",
+            "passage_ids": [
+              "5a922031-541f-45a8-a1d5-fab5036eda71"
+            ],
+            "quote": "The proposed trade (a transaction set forth in \nrow H of the Transaction Restrictions Table with an Applicable Apron \nLevel of the Second Apron Level) is prohibited by Section  2(e)(2)(i)(A) \nabove because, immediately following the trade, Team D\u2019s 2024-25 Apron \nTeam Salary would exceed $189.5  million (i.e., the 2024-25 Second \nApron Level)."
+          },
+          {
+            "text": "In addition, a team that engages in such a transaction may not, for the remainder of that Salary Cap Year, have an Apron Team Salary exceeding the Applicable Apron Level (here, the Second Apron Level) corresponding to that transaction.",
+            "passage_ids": [
+              "072a812f-c61c-4604-b2ad-820f19cb30e0"
+            ],
+            "quote": "A Team that engages in a transaction set forth in \nthe Transaction Restrictions Table may not, for the \nremainder of such Salary Cap Year, have an Apron Team \nSalary that exceeds the Applicable Apron \nLevel that corresponds with such transaction in the \ntable."
+          },
+          {
+            "text": "There is a transitional carve-out limited to the 2023-24 Salary Cap Year: notwithstanding Section 2(e)(2), a team that engages in one or more of the transactions in rows F through J (which includes row H, the Aggregated Standard Traded Player Exception) during 2023-24 will not, by virtue of engaging in that transaction, be prohibited from having a 2023-24 Apron Team Salary that exceeds the Applicable Apron Level for that year.",
+            "passage_ids": [
+              "5a922031-541f-45a8-a1d5-fab5036eda71"
+            ],
+            "quote": "a Team that engages in one or more of the transactions set \nforth in rows F through J in the Transaction Restrictions Table \nduring the 2023-24 Salary Cap Year will not by virtue of engaging in \nany such transaction(s) be prohibited from having an Apron Team \nSalary in the 2023-24 Salary Cap Year that exceeds the Applicable \nApron Level for such Salary Cap Year."
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "959e0c81-bfbe-4c73-a9c7-fd4f6b0b2417",
+        "5a922031-541f-45a8-a1d5-fab5036eda71",
+        "8de5d531-ddcb-49b6-b4aa-bdd501417b6a",
+        "a6783010-3cec-4fde-835d-eb31933617ad",
+        "9ab78600-330a-434c-908e-26bb2220e5b0",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "072a812f-c61c-4604-b2ad-820f19cb30e0",
+        "a9f0c878-a1aa-4114-abf4-63d648561909",
+        "3b1fda42-85b8-4bae-8972-8d74a0111a54",
+        "7b682f35-2165-4444-b5f9-47176a9d7e8b",
+        "30d05ca7-c314-4cd6-b2ae-4490ec5487ba",
+        "11e206fb-561f-49d5-bdae-56e32b39748f",
+        "d734e557-0c1d-48d5-bc07-9b35b17601eb",
+        "03ce77f8-4f01-4cc3-8fa0-745b8ffba5f5",
+        "7b69d8e2-5cb5-4c87-959f-468a2537dc3a",
+        "279ee476-ef92-4f39-8972-787e22284133",
+        "3788fe60-1b2f-4924-9a14-656a1d23776b",
+        "0b9b6816-4ad9-437a-958d-763da86dd37e",
+        "ac93fc7b-b0bf-49bf-b522-4e27645e5225",
+        "0e8153f3-5a42-4823-8394-4d62614b9ee5",
+        "56153961-9391-452c-aec3-8a77f4db66dc",
+        "1c585fb8-144e-49e2-935b-0ff2e4e30873",
+        "393faab3-20ef-4253-968c-800b3aba54ca",
+        "e759120f-779b-45a0-abcf-f883b2f9cd44"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "exception",
+      "kind": "exception",
+      "question": "When is a player still eligible for NBA Most Valuable Player if he did not play sixty-five Regular Season games?\n",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "A player who did not play sixty-five Regular Season games is still eligible for NBA Most Valuable Player if he satisfies the second Award Eligibility Criterion: he (A) played in at least sixty-two (62) Regular Season games, (B) suffered a \"season-ending injury,\" and (C) played in at least eighty-five percent (85%) of the Regular Season games played by his Team prior to suffering that injury.",
+            "passage_ids": [
+              "10f3c98d-d807-4336-bc1a-ead4ff674459"
+            ],
+            "quote": "(2) the player (A) played in at least sixty-two (62) Regular Season games, \n(B) suffered a \u201cseason-ending injury\u201d (as defined below), and (C) played in \nat least eighty-five percent (85%) of the Regular Season games played by his \nTeam prior to the player suffering such injury."
+          },
+          {
+            "text": "For this purpose, a \"season-ending injury\" is an injury that, in the opinion of a physician jointly selected by the NBA and Players Association, makes it substantially more likely than not that the player would be unable to play through the May 31 following the date of the injury.",
+            "passage_ids": [
+              "79a7ba3d-726b-4c10-9439-3a1a6a3195bd"
+            ],
+            "quote": "A \u201cseason-ending injury\u201d is an injury that, in the \nopinion of a physician jointly selected by the NBA \nand Players Association, makes it substantially more \nlikely than not that the player would be unable to \nplay through the May 31 following the date of such \ninjury"
+          },
+          {
+            "text": "In counting games for these criteria, a player is considered to have played in a Regular Season game if he played at least twenty (20) minutes of that game, except that for no more than two (2) Regular Season games per Season he is considered to have played in a game if he played at least fifteen (15) minutes and fewer than twenty (20) minutes.",
+            "passage_ids": [
+              "79a7ba3d-726b-4c10-9439-3a1a6a3195bd"
+            ],
+            "quote": "A player shall be considered to have played in a \nRegular Season game if he played at least twenty (20) \nminutes of such game, provided that in respect of no \nmore than two (2) Regular Season games per Season, \nsuch player will be considered to have played in a \nRegular Season game if he played at least fifteen (15) \nminutes and fewer than twenty (20) minutes in such \ngame."
+          },
+          {
+            "text": "Separately, a player who fails to satisfy the Award Eligibility Criteria in a Season may nonetheless be deemed eligible for the Applicable Generally Recognized League Honors (which include NBA Most Valuable Player) if he prevails in either an Award Eligibility Grievance or an Extraordinary Circumstances Challenge for that Season; he may not bring both in the same Season.",
+            "passage_ids": [
+              "79a7ba3d-726b-4c10-9439-3a1a6a3195bd"
+            ],
+            "quote": "A player who fails to satisfy the Award Eligibility Criteria in \na Season may nonetheless be deemed eligible for the \nApplicable Generally Recognized League Honors if he \nprevails in either an Award Eligibility Grievance or an \nExtraordinary Circumstances Challenge in respect of such \nSeason in accordance with the procedures set forth in \nSections 6(b) and 6(c) below.  A player may not bring both \nan Award Eligibility Grievance and an Extraordinary \nCircumstances Challenge in respect of the same Season."
+          },
+          {
+            "text": "To prevail in an Award Eligibility Grievance, the player bears the burden of proving, by clear and convincing evidence, that the Team willfully limited his number of minutes played or games played during the Regular Season with the intention of depriving him of eligibility for one or more of the Applicable Generally Recognized League Honors for that Season; the sole remedy is that the player is deemed eligible.",
+            "passage_ids": [
+              "47dac291-9562-4358-a96c-6d4d0e2d2b24"
+            ],
+            "quote": "the player bears the burden of proving, by clear and \nconvincing evidence, that the Team willfully limited the \nplayer\u2019s number of minutes played or games played during \nthe Regular Season with the intention of depriving the player \nof eligibility for one or more of the Applicable Generally \nRecognized League Honors for such Season."
+          },
+          {
+            "text": "To prevail in an Extraordinary Circumstances Challenge, the player must prove that (A) due to extraordinary circumstances it was impracticable for him to play in one or more of the Regular Season games he missed, (B) he would have satisfied the sixty-five-game criterion had he played in every game he missed due to those extraordinary circumstances (assuming he would have played twenty minutes in each such missed game), and (C) as a result of the extraordinary circumstances, and taking into account the totality of the circumstances, it would be unjust to exclude him from eligibility.",
+            "passage_ids": [
+              "4db05cda-1e1d-4da9-8a62-ea2782c2baa8"
+            ],
+            "quote": "(A) Due to extraordinary circumstances, it was  \nimpracticable for him to play in one (1) or more of \nthe Regular Season game(s) that he missed during \nsuch Season; \n(B) He wo uld have satisfied the Award Eligibility \nCriterion set forth in Section 6(a)(1) above if he had \nplayed in every game that he missed due to the \nextraordinary circumstances ( i.e., assuming that he \nwould have played twenty (20) minutes in each such \nmissed game); and  \n(C) As a result of the extraordinary circumstances, and \ntaking into account the totality of the circumstances, \nincluding whether the player did not play in other \nRegular Season games in which he could have played \nduring such Season, it would be unjust to exclude the \nplayer from eligibility for the Applicable Generally \nRecognized League Honors for such Season."
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "10f3c98d-d807-4336-bc1a-ead4ff674459",
+        "79a7ba3d-726b-4c10-9439-3a1a6a3195bd",
+        "47dac291-9562-4358-a96c-6d4d0e2d2b24",
+        "4db05cda-1e1d-4da9-8a62-ea2782c2baa8",
+        "90e4929d-d4da-4127-87ee-c220bfe6e55a",
+        "995b490a-4637-40ad-ae60-e516e2cadf52",
+        "be3e1228-66ad-4d5d-b159-423dfa68a3aa",
+        "f54acaa6-a24b-4a2f-ad9a-0c48e5b38fa2",
+        "49b5303c-9a94-459a-b971-7d5513666c1a",
+        "25f51511-a83f-4064-a210-40ef8d9c5543",
+        "f563d14a-0a1f-4475-a184-0bacb3689d04",
+        "65bf6389-ce89-45b7-bf3c-cfc26c225533",
+        "0058c6cb-7114-4cfc-836f-5987f9cb13f9",
+        "664aa11e-64d6-489e-8686-a8c8f4b23714",
+        "c00307ad-83d8-41c5-9df5-887db0c61164",
+        "138b45a5-4022-43df-aff5-7bdacdca264c"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "cross-reference",
+      "kind": "cross_reference",
+      "question": "How does the Taxpayer Mid-Level Salary Exception change above the Second Apron Level, and which transaction table covers that limit?\n",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "The Taxpayer Mid-Level Salary Exception is expressly subject to the Section 2(e) apron rules.",
+            "passage_ids": [
+              "af70cdc2-b432-4216-b65f-4c97c4302812"
+            ],
+            "quote": "Subject to the rules set forth in Section 2(e) above and Section 6(n) below"
+          },
+          {
+            "text": "In the Transaction Restrictions Table, the Taxpayer Mid-Level Salary Exception is row K, and its Applicable Apron Level is the Second Apron Level.",
+            "passage_ids": [
+              "5a922031-541f-45a8-a1d5-fab5036eda71"
+            ],
+            "quote": "K. Team signs a player using the Taxpayer \nMid-Level Salary Exception (as described in  \nSection 6(f) below) \nSecond Apron \nLevel"
+          },
+          {
+            "text": "Under the table rules, a team may not engage in a listed transaction if immediately after the transaction its Apron Team Salary for that Salary Cap Year would exceed the Applicable Apron Level corresponding to that transaction; for row K, that level is the Second Apron Level.",
+            "passage_ids": [
+              "072a812f-c61c-4604-b2ad-820f19cb30e0"
+            ],
+            "quote": "(A) A Team may not engage in a transaction set forth in \nthe Transaction Restrictions Table if, immediately \nfollowing such transaction, the Team\u2019s Apron Team \nSalary for such Salary Cap Year would exceed the \n\u201cApplicable Apron Level \u201d that corresponds with \nsuch transaction in the table; and"
+          },
+          {
+            "text": "A team that engages in a listed transaction may not, for the remainder of that Salary Cap Year, have Apron Team Salary above the Applicable Apron Level corresponding to that transaction; thus, after using the Taxpayer Mid-Level Salary Exception, the team cannot exceed the Second Apron Level for the rest of that Salary Cap Year.",
+            "passage_ids": [
+              "072a812f-c61c-4604-b2ad-820f19cb30e0"
+            ],
+            "quote": "(B) A Team that engages in a transaction set forth in the \nTransaction Restrictions Table may not, for the \nremainder of such Salary Cap Year, have an Apron \nTeam Salary that exceeds the Applicable Apron \nLevel that corresponds with such transaction in the \ntable."
+          },
+          {
+            "text": "The limit is covered by the Transaction Restrictions Table in Section 2(e)(4).",
+            "passage_ids": [
+              "5a922031-541f-45a8-a1d5-fab5036eda71"
+            ],
+            "quote": "(4) Transaction Restrictions Table:"
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "072a812f-c61c-4604-b2ad-820f19cb30e0",
+        "5a922031-541f-45a8-a1d5-fab5036eda71",
+        "af70cdc2-b432-4216-b65f-4c97c4302812",
+        "b8049a34-e233-44e2-8157-b80325054ed1",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "d734e557-0c1d-48d5-bc07-9b35b17601eb",
+        "65cf558c-7954-4b11-a2d5-e98ad5d06766",
+        "3b1fda42-85b8-4bae-8972-8d74a0111a54",
+        "e759120f-779b-45a0-abcf-f883b2f9cd44",
+        "a1c0402d-8789-4a6c-8f91-8218eea5c20a",
+        "30d05ca7-c314-4cd6-b2ae-4490ec5487ba",
+        "11e206fb-561f-49d5-bdae-56e32b39748f",
+        "03ce77f8-4f01-4cc3-8fa0-745b8ffba5f5",
+        "a6783010-3cec-4fde-835d-eb31933617ad",
+        "393faab3-20ef-4253-968c-800b3aba54ca",
+        "3f025283-6032-4228-945b-3cc359b00afe",
+        "0e8153f3-5a42-4823-8394-4d62614b9ee5",
+        "56153961-9391-452c-aec3-8a77f4db66dc",
+        "1c585fb8-144e-49e2-935b-0ff2e4e30873",
+        "8d0e4cb7-0293-44dd-95a4-0121d7c8b96d",
+        "3edf7410-c0a2-4bfd-bc19-4c4ce2dccac8",
+        "744dd48b-afb6-4ce5-a9a7-65b59a37838f",
+        "68e9252a-7f26-4df4-98aa-c25a3fdb4bce",
+        "21d5a496-8a50-43a0-b5cb-252b835a1246"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "two-passages",
+      "kind": "two_passages",
+      "question": "What counts toward the cap as Salary, and how is Team Salary determined?",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "\u201cSalary\u201d is defined as a player\u2019s Compensation for the Season covered by the Salary Cap Year, plus any other amount deemed to constitute Salary under the Agreement, but it excludes Unlikely Bonuses, benefits received under the Agreement (such as Article IV benefits, per diem, and moving expenses), and any portion of Compensation attributable to another Salary Cap Year; it also includes consideration received by a retired player that is deemed Salary under Article XIII.",
+            "passage_ids": [
+              "3670b4e1-fe42-4b26-947d-35628e8d83d0"
+            ],
+            "quote": "\u201cSalary\u201d means, with respect to a Salary Cap Year, a player\u2019s Compensation with respect to the Season covered by such Salary Cap Year, plus any other amount that is deemed to constitute Salary in accordance with the terms of this Agreement, not including Unlikely Bonuses, any benefits the player received in accordanc e with the terms of this Agreement (including, e.g., the benefits provided for by Article IV, per diem, and moving expenses), and any portion of the player\u2019s Compensation that is attributable to another Salary Cap Year in accordance with this Agreement."
+          },
+          {
+            "text": "\u201cTeam Salary\u201d for a Salary Cap Year is the sum of all Salaries attributable to a Team\u2019s active and former players, plus other amounts computed under Article VII, less applicable credit amounts computed under Article VII.",
+            "passage_ids": [
+              "4498cf2d-a8f6-4797-88ac-060f3c9f67d8"
+            ],
+            "quote": "\u201cTeam Salary\u201d means, with respect to a Salary Cap Year, the sum of all Salaries attributable to a Team\u2019s active and former players pl us other amounts as computed in accordance with Article VII, less applicable credit amounts as computed in accordance with Article VII."
+          },
+          {
+            "text": "Article VII, Section 4(a) governs the computation of Team Salary and states that all of the listed amounts shall be included, beginning with the aggregate Salaries of all active players (and former players to the extent the Agreement provides) attributable to a particular Salary Cap Year.",
+            "passage_ids": [
+              "49ee4dac-9c9e-477e-ada9-a87a959ee810"
+            ],
+            "quote": "For purposes of computing Team Salary under this Agreement, all of the following amounts shall be included: (1) Subject to the rules set forth in this Article VII, the aggregate Salaries of all active players (and former players to the extent provided by the terms of this Agreement) attributable to a particular Salary Cap Year, including, without limitation:"
+          },
+          {
+            "text": "International player payments count as Salary: any amount above the Excluded International Player Payment Amounts paid by or at a Team\u2019s direction to a non-NBA basketball team or other entity to induce a player playing professionally outside the United States to sign a Player Contract (or to secure that right) is deemed Salary in the form of a signing bonus.",
+            "passage_ids": [
+              "5ad2cb63-da3d-4cc3-a2a0-b9c75de99c7d"
+            ],
+            "quote": "Any amount in excess of the amounts set forth below (\u201cExcluded International Player Payment Amount s\u201d) paid or to be paid by or at the direction of any NBA Team to (i) any basketball team other than an NBA Team, or (ii) any other entity, organization, representative or person, for the purpose of inducing a player who is participating in the game of basketball as a professional outside of the United States to enter into a Player Contract or in connection with securing the right to enter into a Player Contract with such a player shall be deemed Salary (in the form of a signing bonus) to the player"
+          },
+          {
+            "text": "Performance Bonuses count toward Salary only if the bonus would be earned assuming the Team\u2019s or player\u2019s performance were identical to the performance in the immediately preceding Salary Cap Year (subject to the challenge procedures in Section 3(d)(2)-(4)).",
+            "passage_ids": [
+              "b2568cd9-ca89-4e8e-91bc-04408b11d52a"
+            ],
+            "quote": "any Performance Bonus (provided such Performance Bonus may be included in a Player Contract in accordance with Section 5(b) below), shall be included in Salary only if such Performance Bonus would be earned if the Team\u2019s or player\u2019s performance were identical to the performance in the immediately preceding Salary Cap Year."
+          },
+          {
+            "text": "All Incentive Compensation described in Article II, Sections 3(b)(iii) and 3(c) is included in Salary.",
+            "passage_ids": [
+              "1cb703d1-a45b-44dd-a9e6-c73e49846669"
+            ],
+            "quote": "All Incentive Compensation described in Article II, Sections 3(b)(iii) and 3(c) shall be included in Salary."
+          },
+          {
+            "text": "For a one-year, 10-Day, or Rest-of-Season Contract at the Minimum Player Salary, the Salary counted is the lesser of the full Minimum Player Salary or the portion of it not reimbursed out of the League-wide benefits fund in Article IV, Section 6(h).",
+            "passage_ids": [
+              "3210800f-f202-4235-9df9-11de55992d74"
+            ],
+            "quote": "the Salary of every player who signs a one-year, 10-Day, or Rest-of-Season Contract for the Minimum Player Salary applicable to such player shall be the lesser of (1) such Minimum Player Salary, or (2) the portion of such Minimum Player Salary that is not reimbursed out of the League-wide benefits fund described in Article IV, Section 6(h)."
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "4498cf2d-a8f6-4797-88ac-060f3c9f67d8",
+        "5ad2cb63-da3d-4cc3-a2a0-b9c75de99c7d",
+        "d8f965a8-efad-410b-8986-eca24a29a316",
+        "5bbcc21f-be20-4a3c-9590-7f5680272de1",
+        "8a6c25a7-6a1e-481e-9acb-e52213971745",
+        "49ee4dac-9c9e-477e-ada9-a87a959ee810",
+        "b72fc847-d797-4346-8887-623c9249f4ee",
+        "21ce0099-1356-4f1a-a347-a1f848e54c63",
+        "74dce366-fb8f-40b2-95d8-b6911798dfb9",
+        "1cb703d1-a45b-44dd-a9e6-c73e49846669",
+        "3210800f-f202-4235-9df9-11de55992d74",
+        "dc065b80-14e1-43a5-a4b8-22fbf1ff7679",
+        "96b1d841-22a4-4ce6-bddb-7933080c4950",
+        "9a55ce32-6a8a-4157-a461-271b9c6821a4",
+        "cf6b7682-c4b1-4419-8f3c-6da8fc72347b",
+        "52fb7de6-0672-4d96-9205-39828003c17c",
+        "8ce5cef4-de95-48ae-8c68-3086413f8d90",
+        "c997e318-850c-4bbc-b9c8-0c254150ae0d",
+        "d352666e-e8c3-4840-9445-dd1eb229c4ae",
+        "b2568cd9-ca89-4e8e-91bc-04408b11d52a",
+        "fd25d204-9df5-4795-8109-e0de6ccd44bd",
+        "3670b4e1-fe42-4b26-947d-35628e8d83d0",
+        "c8683ad3-3b9b-4af3-9fac-ae0e49f79c83",
+        "a01463cd-e80b-4620-b720-77ff6aefa9b0"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "season-or-date",
+      "kind": "season_or_date",
+      "question": "How much is the Taxpayer Mid-Level Salary Exception?",
+      "response": {
+        "kind": "clarification",
+        "reason": "missing_inputs",
+        "message": "The cited passage needs inputs the question does not give: the Salary Cap Year (season) at issue, the Salary Cap for that Salary Cap Year, the Salary Cap for the 2023-24 Salary Cap Year. Add them and ask again.",
+        "claims": [
+          {
+            "text": "The Taxpayer Mid-Level Salary Exception amount is set by a formula: it is $5 million for the 2023-24 Salary Cap Year, and for each subsequent Salary Cap Year it is $5 million multiplied by a fraction whose numerator is the Salary Cap for that Salary Cap Year and whose denominator is the Salary Cap for the 2023-24 Salary Cap Year. Because the question names no Salary Cap Year and supplies neither Salary Cap figure, the dollar amount cannot be computed.",
+            "passage_ids": [
+              "af70cdc2-b432-4216-b65f-4c97c4302812"
+            ],
+            "quote": "For the 2023-24 Salary Cap Year: $5 million For each subsequent Salary Cap Year: $5 million multiplied by a fraction, the numerator of which is the Salary Cap for that Salary Cap Year and the denominator of which is the Salary Cap for the 2023-24 Salary Cap Year"
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "af70cdc2-b432-4216-b65f-4c97c4302812",
+        "b8049a34-e233-44e2-8157-b80325054ed1",
+        "d734e557-0c1d-48d5-bc07-9b35b17601eb",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "5a922031-541f-45a8-a1d5-fab5036eda71",
+        "63e42196-51d6-4d84-b67c-3409890bffe1",
+        "072a812f-c61c-4604-b2ad-820f19cb30e0",
+        "5bbcc21f-be20-4a3c-9590-7f5680272de1",
+        "3b1fda42-85b8-4bae-8972-8d74a0111a54",
+        "393faab3-20ef-4253-968c-800b3aba54ca",
+        "3f025283-6032-4228-945b-3cc359b00afe",
+        "11e206fb-561f-49d5-bdae-56e32b39748f",
+        "3edf7410-c0a2-4bfd-bc19-4c4ce2dccac8",
+        "744dd48b-afb6-4ce5-a9a7-65b59a37838f",
+        "68e9252a-7f26-4df4-98aa-c25a3fdb4bce",
+        "0e8153f3-5a42-4823-8394-4d62614b9ee5",
+        "56153961-9391-452c-aec3-8a77f4db66dc",
+        "1c585fb8-144e-49e2-935b-0ff2e4e30873",
+        "8d0e4cb7-0293-44dd-95a4-0121d7c8b96d",
+        "30d05ca7-c314-4cd6-b2ae-4490ec5487ba",
+        "03ce77f8-4f01-4cc3-8fa0-745b8ffba5f5",
+        "a6783010-3cec-4fde-835d-eb31933617ad",
+        "e1623d91-6755-4f22-89e7-a446ba6530f0",
+        "2889f5b4-0a3a-411a-bfa6-39457b557895"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "computation",
+      "kind": "computation",
+      "question": "An Early Qualifying Veteran Free Agent has a prior regular salary of 10000000 and the prior average player salary is 12000000. What is the first-year cap under the veteran free agent exception?\n",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "For an Early Qualifying Veteran Free Agent, the first-year Salary plus Unlikely Bonuses may be up to the greater of (A) 175% of the Regular Salary for the final Salary Cap Year of the prior Contract or (B) 105% of the Average Player Salary for the prior Salary Cap Year. Applying the given inputs: (A) 175% \u00d7 $10,000,000 = $17,500,000; (B) 105% \u00d7 $12,000,000 = $12,600,000. The greater amount is $17,500,000, so the first-year cap under the Veteran Free Agent Exception is $17,500,000.",
+            "passage_ids": [
+              "7e247ee0-9a48-44fc-babb-c33a7a445c88"
+            ],
+            "quote": "(A) one hundred \nseventy-five percent (175%) of the Regular Salary for the \nfinal Salary Cap Year covered by his prior Contract, plus one \nhundred seventy-five percent (175%) of any Likely Bonuses \nand Unlikely Bonuses, respectively, called for in the final \nSalary Cap Year covered by the player\u2019s prior Contract, or \n(B) Salary plus Unlikely Bonuses totaling an amount equal to \none hundred five percent (105%) of the Average Player \nSalary for the prior Salary Cap Year"
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "7e247ee0-9a48-44fc-babb-c33a7a445c88",
+        "6cb6a08a-3c4d-408f-95f6-9a4a9db6caaa",
+        "e759120f-779b-45a0-abcf-f883b2f9cd44",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "5a922031-541f-45a8-a1d5-fab5036eda71",
+        "393faab3-20ef-4253-968c-800b3aba54ca",
+        "1c585fb8-144e-49e2-935b-0ff2e4e30873",
+        "8de5d531-ddcb-49b6-b4aa-bdd501417b6a",
+        "dee0ee97-a76d-4a6a-bffd-20101e1bcb4b",
+        "671a7429-bf35-471b-9805-b0eb95953a8d",
+        "a5c917d3-769f-44ea-b778-cd58c650f806",
+        "25f51511-a83f-4064-a210-40ef8d9c5543",
+        "91cae6be-8030-4390-b36e-4dbb0a8d0d7c",
+        "2cfd01c8-91b7-4c25-942f-505d16f51287",
+        "7b69d8e2-5cb5-4c87-959f-468a2537dc3a",
+        "d2fc50b6-6cd9-4c9e-9ac0-1f9d6b74b075",
+        "072a812f-c61c-4604-b2ad-820f19cb30e0",
+        "a1131466-8899-42a9-9e7f-c216aeecb6ef",
+        "078b4b8c-6380-48aa-9536-ce8eb8382d2c",
+        "0e8153f3-5a42-4823-8394-4d62614b9ee5",
+        "56153961-9391-452c-aec3-8a77f4db66dc",
+        "8d0e4cb7-0293-44dd-95a4-0121d7c8b96d",
+        "674800a0-41c8-4b2f-8bd1-d002d082e4a6",
+        "30d05ca7-c314-4cd6-b2ae-4490ec5487ba"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "missing-inputs",
+      "kind": "missing_inputs",
+      "question": "What is the first-year salary cap for an Early Qualifying Veteran Free Agent under the veteran free agent exception?\n",
+      "response": {
+        "kind": "clarification",
+        "reason": "missing_inputs",
+        "message": "The cited passage needs inputs the question does not give: The player's Regular Salary for the final Salary Cap Year covered by his prior Contract, Any Likely Bonuses and Unlikely Bonuses called for in the final Salary Cap Year covered by the player's prior Contract, The Average Player Salary for the prior Salary Cap Year. Add them and ask again.",
+        "claims": [
+          {
+            "text": "Under the Veteran Free Agent Exception, an Early Qualifying Veteran Free Agent's new contract must cover at least two Seasons and, subject to Article II, Section 7, may provide in the first Salary Cap Year up to the greater of (A) 175% of the Regular Salary for the final Salary Cap Year of his prior Contract plus 175% of any Likely Bonuses and Unlikely Bonuses called for in that final Salary Cap Year, or (B) Salary plus Unlikely Bonuses totaling 105% of the Average Player Salary for the prior Salary Cap Year. Because the question supplies none of the inputs this greater-of operation requires, no dollar figure can be computed.",
+            "passage_ids": [
+              "7e247ee0-9a48-44fc-babb-c33a7a445c88"
+            ],
+            "quote": "may provide in the first \nSalary Cap Year up to the greater of:  (A) one hundred \nseventy-five percent (175%) of the Regular Salary for the \nfinal Salary Cap Year covered by his prior Contract, plus one \nhundred seventy-five percent (175%) of any Likely Bonuses \nand Unlikely Bonuses, respectively, called for in the final \nSalary Cap Year covered by the player\u2019s prior Contract, or \n(B) Salary plus Unlikely Bonuses totaling an amount equal to \none hundred five percent (105%) of the Average Player \nSalary for the prior Salary Cap Year"
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "7e247ee0-9a48-44fc-babb-c33a7a445c88",
+        "6cb6a08a-3c4d-408f-95f6-9a4a9db6caaa",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "e759120f-779b-45a0-abcf-f883b2f9cd44",
+        "a94d8a28-dcf1-4d07-aa1e-84c1773fbd35",
+        "f563d14a-0a1f-4475-a184-0bacb3689d04",
+        "d734e557-0c1d-48d5-bc07-9b35b17601eb",
+        "68e9252a-7f26-4df4-98aa-c25a3fdb4bce",
+        "dee0ee97-a76d-4a6a-bffd-20101e1bcb4b",
+        "671a7429-bf35-471b-9805-b0eb95953a8d",
+        "a5c917d3-769f-44ea-b778-cd58c650f806",
+        "25f51511-a83f-4064-a210-40ef8d9c5543",
+        "91cae6be-8030-4390-b36e-4dbb0a8d0d7c",
+        "2cfd01c8-91b7-4c25-942f-505d16f51287",
+        "7b69d8e2-5cb5-4c87-959f-468a2537dc3a",
+        "0e8153f3-5a42-4823-8394-4d62614b9ee5",
+        "56153961-9391-452c-aec3-8a77f4db66dc",
+        "1c585fb8-144e-49e2-935b-0ff2e4e30873",
+        "393faab3-20ef-4253-968c-800b3aba54ca",
+        "d2fc50b6-6cd9-4c9e-9ac0-1f9d6b74b075",
+        "072a812f-c61c-4604-b2ad-820f19cb30e0",
+        "a1131466-8899-42a9-9e7f-c216aeecb6ef",
+        "078b4b8c-6380-48aa-9536-ce8eb8382d2c",
+        "16a8ac56-e483-4020-89f1-5642fbe220c2"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "definition",
+      "kind": "definition",
+      "question": "What does Salary include, and does it include Unlikely Bonuses?",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "Salary for a Salary Cap Year is the player's Compensation for the Season covered by that Salary Cap Year, plus any other amount deemed to constitute Salary under the Agreement. It expressly does NOT include Unlikely Bonuses, benefits received under the Agreement (e.g., Article IV benefits, per diem, moving expenses), or any portion of Compensation attributable to another Salary Cap Year.",
+            "passage_ids": [
+              "3670b4e1-fe42-4b26-947d-35628e8d83d0"
+            ],
+            "quote": "\u201cSalary\u201d means, with respect to a Salary Cap Year, a player\u2019s Compensation with respect to the Season covered by such Salary Cap Year, plus any other amount that is deemed to constitute Salary in accordance with the terms of this Agreement, not including Unlikely Bonuses"
+          },
+          {
+            "text": "Salary also includes any consideration received by a retired player that is deemed to constitute Salary under Article XIII.",
+            "passage_ids": [
+              "3670b4e1-fe42-4b26-947d-35628e8d83d0"
+            ],
+            "quote": "S alary also includes any consideration received by a retired player that is deemed to constitute Salary in accordance with the terms of Article XIII."
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "3670b4e1-fe42-4b26-947d-35628e8d83d0",
+        "3583fec1-e98f-4924-8461-d31be64aa56e",
+        "2245c873-0da2-4aa8-99c1-062b2511e206",
+        "1cb703d1-a45b-44dd-a9e6-c73e49846669",
+        "e759120f-779b-45a0-abcf-f883b2f9cd44",
+        "7e247ee0-9a48-44fc-babb-c33a7a445c88",
+        "4cf9071f-93f3-491d-ab52-fdc41778af59",
+        "6c155d13-7454-433d-a6b4-890955774249",
+        "63e42196-51d6-4d84-b67c-3409890bffe1",
+        "8a6c25a7-6a1e-481e-9acb-e52213971745",
+        "36d3ad38-5b56-4cb3-8b2b-b082137a0f1d",
+        "cf10b760-230d-4f72-85b9-6e3bf2232c73",
+        "674800a0-41c8-4b2f-8bd1-d002d082e4a6",
+        "6cfb927c-5778-4f95-ab27-145a29615c72",
+        "08a33bae-d7f4-4bdb-bef2-d53a81b4b31f",
+        "b2568cd9-ca89-4e8e-91bc-04408b11d52a",
+        "5ad2cb63-da3d-4cc3-a2a0-b9c75de99c7d",
+        "c1f4c3d6-de86-450a-bdb5-bb1238797c0b",
+        "d2fc50b6-6cd9-4c9e-9ac0-1f9d6b74b075",
+        "072a812f-c61c-4604-b2ad-820f19cb30e0",
+        "a1131466-8899-42a9-9e7f-c216aeecb6ef",
+        "078b4b8c-6380-48aa-9536-ce8eb8382d2c",
+        "dee0ee97-a76d-4a6a-bffd-20101e1bcb4b",
+        "671a7429-bf35-471b-9805-b0eb95953a8d"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "no-evidence",
+      "kind": "no_evidence",
+      "question": "How many timeouts may an NHL coach call during a playoff overtime?",
+      "response": {
+        "kind": "refusal",
+        "reason": "no_evidence",
+        "message": "The retrieved passages from the 2023 NBA Collective Bargaining Agreement do not contain enough evidence to answer this."
+      },
+      "retrieved_ids": [
+        "c45293a9-3f96-4e7f-bb65-c3605338cc7b",
+        "a20eb05a-7934-4785-adb2-782a0d357c50",
+        "be553155-d8f7-480d-aa1f-eb735165ffb5",
+        "e8912589-77ee-40cd-b13b-2287374a4653",
+        "e783bb96-c845-4371-9a23-63193535d46c",
+        "995b490a-4637-40ad-ae60-e516e2cadf52",
+        "fb3469e0-1b0f-46a6-ab86-757c283ed84c",
+        "1dcd19be-a778-40bc-a670-88c6a239fe58",
+        "664aa11e-64d6-489e-8686-a8c8f4b23714",
+        "c806313e-bd4a-4e50-bbb2-62f3c9e1d974",
+        "ecc20bfc-da91-4221-afcf-9e4cc0549ebc",
+        "ee423f10-6779-4495-9506-d6a4f9645110",
+        "04849ea2-1e55-4dcc-9a40-cf8e5f47b805",
+        "49b5303c-9a94-459a-b971-7d5513666c1a",
+        "0058c6cb-7114-4cfc-836f-5987f9cb13f9",
+        "65bf6389-ce89-45b7-bf3c-cfc26c225533",
+        "16127429-bbd0-48a2-8774-24c028386ca9",
+        "a479c64b-c722-47b9-8c32-9b03ec3b4461",
+        "b5599a3d-0944-49e7-87e6-a6a9337dd9db",
+        "2b776e91-7d3f-4110-9deb-0e0240a3ba89",
+        "937f3283-aae4-40ad-b36f-df6e0029f0af",
+        "aa0cf24b-c31a-49f9-b573-cddd17b66745"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "ambiguous",
+      "kind": "ambiguous",
+      "question": "How many seasons can a contract signed with the mid-level exception run for a team that is over the Salary Cap?\n",
+      "response": {
+        "kind": "clarification",
+        "reason": "ambiguous",
+        "message": "More than one retrieved passage applies, and none says which one controls. Which season or effective date do you mean?",
+        "claims": [
+          {
+            "text": "Under the Non-Taxpayer Mid-Level Salary Exception \u2014 the mid-level exception available to a team whose Team Salary is at or above the Salary Cap \u2014 a signed contract may run no more than four (4) Seasons.",
+            "passage_ids": [
+              "d734e557-0c1d-48d5-bc07-9b35b17601eb"
+            ],
+            "quote": "The term of a Player Contract signed pursuant to the \nNon-Taxpayer Mid-Level Salary Exception may not exceed four (4) \nSeasons in length"
+          },
+          {
+            "text": "Under the Taxpayer Mid-Level Salary Exception \u2014 also a mid-level exception, used where the team's Apron Team Salary immediately following use exceeds the First Apron Level \u2014 a signed contract may run no more than two (2) Seasons.",
+            "passage_ids": [
+              "af70cdc2-b432-4216-b65f-4c97c4302812"
+            ],
+            "quote": "A Team may use the Taxpayer Mid-Level Salary Exception to \nsign one (1) or more Player Contracts during each Salary Cap Year \nnot to exceed two (2) Seasons in length"
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "b8049a34-e233-44e2-8157-b80325054ed1",
+        "d734e557-0c1d-48d5-bc07-9b35b17601eb",
+        "af70cdc2-b432-4216-b65f-4c97c4302812",
+        "11e206fb-561f-49d5-bdae-56e32b39748f",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "8e8cf476-0b94-4198-aaca-79b29f7eca98",
+        "5e072c40-0075-42de-99a6-380b04f95a42",
+        "9d67b340-c3b9-402c-9aa8-7fb522817aa8",
+        "3f025283-6032-4228-945b-3cc359b00afe",
+        "393faab3-20ef-4253-968c-800b3aba54ca",
+        "3b1fda42-85b8-4bae-8972-8d74a0111a54",
+        "3edf7410-c0a2-4bfd-bc19-4c4ce2dccac8",
+        "744dd48b-afb6-4ce5-a9a7-65b59a37838f",
+        "68e9252a-7f26-4df4-98aa-c25a3fdb4bce",
+        "3956c8e3-fa1e-4e2f-9cfe-97b817bd2877",
+        "0e8153f3-5a42-4823-8394-4d62614b9ee5",
+        "56153961-9391-452c-aec3-8a77f4db66dc",
+        "1c585fb8-144e-49e2-935b-0ff2e4e30873",
+        "8d0e4cb7-0293-44dd-95a4-0121d7c8b96d",
+        "20654680-6b1c-44cb-ad81-95b757f9afbb",
+        "8ec3e2cc-3aee-4363-901d-d9aa945a74ef",
+        "279ee476-ef92-4f39-8972-787e22284133",
+        "aff0ffc4-5d5c-40e4-8491-0662aba24a95",
+        "4b80ae26-c828-4e42-8af7-3a423821d989"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    },
+    {
+      "id": "bad-citation",
+      "kind": "bad_citation",
+      "question": "What can't a second-apron team do in a trade?",
+      "response": {
+        "kind": "answer",
+        "claims": [
+          {
+            "text": "A Second Apron Team is prohibited from trading (conditionally or unconditionally) its first round draft pick in the first NBA Draft that occurs following the seventh Season that follows the Season occurring within that Salary Cap Year.",
+            "passage_ids": [
+              "a9f0c878-a1aa-4114-abf4-63d648561909"
+            ],
+            "quote": "(i) the Team shall be prohibited from trading (either conditionally or unconditionally) its first round draft pick in the first NBA Draft that occurs following the seventh Season that follows the Season occurring within such Salary Cap Year; and"
+          },
+          {
+            "text": "The CBA's own illustration: a team that is a Second Apron Team for the 2024-25 Salary Cap Year would be prohibited from trading its 2032 first round draft pick.",
+            "passage_ids": [
+              "a9f0c878-a1aa-4114-abf4-63d648561909"
+            ],
+            "quote": "Example:  If Team A is a Second Apron Team for the 2024-25 Salary Cap Year, then it would be prohibited from trading its 2032 first round draft pick (i.e., its first round draft pick in the first NBA Draft that occurs following the seventh Season that follows the Season occurring within such Salary Cap Year)."
+          }
+        ]
+      },
+      "retrieved_ids": [
+        "a9f0c878-a1aa-4114-abf4-63d648561909",
+        "959e0c81-bfbe-4c73-a9c7-fd4f6b0b2417",
+        "b6a4fde8-1630-4710-9e2d-1119f9e30f0f",
+        "50a2ae5a-3010-4097-a712-b5309610ea3c",
+        "a6ccd376-803a-43df-8c85-efe91682f8f0",
+        "aebcc959-2b62-4187-a74b-c73aa3ef2d86",
+        "4ece6ea0-6b2e-429f-9050-b75eaa673b67",
+        "a029ca52-5b47-4bf3-89f2-a8eca0b15596",
+        "827f4400-68c6-4ee9-bb20-89ead1b9fdcc",
+        "a6783010-3cec-4fde-835d-eb31933617ad",
+        "8de5d531-ddcb-49b6-b4aa-bdd501417b6a",
+        "4e38a1ba-02da-48eb-9076-5344c8e1f50d",
+        "3b1fda42-85b8-4bae-8972-8d74a0111a54",
+        "2aeaa021-f71d-4733-ad12-8f7007bdd7bc",
+        "d0f80bed-dfbd-43ea-b87b-09a4fa3b90c2",
+        "9ab78600-330a-434c-908e-26bb2220e5b0",
+        "f0188d31-5a75-433d-b539-7abfe86a4bb8",
+        "ce7f8034-f2ad-49b3-8b0b-95703ffffce8",
+        "5642d9e4-87dc-4de7-9720-7d470bc09348",
+        "350b2ac4-8e72-4a32-b618-352ab1123679",
+        "f17f2fb9-3271-4a6a-9817-633594e4a898",
+        "03ce77f8-4f01-4cc3-8fa0-745b8ffba5f5",
+        "30d05ca7-c314-4cd6-b2ae-4490ec5487ba",
+        "a3a085fe-6782-41e8-9dc5-05e4858c921c"
+      ],
+      "verdict": "pass",
+      "reasons": []
+    }
+  ]
+}
