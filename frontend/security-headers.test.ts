@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { test } from "node:test";
@@ -110,3 +111,42 @@ test("hosted preview sends the headers and the dev server does not", { timeout: 
     }
   }
 });
+
+test("hosted preview answers only the Railway host and the healthcheck", { timeout: 60_000 }, async () => {
+  assert.ok(existsSync(path.join(root, "dist", "index.html")), "run pnpm build before pnpm test");
+  const previous = process.env.RAILWAY_PUBLIC_DOMAIN;
+  process.env.RAILWAY_PUBLIC_DOMAIN = "cba.example.test";
+  const hosted = await preview({
+    configFile,
+    root,
+    mode: "production",
+    preview: { host: "127.0.0.1", port: 0 },
+  });
+  try {
+    const { port } = hosted.httpServer?.address() as AddressInfo;
+    assert.equal(await statusFor(port, "cba.example.test"), 200);
+    assert.equal(await statusFor(port, "healthcheck.railway.app"), 200);
+    assert.equal(await statusFor(port, "evil.example.test"), 403);
+  } finally {
+    await hosted.close();
+    if (previous === undefined) {
+      delete process.env.RAILWAY_PUBLIC_DOMAIN;
+    } else {
+      process.env.RAILWAY_PUBLIC_DOMAIN = previous;
+    }
+  }
+});
+
+function statusFor(port: number, host: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = http.request(
+      { host: "127.0.0.1", port, path: "/", headers: { Host: host } },
+      (response) => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      },
+    );
+    request.on("error", reject);
+    request.end();
+  });
+}

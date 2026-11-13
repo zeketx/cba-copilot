@@ -6,3 +6,8 @@ data/downloads/
 **/.venv
 **/node_modules
 **/__pycache__
+**/.env.*
+!**/.env.example
+**/dist
+data/markdown-aid/
+backend/evals/reports/
