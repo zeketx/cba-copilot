@@ -1,6 +1,7 @@
+# Railway builds from the repository root with this Dockerfile.
 [build]
-builder = "NIXPACKS"
-buildCommand = "pnpm install --frozen-lockfile && pnpm build"
+builder = "DOCKERFILE"
+dockerfilePath = "frontend/Dockerfile"
 
 [deploy]
-startCommand = "pnpm exec vite preview --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/"

@@ -15,6 +15,19 @@ function officialPdfUrl(): string {
   return corpus.pdf_url;
 }
 
+// vite preview only answers these Host headers. Railway sets RAILWAY_PUBLIC_DOMAIN,
+// and its healthcheck calls from healthcheck.railway.app.
+function previewHosts(): string[] {
+  const listed = (process.env.PREVIEW_ALLOWED_HOSTS ?? "").split(",");
+  const hosts = [process.env.RAILWAY_PUBLIC_DOMAIN ?? "", ...listed]
+    .map((host) => host.trim())
+    .filter((host) => host !== "");
+  if (hosts.length > 0) {
+    hosts.push("healthcheck.railway.app");
+  }
+  return hosts;
+}
+
 export default defineConfig(({ mode }) => {
   const config = {
     plugins: [react(), tailwindcss()],
@@ -36,6 +49,7 @@ export default defineConfig(({ mode }) => {
   return {
     ...config,
     preview: {
+      allowedHosts: previewHosts(),
       headers: securityHeaders({
         supabaseUrl: process.env.VITE_SUPABASE_URL || fileEnv.VITE_SUPABASE_URL,
         apiBase: process.env.VITE_API_BASE || fileEnv.VITE_API_BASE,
