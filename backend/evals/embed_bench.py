@@ -145,9 +145,14 @@ def load_bench_questions(paths: list[Path]) -> tuple[list[BenchQuestion], list[s
             articles = item.get("articles") or []
             expected: list[ExpectedSection] = []
             for article in articles:
+                raw_article = article.get("article")
                 expected.append(
                     ExpectedSection(
-                        article=int(article["article"]),
+                        article=(
+                            None
+                            if raw_article is None or raw_article == ""
+                            else int(raw_article)
+                        ),
                         section_contains=str(article["section_contains"]),
                     )
                 )

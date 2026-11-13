@@ -58,10 +58,12 @@ def _load(*, dry_run: bool) -> int:
     print(f"offset {offset}")
     print(f"chunks {len(rows)}")
     print(f"chunks with references {with_refs}")
+    exhibits = sum(1 for row in rows if row.article_number is None)
     if articles:
         print(f"articles {articles[0]}-{articles[-1]} ({len(articles)} covered)")
     else:
         print("articles none")
+    print(f"exhibit chunks {exhibits}")
     if first is not None and last is not None:
         print(
             "first "

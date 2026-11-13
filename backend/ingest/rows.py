@@ -79,12 +79,54 @@ def references(
     return ordered
 
 
+_PAGE_PRINTED = re.compile(r"^<!--\s*pdf-page:\s*(\d+)(?:\s+printed:\s+(\S+))?\s*-->\s*$")
+
+
+def printed_labels(markdown: str) -> dict[int, str]:
+    labels: dict[int, str] = {}
+    for line in markdown.splitlines():
+        match = _PAGE_PRINTED.match(line.strip())
+        if match is None or not match.group(2):
+            continue
+        labels[int(match.group(1))] = match.group(2)
+    return labels
+
+
 def chunk_rows(markdown: str, source_url: str, offset: int) -> list[ChunkRow]:
     chunks = chunk_markdown(markdown, source_url=source_url)
+    labels = printed_labels(markdown)
     rows: list[ChunkRow] = []
     for index, chunk in enumerate(chunks):
-        printed_start = None if chunk.page_start is None else chunk.page_start - offset
-        printed_end = None if chunk.page_end is None else chunk.page_end - offset
+        viewer_start = chunk.page_start
+        viewer_end = chunk.page_end
+        start_label = labels.get(viewer_start) if viewer_start is not None else None
+        end_label = labels.get(viewer_end) if viewer_end is not None else None
+        numeric_printed = (
+            start_label is not None
+            and start_label.isdigit()
+            and (end_label is None or end_label.isdigit())
+        )
+        if numeric_printed:
+            printed_start = int(start_label) if start_label is not None else (
+                None if viewer_start is None else viewer_start - offset
+            )
+            printed_end = int(end_label) if end_label is not None else (
+                None if viewer_end is None else viewer_end - offset
+            )
+        elif viewer_start is not None and (start_label is None or start_label.isdigit()):
+            printed_start = viewer_start - offset
+            printed_end = None if viewer_end is None else viewer_end - offset
+        else:
+            printed_start = None
+            printed_end = None
+        metadata: dict = {
+            "slug": chunk.id,
+            "references": references(chunk.text, chunk.article_number, chunk.section),
+        }
+        if start_label and not start_label.isdigit():
+            metadata["printed_label"] = start_label
+            if end_label and end_label != start_label:
+                metadata["printed_label_end"] = end_label
         rows.append(
             ChunkRow(
                 chunk_index=index,
@@ -94,13 +136,10 @@ def chunk_rows(markdown: str, source_url: str, offset: int) -> list[ChunkRow]:
                 page_start=printed_start,
                 page_end=printed_end,
                 printed_page=printed_start,
-                viewer_page=chunk.page_start,
+                viewer_page=viewer_start,
                 source_url=chunk.source_url,
                 text=chunk.text,
-                metadata={
-                    "slug": chunk.id,
-                    "references": references(chunk.text, chunk.article_number, chunk.section),
-                },
+                metadata=metadata,
             )
         )
     return rows

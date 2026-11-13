@@ -24,7 +24,10 @@ def render_source(cited: Chunk, chunks: list[Chunk]) -> tuple[str, SpanPlacement
     end_id = f"cite-end-{cited.id}"
     sections: list[str] = ["<article>"]
     for chunk in chunks:
-        title = html.escape(f"Article {chunk.article_number}. {chunk.article_title}")
+        if chunk.article_number is None:
+            title = html.escape(chunk.article_title or chunk.section)
+        else:
+            title = html.escape(f"Article {chunk.article_number}. {chunk.article_title}")
         section = html.escape(chunk.section)
         body = html.escape(chunk.text)
         if chunk.id == cited.id:
