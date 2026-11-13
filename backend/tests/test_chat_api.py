@@ -9,7 +9,14 @@ from app.chat.log import MemoryChatLog
 from app.chat.service import AnswerFn
 from app.config import Settings
 from app.demo import demo_embedder, demo_store, load_demo_chunks
-from app.domain import AMBIGUOUS_MESSAGE, Claim, Clarification, CopilotResponse, Refusal
+from app.domain import (
+    AMBIGUOUS_MESSAGE,
+    CitedAnswer,
+    Claim,
+    Clarification,
+    CopilotResponse,
+    Refusal,
+)
 from app.pipeline import answer_question
 from fastapi.testclient import TestClient
 from pydantic_ai.models.function import FunctionModel
@@ -76,6 +83,119 @@ def _events(body: str) -> list[tuple[str, dict[str, object]]]:
         if payload is not None:
             events.append((name, payload))
     return events
+
+
+def test_health_reports_fake_in_demo_mode() -> None:
+    client, _log = _client()
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json() == {"ok": "true", "mode": "fake"}
+
+
+def test_missing_citation_chunk_is_omitted() -> None:
+    bird = next(chunk for chunk in load_demo_chunks() if chunk.id == "bird")
+
+    def answer(_question: str) -> CopilotResponse:
+        return CitedAnswer(
+            claims=[
+                Claim(text="Bird rights.", passage_ids=[bird.id]),
+                Claim(text="Missing passage.", passage_ids=["no-such-chunk"]),
+            ]
+        )
+
+    client, _log = _client(answer=answer)
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    turn_id = str(uuid4())
+    response = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [{"id": turn_id, "role": "user", "content": "Bird?"}],
+        },
+    )
+    assert response.status_code == 200
+    done = _events(response.text)[-1][1]
+    claims = done["response"]["claims"]
+    assert claims[0]["citations"][0]["passage_id"] == bird.id
+    assert claims[1]["citations"] == []
+    reloaded = client.get(
+        f"/api/threads/{thread_id}/messages",
+        headers={"Authorization": "Bearer fan"},
+    )
+    assert reloaded.json()[1]["response"]["claims"][1]["citations"] == []
+
+
+def test_live_answer_opens_and_closes_one_session_per_request() -> None:
+    box = {"open": 0, "close": 0, "live": 0}
+
+    class CountingSession:
+        def __init__(self) -> None:
+            box["open"] += 1
+            box["live"] += 1
+
+        def close(self) -> None:
+            box["close"] += 1
+            box["live"] -= 1
+
+    def factory() -> CountingSession:
+        return CountingSession()
+
+    def answer(_question: str) -> CopilotResponse:
+        assert box["live"] == 1
+        return Refusal(reason="no_evidence", message="offline")
+
+    settings = Settings(
+        allowed_emails=(),
+        database_url="postgresql://postgres:pw@localhost:5432/postgres",
+        supabase_url="https://example.supabase.co",
+        openai_api_key="sk-test",
+        _env_file=None,
+    )
+    chat_log = MemoryChatLog()
+    gate = AccessGate(
+        allow=EmailAllowList.parse("fan@example.com,other@example.com"),
+        verifier=StaticVerifier({"fan": FAN, "other": OTHER}),
+        ledger=MemoryLedger(),
+        threads=chat_log,
+    )
+    client = TestClient(
+        create_app(
+            settings,
+            gate=gate,
+            log=chat_log,
+            answer=answer,
+            session_factory=factory,
+        )
+    )
+    health = client.get("/api/health")
+    assert health.json() == {"ok": "true", "mode": "live"}
+    thread_id = client.post("/api/threads", headers={"Authorization": "Bearer fan"}).json()["id"]
+    body = {
+        "threadId": thread_id,
+        "messages": [{"id": str(uuid4()), "role": "user", "content": "Cap?"}],
+    }
+    first = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json=body,
+    )
+    assert first.status_code == 200
+    assert box["open"] == 1
+    assert box["close"] == 1
+    assert box["live"] == 0
+    second = client.post(
+        "/api/chat/stream",
+        headers={"Authorization": "Bearer fan"},
+        json={
+            "threadId": thread_id,
+            "messages": [{"id": str(uuid4()), "role": "user", "content": "Again?"}],
+        },
+    )
+    assert second.status_code == 200
+    assert box["open"] == 2
+    assert box["close"] == 2
+    assert box["live"] == 0
 
 
 def test_me_returns_the_verified_email() -> None:

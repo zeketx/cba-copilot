@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
 
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain import Chunk
 from app.retrieval.queries import (
@@ -152,6 +153,11 @@ def _document_from_row(row: object) -> DocumentMeta:
         effective_start=row.effective_start or "",
         effective_through=row.effective_through or "",
     )
+
+def postgres_session_factory(database_url: str) -> Callable[[], Session]:
+    engine = create_engine(database_url)
+    return sessionmaker(bind=engine)
+
 
 class PostgresChunkStore:
 
