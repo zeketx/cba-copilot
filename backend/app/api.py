@@ -22,9 +22,11 @@ from app.chat.log import ChatLog, MemoryChatLog, SqlChatLog
 from app.chat.model import StoredTurn, ThreadSummary
 from app.chat.service import AnswerFailed, AnswerFn, ThreadChat
 from app.config import AppMode, Settings, require_app_mode
+from app.corpus import pdf_url
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import Chunk, Claim, Clarification, CopilotResponse, Refusal
+from app.http_security import SecurityHeadersMiddleware, http_origin
 from app.limits import DistinctCap, SlidingWindow
 from app.pipeline import answer_question
 from app.retrieval.embed import build_embedder
@@ -408,7 +410,14 @@ def create_app(
         window_seconds=settings.access_request_rate_window_seconds,
     )
     access_cap = DistinctCap(settings.access_request_cap)
-    app = FastAPI(title="CBA Copilot", version="0.1.0")
+    production = settings.production
+    app = FastAPI(
+        title="CBA Copilot",
+        version="0.1.0",
+        docs_url=None if production else "/docs",
+        redoc_url=None if production else "/redoc",
+        openapi_url=None if production else "/openapi.json",
+    )
     app.state.gate = gate if gate is not None else gate_from_settings(settings, threads=chat_log)
     app.state.chat_log = chat_log
     app.state.chat = ThreadChat(app.state.gate, chat_log, run_answer)
@@ -418,6 +427,12 @@ def create_app(
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
+    if production:
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            supabase_origin=http_origin(settings.supabase_url),
+            pdf_origin=http_origin(pdf_url()),
+        )
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

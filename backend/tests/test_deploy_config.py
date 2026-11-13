@@ -23,6 +23,7 @@ SECRET_NAMES = (
 def test_backend_start_command_binds_port() -> None:
     text = BACKEND_RAILWAY.read_text(encoding="utf-8")
     assert BACKEND_START in text
+    assert "ENVIRONMENT=production" in text
 
 
 def test_frontend_start_command_previews_built_app() -> None:

@@ -90,6 +90,7 @@ class Settings(BaseSettings):
 
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     allowed_emails: Annotated[tuple[str, ...], NoDecode] = ()
+    environment: str = ""
 
     @field_validator("supabase_url")
     @classmethod
@@ -200,6 +201,10 @@ class Settings(BaseSettings):
         if self.answer_provider == "openai":
             return model_id(self.answer_provider, self.openai_chat_model)
         raise ValueError(f"ANSWER_MODEL is required when ANSWER_PROVIDER is {self.answer_provider}")
+
+    @property
+    def production(self) -> bool:
+        return self.environment.strip().lower() == "production"
 
     @computed_field
     @property
