@@ -25,6 +25,7 @@ from app.config import AppMode, Settings, require_app_mode
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import Chunk, Claim, Clarification, CopilotResponse, Refusal
+from app.limits import DistinctCap, SlidingWindow
 from app.pipeline import answer_question
 from app.retrieval.embed import build_embedder
 from app.retrieval.store import ChunkStore, PostgresChunkStore, postgres_session_factory
@@ -289,6 +290,21 @@ def _turn_events(
     )
 
 
+def _client_host(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    if request.client is not None and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def _too_many(error: str) -> HTTPException:
+    return HTTPException(status_code=429, detail={"error": error})
+
+
 def _chat_log(settings: Settings) -> ChatLog:
     if settings.database_url:
         return SqlChatLog(settings.sqlalchemy_database_url)
@@ -383,6 +399,15 @@ def create_app(
         finally:
             session.close()
 
+    answer_window = SlidingWindow(
+        limit=settings.answer_rate_limit,
+        window_seconds=settings.answer_rate_window_seconds,
+    )
+    access_window = SlidingWindow(
+        limit=settings.access_request_rate_limit,
+        window_seconds=settings.access_request_rate_window_seconds,
+    )
+    access_cap = DistinctCap(settings.access_request_cap)
     app = FastAPI(title="CBA Copilot", version="0.1.0")
     app.state.gate = gate if gate is not None else gate_from_settings(settings, threads=chat_log)
     app.state.chat_log = chat_log
@@ -400,6 +425,10 @@ def create_app(
 
     @app.post("/api/access-requests")
     def request_access(body: AccessRequestBody, request: Request) -> AccessRequestResponse:
+        if not access_window.allow(_client_host(request)):
+            raise _too_many("rate_limited")
+        if not access_cap.reserve(body.email):
+            raise _too_many("access_requests_full")
         record = request.app.state.gate.submit(Email.parse(body.email))
         return AccessRequestResponse(email=record.email.value, created_at=record.created_at)
 
@@ -488,6 +517,8 @@ def create_app(
         request: Request,
         user: Annotated[AppUser, Depends(get_current_user)],
     ) -> StreamingResponse:
+        if not answer_window.allow(str(user.id.value)):
+            raise _too_many("rate_limited")
         last = body.messages[-1]
         try:
             turn = request.app.state.chat.ask(user, body.thread_id, last.id, last.content)
@@ -499,8 +530,13 @@ def create_app(
         public = public_outcome(turn.outcome)
         return StreamingResponse(_turn_events(turn, public), media_type="text/event-stream")
 
-    @app.post("/api/ask", dependencies=[Depends(get_current_user)])
-    def ask(body: AskRequest) -> PublicAnswer | PublicRefusal | PublicClarification:
+    @app.post("/api/ask")
+    def ask(
+        body: AskRequest,
+        user: Annotated[AppUser, Depends(get_current_user)],
+    ) -> PublicAnswer | PublicRefusal | PublicClarification:
+        if not answer_window.allow(str(user.id.value)):
+            raise _too_many("rate_limited")
         try:
             result = run_answer(body.question)
         except Exception:

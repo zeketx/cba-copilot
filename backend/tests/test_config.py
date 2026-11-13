@@ -87,6 +87,20 @@ def test_context_caps_default_with_the_rrf_constant() -> None:
     assert settings.retrieval_context_max == 16
 
 
+def test_rate_limits_default_to_the_documented_budget() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.answer_rate_limit == 10
+    assert settings.answer_rate_window_seconds == 60
+    assert settings.access_request_rate_limit == 5
+    assert settings.access_request_rate_window_seconds == 600
+    assert settings.access_request_cap == 100
+
+
+def test_zero_answer_rate_limit_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(answer_rate_limit=0, _env_file=None)
+
+
 def test_missing_provider_key_names_the_env_var() -> None:
     message = missing_provider_key("google", openai="", gemini="", openrouter="")
     assert message is not None
