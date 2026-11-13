@@ -205,7 +205,7 @@ Default host is Railway, one frontend service and one backend service, until you
 - [ ] `alembic upgrade head` against the hosted database
 - [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list, so the invite link opens this app. Until this box is done, an invited person uses Send code
 - [x] README "Run the offline demo" has the local backend and frontend commands ([#1](https://github.com/zeketx/cba-copilot/pull/1))
-- [x] A question and each chat message are at most 4,000 characters, and a chat request has at most 32 messages. Oversized input returns 422 before retrieval or a model call
+- [x] A question and each chat message are at most 4,000 characters, and a chat request has at most 32 messages. Oversized input returns 422 before retrieval or a model call ([#36](https://github.com/zeketx/cba-copilot/pull/36))
 - [ ] Smoke test on the deployed URL: ask one question, see an article, a section, and a page, reload
 
 **Exit:** the smoke test passes on the hosted URL. The PDF is not in the deploy image and not in git.
