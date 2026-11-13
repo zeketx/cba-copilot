@@ -84,7 +84,12 @@ class AgentDrafter:
 
 
 def build_agent(model: object) -> Agent[None, DraftAnswer]:
-    return Agent(model, output_type=DraftAnswer, instructions=_INSTRUCTIONS)
+    return Agent(
+        model,
+        output_type=DraftAnswer,
+        instructions=_INSTRUCTIONS,
+        model_settings={"temperature": 0},
+    )
 
 
 def _openai_model(name: str, settings: Settings) -> Model:
