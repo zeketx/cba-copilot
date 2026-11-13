@@ -18,6 +18,12 @@ export async function fetchMe(): Promise<{ email: string }> {
   return await readJson<{ email: string }>(response);
 }
 
+export async function fetchHealth(): Promise<"live" | "fake"> {
+  const response = await apiRequest("/api/health", { auth: false });
+  const body = await readJson<{ mode?: unknown }>(response);
+  return body.mode === "live" ? "live" : "fake";
+}
+
 export async function listThreads(): Promise<ThreadSummary[]> {
   const response = await apiRequest("/api/threads");
   const body = await readJson<WireThread[]>(response);

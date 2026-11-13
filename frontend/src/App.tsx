@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import {
   createThread,
   deleteThread,
+  fetchHealth,
   fetchMe,
   listThreads,
   loadMessages,
@@ -93,6 +94,7 @@ export function App() {
   const [signInNotice, setSignInNotice] = useState<string | null>(null);
   const [notAllowed, setNotAllowed] = useState(false);
   const [gateView, setGateView] = useState<"request" | "login">("request");
+  const [fixtureMode, setFixtureMode] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (requestState !== "sent") {
@@ -109,6 +111,24 @@ export function App() {
     const clear = window.setTimeout(() => setRequestState("idle"), 1200);
     return () => window.clearTimeout(clear);
   }, [requestState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchHealth()
+      .then((mode) => {
+        if (!cancelled) {
+          setFixtureMode(mode !== "live");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFixtureMode(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (sessionToken === null) {
@@ -605,7 +625,9 @@ export function App() {
     <div className="mx-auto flex h-full min-h-screen max-w-5xl flex-col bg-page shadow-raised">
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <div>
-          <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Fixture mode</p>
+          {fixtureMode ? (
+            <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Fixture mode</p>
+          ) : null}
           <h1 className="text-lg font-semibold text-ink">CBA Copilot</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -662,10 +684,17 @@ export function App() {
                 {messages.length === 0 && askTurn.phase === "idle" ? (
                   <div className="mx-auto max-w-2xl px-1 py-10">
                     <p className="text-[15px] font-medium text-ink">Ask about the 2023 CBA</p>
-                    <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
-                      Fixture mode. Replies use the checked-in demo passages. They are not a live
-                      reading of the official PDF, and they are not legal advice.
-                    </p>
+                    {fixtureMode === false ? (
+                      <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
+                        Answers cite the 2023 collective bargaining agreement. They are not legal
+                        advice.
+                      </p>
+                    ) : fixtureMode ? (
+                      <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
+                        Fixture mode. Replies use the checked-in demo passages. They are not a live
+                        reading of the official PDF, and they are not legal advice.
+                      </p>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap gap-2">
                       {SAMPLE_QUESTIONS.map((sample) => (
                         <Button
@@ -713,7 +742,11 @@ export function App() {
                           done="Read the CBA"
                           rows={[
                             { primary: "Reading the question" },
-                            { primary: "Retrieving fixture passages" },
+                            {
+                              primary: fixtureMode
+                                ? "Retrieving fixture passages"
+                                : "Retrieving passages",
+                            },
                             { primary: "Drafting a grounded answer" },
                           ]}
                         />
