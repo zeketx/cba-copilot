@@ -182,4 +182,4 @@ def test_answer_model_runs_with_budget_settings() -> None:
 
     draft = AgentDrafter(build_agent(FunctionModel(respond))).draft("q", [])
     assert draft.status == "insufficient_evidence"
-    assert seen == [{"temperature": 0, "timeout": 45, "max_tokens": 1024}]
+    assert seen == [{"temperature": 0, "timeout": 60, "max_tokens": 4096}]

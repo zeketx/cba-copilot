@@ -88,7 +88,7 @@ def build_agent(model: object) -> Agent[None, DraftAnswer]:
         model,
         output_type=DraftAnswer,
         instructions=_INSTRUCTIONS,
-        model_settings={"temperature": 0, "timeout": 45, "max_tokens": 1024},
+        model_settings={"temperature": 0, "timeout": 60, "max_tokens": 4096},
     )
 
 
