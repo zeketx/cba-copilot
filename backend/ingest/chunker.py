@@ -12,7 +12,7 @@ _ARTICLE_RE = re.compile(
 )
 _SECTION_RE = re.compile(r"^##\s+(?:Section\s+)?(.+?)\s*$", re.IGNORECASE)
 _PAGE_RE = re.compile(r"^<!--\s*pdf-page:\s*(\d+)\s*-->\s*$")
-_SUBSECTION_RE = re.compile(r"^(?:###\s+.+|\([a-z]\)\s+.+)$")
+_SUBSECTION_HEADING = re.compile(r"^###\s+.+")
 _AID_NAME_RE = re.compile(r"^(\d+)-")
 
 _ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
@@ -118,6 +118,7 @@ _ROMAN_MARKERS = {
     "xx",
 }
 _LEADING_MARKER = re.compile(r"^\(([a-z]+|\d+)\)\s+")
+_LEADING_MARKER_RUN = re.compile(r"^((?:\([^)]+\))(?:\s+\([^)]+\))*)")
 
 
 def rejoin_pdf_word_splits(value: str) -> str:
@@ -170,6 +171,34 @@ def _leading_tokens(stripped: str) -> list[str]:
     return tokens
 
 
+def _compact_leading_markers(value: str) -> str:
+    match = _LEADING_MARKER_RUN.match(value)
+    if match is None:
+        return value
+    run = match.group(1)
+    return run.replace(" ", "") + value[len(run) :]
+
+
+def _is_subsection_cut(stripped: str) -> bool:
+    if _SUBSECTION_HEADING.match(stripped):
+        return True
+    tokens = _leading_tokens(stripped)
+    if not tokens:
+        return False
+    rest = stripped
+    for _token in tokens:
+        match = _LEADING_MARKER.match(rest)
+        if match is None:
+            return False
+        rest = rest[match.end() :]
+    if not rest:
+        return False
+    first = tokens[0]
+    if first.isdigit() or first in _ROMAN_MARKERS:
+        return True
+    return len(first) == 1 and first.isalpha()
+
+
 def _parent_prefix(stack: list[tuple[str, str]], token: str, *, definitions: bool) -> str:
     kind = _marker_kind(token, definitions=definitions, stack=stack)
     if kind == "letter":
@@ -198,6 +227,7 @@ def _marker_prefixes(section: _Section) -> list[str]:
 
 
 def _stored_section(name: str, prefix: str, heading: str) -> str:
+    heading = _compact_leading_markers(heading)
     if not heading:
         return rejoin_pdf_word_splits(name)
     if prefix:
@@ -338,7 +368,7 @@ def _split_groups(
     cuts = [
         index
         for index, line in enumerate(section.lines)
-        if _SUBSECTION_RE.match(line.text.strip())
+        if _is_subsection_cut(line.text.strip())
     ]
     if not cuts:
         return [(plain, stored_plain, section.lines)]
