@@ -13,6 +13,8 @@ uv run uvicorn app.main:app --reload
 
 `POST /api/ask` with `{"question":"..."}` answers from the fixture corpus. No API key is required.
 
+Limits are in-memory and reset when the process restarts. `POST /api/ask` and `POST /api/chat/stream` share 10 calls per signed-in user per 60 seconds. The 11th call in that window is 429 `rate_limited` and does not retrieve or draft. `POST /api/access-requests` allows 5 calls per client address per 600 seconds (429 `rate_limited`) and 100 distinct emails in the process (429 `access_requests_full`, and that email is not stored). A repeat of an email this process already stored still returns 200. The client address is the first `X-Forwarded-For` hop when the header is present, otherwise the socket peer. Change the budgets with `ANSWER_RATE_LIMIT`, `ANSWER_RATE_WINDOW_SECONDS`, `ACCESS_REQUEST_RATE_LIMIT`, `ACCESS_REQUEST_RATE_WINDOW_SECONDS`, and `ACCESS_REQUEST_CAP`.
+
 `uv run python -m evals.runner` runs the six questions on stand-in models. `--live` exits with status 2 and does not call a model.
 
 Copy `backend/.env.example` to `backend/.env` only when you are ready to point Alembic at Supabase. The offline tests ignore a missing `.env`.
