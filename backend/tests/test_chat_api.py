@@ -1,7 +1,9 @@
 import json
+from pathlib import Path
 from uuid import uuid4
 
-from app.api import create_app
+import pytest
+from app.api import MAX_CHAT_MESSAGES, MAX_MESSAGE_CHARS, create_app
 from app.assistant.drafter import AgentDrafter, build_agent
 from app.auth.gate import AccessGate, MemoryLedger
 from app.auth.identity import AuthUserId, Email, EmailAllowList, Unauthenticated, VerifiedIdentity
@@ -603,6 +605,104 @@ def test_rename_and_delete_are_forbidden_for_another_user() -> None:
     listed = client.get("/api/threads", headers={"Authorization": "Bearer fan"})
     assert listed.json()[0]["id"] == str(thread.id)
     assert listed.json()[0]["title"] == ""
+
+
+def _turn(role: str, content: str) -> dict[str, str]:
+    return {"id": str(uuid4()), "role": role, "content": content}
+
+
+def test_oversized_input_is_422_before_retrieval_or_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"n": 0}
+
+    def ran(*_args: object, **_kwargs: object) -> None:
+        calls["n"] += 1
+        raise AssertionError("answer path ran")
+
+    monkeypatch.setattr("app.pipeline.hybrid_retrieve", ran)
+    monkeypatch.setattr("app.api.answer_question", ran)
+    monkeypatch.setattr("app.assistant.drafter.OverlapDrafter.draft", ran)
+    monkeypatch.setattr("app.assistant.drafter.AgentDrafter.draft", ran)
+
+    client, log = _client()
+    headers = {"Authorization": "Bearer fan"}
+    thread = log.create_thread(FAN.id)
+    huge = "a" * (MAX_MESSAGE_CHARS + 1)
+    body = {"threadId": str(thread.id)}
+
+    ask = client.post("/api/ask", headers=headers, json={"question": huge})
+    assert ask.status_code == 422
+
+    long_turn = client.post(
+        "/api/chat/stream",
+        headers=headers,
+        json={**body, "messages": [_turn("user", huge)]},
+    )
+    assert long_turn.status_code == 422
+
+    earlier = client.post(
+        "/api/chat/stream",
+        headers=headers,
+        json={
+            **body,
+            "messages": [_turn("assistant", huge), _turn("user", "What is the cap?")],
+        },
+    )
+    assert earlier.status_code == 422
+
+    too_many = [
+        _turn("user" if index % 2 == 0 else "assistant", "ok") for index in range(MAX_CHAT_MESSAGES)
+    ]
+    too_many.append(_turn("user", "ok"))
+    counted = client.post(
+        "/api/chat/stream",
+        headers=headers,
+        json={**body, "messages": too_many},
+    )
+    assert counted.status_code == 422
+    assert calls["n"] == 0
+    loaded = client.get(f"/api/threads/{thread.id}/messages", headers=headers)
+    assert loaded.status_code == 200
+    assert loaded.json() == []
+
+
+def test_input_at_the_length_limits_still_answers() -> None:
+    client, _log = _client()
+    headers = {"Authorization": "Bearer fan"}
+    question = "What can't a second-apron team do in a trade?"
+    padded = question + ("." * (MAX_MESSAGE_CHARS - len(question)))
+    assert len(padded) == MAX_MESSAGE_CHARS
+    ask = client.post("/api/ask", headers=headers, json={"question": padded})
+    assert ask.status_code == 200
+
+    thread_id = client.post("/api/threads", headers=headers).json()["id"]
+    messages = [
+        _turn("assistant" if index % 2 else "user", "Noted.")
+        for index in range(MAX_CHAT_MESSAGES - 1)
+    ]
+    messages.append(_turn("user", question))
+    assert len(messages) == MAX_CHAT_MESSAGES
+    assert all(len(item["content"]) <= MAX_MESSAGE_CHARS for item in messages)
+    response = client.post(
+        "/api/chat/stream",
+        headers=headers,
+        json={"threadId": thread_id, "messages": messages},
+    )
+    assert response.status_code == 200
+    done = _events(response.text)[-1][1]
+    assert done["response"]["kind"] == "answer"
+
+
+def test_request_limits_are_documented() -> None:
+    root = Path(__file__).resolve().parents[2]
+    architecture = (root / "docs" / "architecture.md").read_text(encoding="utf-8")
+    setup = (root / "docs" / "guides" / "backend-setup.md").read_text(encoding="utf-8")
+    stated = f"{MAX_MESSAGE_CHARS:,}"
+    assert stated in architecture
+    assert f"{MAX_CHAT_MESSAGES} messages" in architecture
+    assert stated in setup
+    assert f"{MAX_CHAT_MESSAGES} messages" in setup
 
 
 def test_rename_and_delete_missing_thread_are_not_found() -> None:
