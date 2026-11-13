@@ -1,5 +1,6 @@
 import pytest
-from app.config import Settings, missing_provider_key
+from app.api import create_app
+from app.config import AppMode, Settings, app_mode, missing_provider_key, require_app_mode
 from pydantic import ValidationError
 
 
@@ -90,3 +91,34 @@ def test_missing_provider_key_names_the_env_var() -> None:
     message = missing_provider_key("google", openai="", gemini="", openrouter="")
     assert message is not None
     assert "GEMINI_API_KEY" in message
+
+
+def test_empty_settings_are_demo() -> None:
+    settings = Settings(_env_file=None)
+    assert app_mode(settings) is AppMode.demo
+    assert AppMode.demo.health_label == "fake"
+
+
+def test_complete_settings_are_live() -> None:
+    settings = Settings(
+        database_url="postgresql://postgres:pw@localhost:5432/postgres",
+        supabase_url="https://example.supabase.co",
+        openai_api_key="sk-test",
+        _env_file=None,
+    )
+    assert app_mode(settings) is AppMode.live
+    assert AppMode.live.health_label == "live"
+
+
+def test_half_settings_startup_names_supabase_url() -> None:
+    settings = Settings(
+        database_url="postgresql://postgres:pw@localhost:5432/postgres",
+        supabase_url="",
+        openai_api_key="",
+        _env_file=None,
+    )
+    assert app_mode(settings) is AppMode.invalid
+    with pytest.raises(RuntimeError, match="SUPABASE_URL"):
+        require_app_mode(settings)
+    with pytest.raises(RuntimeError, match="SUPABASE_URL"):
+        create_app(settings)
