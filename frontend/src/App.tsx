@@ -546,7 +546,7 @@ export function App() {
         <DialogHeader>
           <DialogTitle>Sign in</DialogTitle>
           <DialogDescription>
-            If this is your first time, enter the email we invited and send a code.
+            Enter your email and send a code. Only approved emails can use the copilot.
           </DialogDescription>
         </DialogHeader>
         {sessionEndedNotice}
@@ -562,7 +562,7 @@ export function App() {
             setSignOutReason(null);
             setSignInEmail(event.target.value);
           }}
-          placeholder="invited@example.com"
+          placeholder="you@example.com"
           className="mt-4"
         />
         <label className="sr-only" htmlFor="sign-in-code">

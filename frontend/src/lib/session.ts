@@ -45,7 +45,7 @@ export async function requestSignInCode(email: string): Promise<void> {
       "Content-Type": "application/json",
       apikey: anonKey(),
     },
-    body: JSON.stringify({ email, create_user: false }),
+    body: JSON.stringify({ email, create_user: true }),
   });
   if (!response.ok) {
     throw new SignInFailed();
