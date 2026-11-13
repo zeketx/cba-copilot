@@ -15,12 +15,12 @@ BEGIN
 END
 $$;
 
+-- Supabase postgres cannot name the superuser or replication attributes in
+-- ALTER ROLE (Postgres 16+). CREATE ROLE above already turned them off.
 ALTER ROLE cba_copilot_app WITH
   LOGIN
-  NOSUPERUSER
   NOCREATEDB
   NOCREATEROLE
-  NOREPLICATION
   BYPASSRLS;
 
 GRANT CONNECT ON DATABASE postgres TO cba_copilot_app;
