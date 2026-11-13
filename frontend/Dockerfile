@@ -1,5 +1,6 @@
 # Build from the repository root: docker build -f frontend/Dockerfile .
-# vite.config.ts reads data/corpus.json from the repo root.
+# vite.config.ts reads data/corpus.json and src/lib/definitions.ts imports
+# definitions/definitions.yaml, both from the repo root.
 FROM node:24-slim
 
 RUN npm install --global pnpm@12.11.2
@@ -11,6 +12,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
 COPY data/corpus.json /app/data/corpus.json
+COPY definitions/ /app/definitions/
 
 # Public values only. They are baked into the static bundle.
 ARG VITE_API_BASE

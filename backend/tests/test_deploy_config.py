@@ -42,6 +42,7 @@ def test_frontend_image_previews_built_app_on_port() -> None:
     assert "pnpm build" in text
     assert "vite preview --host 0.0.0.0 --port ${PORT" in text
     assert "COPY data/corpus.json" in text
+    assert "COPY definitions/" in text
     assert "data/downloads" not in text
 
 
