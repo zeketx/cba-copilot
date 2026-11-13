@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from app.config import Settings
 from app.domain import (
+    Chunk,
     CitedAnswer,
     Claim,
     Clarification,
@@ -12,7 +13,7 @@ from app.domain import (
     Refusal,
 )
 from app.grounding.validate import validate_draft
-from evals.embed_bench import PDF_PATH, load_cba_chunks
+from evals.embed_bench import PDF_PATH
 from evals.metrics import chunk_matches
 from evals.prove import (
     CorpusCase,
@@ -25,6 +26,8 @@ from evals.prove import (
     missing_live_settings,
     parse_numbers,
 )
+from ingest.pdf import measure_offset, read_pages, render_markdown
+from ingest.rows import chunk_rows
 
 
 def _chunk(passage_id: str, article: int, section: str, text: str):
@@ -133,13 +136,27 @@ def test_graders_cover_every_case_kind() -> None:
 def test_whole_rule_grader_pass_and_fail() -> None:
     case = _case("whole_rule")
     ctx = _ctx(APRON)
-    good = _answer(Claim(text=APRON.text, passage_ids=["apron"]))
-    assert grade_case(case, good, ctx).passed
+    paraphrase = _answer(
+        Claim(
+            text="Such a trade is prohibited.",
+            quote="may not acquire a player using an Aggregated Standard Traded Player Exception",
+            passage_ids=["apron"],
+        )
+    )
+    assert grade_case(case, paraphrase, ctx).passed
     wrong_kind = Refusal(reason="no_evidence", message="no")
     assert not grade_case(case, wrong_kind, ctx).passed
     other = _chunk("other", 1, "1(t)", APRON.text)
-    unsupported = _answer(Claim(text="A fact the passage never states.", passage_ids=["apron"]))
-    assert not grade_case(case, unsupported, _ctx(APRON, other)).passed
+    unsupported = _answer(
+        Claim(
+            text=APRON.text,
+            quote="A fact the passage never states.",
+            passage_ids=["apron"],
+        )
+    )
+    assert grade_case(case, unsupported, _ctx(APRON, other)).reasons == (
+        "claim quote is not in a cited passage",
+    )
 
 
 def test_exception_grader_pass_and_fail() -> None:
@@ -149,7 +166,7 @@ def test_exception_grader_pass_and_fail() -> None:
         required_phrases=["sixty-five", "sixty-two", "season-ending injury"],
     )
     ctx = _ctx(AWARDS)
-    good = _answer(Claim(text=AWARDS.text, passage_ids=["awards"]))
+    good = _answer(Claim(text=AWARDS.text, quote=AWARDS.text, passage_ids=["awards"]))
     assert grade_case(case, good, ctx).passed
     thin = _answer(
         Claim(text="A player needs sixty-five Regular Season games.", passage_ids=["awards"])
@@ -167,11 +184,11 @@ def test_cross_reference_grader_pass_and_fail() -> None:
     )
     ctx = _ctx(MLE, APRON)
     good = _answer(
-        Claim(text=MLE.text, passage_ids=["mle"]),
-        Claim(text=APRON.text, passage_ids=["apron"]),
+        Claim(text=MLE.text, quote=MLE.text, passage_ids=["mle"]),
+        Claim(text=APRON.text, quote=APRON.text, passage_ids=["apron"]),
     )
     assert grade_case(case, good, ctx).passed
-    one = _answer(Claim(text=MLE.text, passage_ids=["mle"]))
+    one = _answer(Claim(text=MLE.text, quote=MLE.text, passage_ids=["mle"]))
     assert not grade_case(case, one, ctx).passed
 
 
@@ -185,13 +202,13 @@ def test_two_passages_grader_pass_and_fail() -> None:
     )
     ctx = _ctx(SALARY, TEAM)
     both = _answer(
-        Claim(text=SALARY.text, passage_ids=["salary"]),
-        Claim(text=TEAM.text, passage_ids=["team"]),
+        Claim(text=SALARY.text, quote=SALARY.text, passage_ids=["salary"]),
+        Claim(text=TEAM.text, quote=TEAM.text, passage_ids=["team"]),
     )
     assert grade_case(case, both, ctx).passed
     refuse = Refusal(reason="no_evidence", message="no")
     assert grade_case(case, refuse, ctx).passed
-    one = _answer(Claim(text=SALARY.text, passage_ids=["salary"]))
+    one = _answer(Claim(text=SALARY.text, quote=SALARY.text, passage_ids=["salary"]))
     assert not grade_case(case, one, ctx).passed
 
 
@@ -201,7 +218,7 @@ def test_season_or_date_grader_pass_and_fail() -> None:
         expected_sections=[{"article": 7, "section_contains": "6(f)"}],
     )
     ctx = _ctx(MLE)
-    named = _answer(Claim(text=MLE.text, passage_ids=["mle"]))
+    named = _answer(Claim(text=MLE.text, quote=MLE.text, passage_ids=["mle"]))
     assert grade_case(case, named, ctx).passed
     ask = Clarification(reason="ambiguous", message="which season?", claims=[named.claims[0]])
     assert grade_case(case, ask, ctx).passed
@@ -223,7 +240,7 @@ def test_computation_grader_pass_and_fail() -> None:
         )
     )
     assert grade_case(case, good, ctx).passed
-    raw = _answer(Claim(text=EARLY.text, passage_ids=["early"]))
+    raw = _answer(Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]))
     assert not grade_case(case, raw, ctx).passed
 
 
@@ -236,17 +253,17 @@ def test_missing_inputs_grader_pass_and_fail() -> None:
     good = Clarification(
         reason="missing_inputs",
         message="The cited passage needs inputs the question does not give: prior salary.",
-        claims=[Claim(text=EARLY.text, passage_ids=["early"])],
+        claims=[Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"])],
     )
     assert extra_numbers(good, ctx) == set()
     assert grade_case(case, good, ctx).passed
     computed = Clarification(
         reason="missing_inputs",
         message="Need salary. The cap would be 17500000.",
-        claims=[Claim(text=EARLY.text, passage_ids=["early"])],
+        claims=[Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"])],
     )
     assert not grade_case(case, computed, ctx).passed
-    answer = _answer(Claim(text=EARLY.text, passage_ids=["early"]))
+    answer = _answer(Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]))
     assert not grade_case(case, answer, ctx).passed
 
 
@@ -256,7 +273,7 @@ def test_definition_grader_pass_and_fail() -> None:
         expected_sections=[{"article": 1, "section_contains": "1(lll)"}],
     )
     ctx = _ctx(SALARY)
-    good = _answer(Claim(text=SALARY.text, passage_ids=["salary"]))
+    good = _answer(Claim(text=SALARY.text, quote=SALARY.text, passage_ids=["salary"]))
     assert grade_case(case, good, ctx).passed
     numbered = _answer(
         Claim(text=SALARY.text + " The cap is 136000000.", passage_ids=["salary"])
@@ -286,12 +303,12 @@ def test_ambiguous_grader_pass_and_fail() -> None:
         reason="ambiguous",
         message="which one?",
         claims=[
-            Claim(text=BIRD.text, passage_ids=["bird"]),
-            Claim(text=EARLY.text, passage_ids=["early"]),
+            Claim(text=BIRD.text, quote=BIRD.text, passage_ids=["bird"]),
+            Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]),
         ],
     )
     assert grade_case(case, good, ctx).passed
-    winner = _answer(Claim(text=BIRD.text, passage_ids=["bird"]))
+    winner = _answer(Claim(text=BIRD.text, quote=BIRD.text, passage_ids=["bird"]))
     assert not grade_case(case, winner, ctx).passed
 
 
@@ -306,7 +323,7 @@ def test_bad_citation_grader_pass_and_fail() -> None:
         Claim(text=case.injected_text, passage_ids=["apron"]),
     )
     assert not grade_case(case, kept, ctx).passed
-    clean = _answer(Claim(text=APRON.text, passage_ids=["apron"]))
+    clean = _answer(Claim(text=APRON.text, quote=APRON.text, passage_ids=["apron"]))
     assert grade_case(case, clean, ctx).passed
     refused = Refusal(reason="citations_dropped", message="dropped")
     assert grade_case(case, refused, ctx).passed
@@ -374,9 +391,27 @@ def test_parse_numbers_ignores_commas() -> None:
     assert 17500000 in parse_numbers("the cap is 17,500,000 dollars")
 
 
+def _ingested_chunks() -> list[Chunk]:
+    pages = read_pages(PDF_PATH)
+    rows = chunk_rows(render_markdown(pages), source_url="", offset=measure_offset(pages))
+    return [
+        Chunk(
+            id=str(row.chunk_index),
+            article_number=row.article_number,
+            article_title=row.article_title,
+            section=row.section,
+            page_start=row.page_start,
+            page_end=row.page_end,
+            text=row.text,
+            source_url=row.source_url,
+        )
+        for row in rows
+    ]
+
+
 @pytest.mark.skipif(not PDF_PATH.is_file(), reason="the official CBA PDF is gitignored")
 def test_every_expected_section_has_a_rule_in_the_official_pdf() -> None:
-    chunks = load_cba_chunks(PDF_PATH)
+    chunks = _ingested_chunks()
     missing: list[str] = []
     for case in load_cases():
         for spec in case.expected_sections:

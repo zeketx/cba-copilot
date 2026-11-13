@@ -19,6 +19,7 @@ class Chunk(BaseModel):
 class Claim(BaseModel):
     text: str
     passage_ids: list[str] = Field(min_length=1)
+    quote: str = ""
 
 
 class DraftClaim(BaseModel):
