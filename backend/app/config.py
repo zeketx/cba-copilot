@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -81,8 +82,15 @@ class Settings(BaseSettings):
     retrieval_context_max: int = 16
     retrieval_fts_config: str = "english"
 
+    answer_rate_limit: int = Field(default=10, gt=0)
+    answer_rate_window_seconds: int = Field(default=60, gt=0)
+    access_request_rate_limit: int = Field(default=5, gt=0)
+    access_request_rate_window_seconds: int = Field(default=600, gt=0)
+    access_request_cap: int = Field(default=100, gt=0)
+
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     allowed_emails: Annotated[tuple[str, ...], NoDecode] = ()
+    environment: str = ""
 
     @field_validator("supabase_url")
     @classmethod
@@ -194,6 +202,10 @@ class Settings(BaseSettings):
             return model_id(self.answer_provider, self.openai_chat_model)
         raise ValueError(f"ANSWER_MODEL is required when ANSWER_PROVIDER is {self.answer_provider}")
 
+    @property
+    def production(self) -> bool:
+        return self.environment.strip().lower() == "production"
+
     @computed_field
     @property
     def sqlalchemy_database_url(self) -> str:
@@ -205,7 +217,22 @@ class Settings(BaseSettings):
         return url
 
 
-def require_live_settings(settings: Settings) -> None:
+class AppMode(StrEnum):
+    demo = "demo"
+    live = "live"
+    invalid = "invalid"
+
+    @property
+    def health_label(self) -> str:
+        return "live" if self is AppMode.live else "fake"
+
+
+def _live_gaps(settings: Settings) -> list[str]:
+    gaps: list[str] = []
+    if not settings.database_url.strip():
+        gaps.append("DATABASE_URL")
+    if not settings.supabase_url.strip():
+        gaps.append("SUPABASE_URL")
     missing = missing_provider_key(
         settings.answer_provider,
         openai=settings.openai_api_key,
@@ -213,7 +240,42 @@ def require_live_settings(settings: Settings) -> None:
         openrouter=settings.openrouter_api_key,
     )
     if missing is not None:
-        raise RuntimeError(missing)
-    if not settings.database_url or not settings.supabase_url:
-        raise RuntimeError("Live mode needs DATABASE_URL and SUPABASE_URL.")
+        gaps.append(missing)
+    return gaps
+
+
+def require_live_settings(settings: Settings) -> None:
+    gaps = _live_gaps(settings)
+    if gaps:
+        raise RuntimeError("Live mode needs " + "; ".join(gaps) + ".")
     _ = settings.answer_model_id
+
+
+def app_mode(settings: Settings) -> AppMode:
+    key_missing = (
+        missing_provider_key(
+            settings.answer_provider,
+            openai=settings.openai_api_key,
+            gemini=settings.gemini_api_key,
+            openrouter=settings.openrouter_api_key,
+        )
+        is not None
+    )
+    if not settings.database_url.strip() and not settings.supabase_url.strip() and key_missing:
+        return AppMode.demo
+    try:
+        require_live_settings(settings)
+    except (RuntimeError, ValueError):
+        return AppMode.invalid
+    return AppMode.live
+
+
+def require_app_mode(settings: Settings) -> AppMode:
+    mode = app_mode(settings)
+    if mode is AppMode.invalid:
+        try:
+            require_live_settings(settings)
+        except (RuntimeError, ValueError) as exc:
+            raise RuntimeError(str(exc)) from None
+        raise RuntimeError("Live mode settings are incomplete.")
+    return mode

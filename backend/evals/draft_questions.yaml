@@ -247,7 +247,7 @@
   match: any
   articles:
     - article: 7
-      section_contains: "4(d) Free"
+      section_contains: "4(d)(1)"
       verified: true
       note: "Printed page 217. Until he re-signs, signs elsewhere, or is renounced, he is included at 150 percent of his prior salary when that salary was at least the estimated average player salary."
 
@@ -327,3 +327,36 @@
       section_contains: "6(a) Award"
       verified: true
       note: "Printed pages 432-433. The player needs 65 regular-season games, or 62 games plus a season-ending injury and at least 85 percent of his team's games before the injury."
+
+- id: exhibit-e-summer-league
+  draft: true
+  question: Can a team require a veteran player to participate in a summer league?
+  expect: answer
+  match: any
+  articles:
+    - article: null
+      section_contains: "Exhibit E"
+      verified: true
+      note: "Viewer page 634, printed E-1. The notice says the Team cannot require players to participate in any summer league."
+
+- id: exhibit-a-upc-term
+  draft: true
+  question: In Exhibit A, what does paragraph 1. TERM of the Uniform Player Contract cover?
+  expect: answer
+  match: any
+  articles:
+    - article: null
+      section_contains: "Exhibit A / 1. Term"
+      verified: true
+      note: "Viewer page 585, printed A-1. Paragraph 1 of the Uniform Player Contract is titled Term."
+
+- id: exhibit-i2-prohibited-substances
+  draft: true
+  question: Which categories of prohibited substances does Exhibit I-2 list?
+  expect: answer
+  match: any
+  articles:
+    - article: null
+      section_contains: "Exhibit I-2"
+      verified: true
+      note: "Viewer pages 649-654. Exhibit I-2 lists Drugs of Abuse, Synthetic Cannabinoids, SPEDs, and Diuretics."

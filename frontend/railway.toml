@@ -1,0 +1,7 @@
+# Railway builds from the repository root with this Dockerfile.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "frontend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/"

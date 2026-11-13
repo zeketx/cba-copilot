@@ -27,7 +27,7 @@ EVEN = "2 Article I \nA contract is a writing.\n"
 TOC_ODD = "  Table of Contents i \nArticle I .............. 1\n"
 TOC_EVEN = "ii Table of Contents \nARTICLE III PLAYER EXPENSES\n"
 EXHIBIT_ODD = "  Exhibit A A-1 \nEXHIBIT A\nUniform Player Contract\n"
-EXHIBIT_EVEN = "A-2 Exhibit A \n3. COMPENSATION.\n"
+EXHIBIT_EVEN = "A-2 Exhibit A \n3. COMPENSATION.\nThe Team agrees to pay the Player.\n"
 EXHIBIT_J = "Exhibit J-2 J-2-7 \nRelated Party Transactions\n"
 
 
@@ -69,7 +69,7 @@ def test_measure_offset_equal_and_disagreeing() -> None:
         measure_offset([split_header(1, TOC_ODD), split_header(585, EXHIBIT_ODD)])
 
 
-def test_render_markdown_rewrites_headings_and_drops_exhibits() -> None:
+def test_render_markdown_rewrites_headings_and_keeps_exhibits() -> None:
     pages = [
         split_header(1, TOC_ODD),
         split_header(25, ODD),
@@ -78,17 +78,21 @@ def test_render_markdown_rewrites_headings_and_drops_exhibits() -> None:
         split_header(586, EXHIBIT_EVEN),
     ]
     markdown = render_markdown(pages)
-    assert "<!-- pdf-page: 25 -->" in markdown
-    assert "<!-- pdf-page: 26 -->" in markdown
+    assert "<!-- pdf-page: 25 printed: 1 -->" in markdown
+    assert "<!-- pdf-page: 26 printed: 2 -->" in markdown
     assert "# Article I. DEFINITIONS" in markdown
     assert "## Section 1. Definitions" in markdown
     assert "ARTICLE I" not in markdown
-    assert "EXHIBIT" not in markdown
-    assert "A-1" not in markdown
     assert "Table of Contents" not in markdown
+    assert "<!-- pdf-page: 585 printed: A-1 -->" in markdown
+    assert "<!-- pdf-page: 586 printed: A-2 -->" in markdown
+    assert "# Exhibit A. Uniform Player Contract" in markdown
+    assert "## 3. Compensation" in markdown
     rows = chunk_rows(markdown, source_url="https://example.test/cba.pdf", offset=24)
-    assert len(rows) == 1
-    row = rows[0]
+    article_rows = [row for row in rows if row.article_number == 1]
+    exhibit_rows = [row for row in rows if row.article_number is None]
+    assert len(article_rows) == 1
+    row = article_rows[0]
     assert "The term Player means a player." in row.text
     assert "A contract is a writing." in row.text
     assert row.page_start == 1
@@ -98,6 +102,18 @@ def test_render_markdown_rewrites_headings_and_drops_exhibits() -> None:
     assert row.source_url.endswith("#page=25")
     assert "Article I 1" not in row.text
     assert "2 Article I" not in row.text
+    assert exhibit_rows
+    exhibit = exhibit_rows[-1]
+    assert exhibit.article_title.startswith("Exhibit A")
+    assert "Exhibit A / 3. Compensation" in exhibit.section or exhibit.section.endswith(
+        "3. Compensation"
+    )
+    assert "3. COMPENSATION" in exhibit.text or "3. Compensation" in exhibit.text
+    assert exhibit.printed_page is None
+    assert exhibit.page_start is None
+    assert exhibit.viewer_page == 586
+    assert exhibit.source_url.endswith("#page=586")
+    assert exhibit.metadata["printed_label"] == "A-2"
 
 
 def test_a_wrapped_cross_reference_does_not_open_a_section() -> None:

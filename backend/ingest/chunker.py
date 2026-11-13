@@ -10,9 +10,13 @@ _ARTICLE_RE = re.compile(
     r"^#\s+Article\s+([0-9]+|[IVXLCDM]+)\b\.?\s*(.*?)\s*$",
     re.IGNORECASE,
 )
+_EXHIBIT_RE = re.compile(
+    r"^#\s+Exhibit\s+([A-Z][A-Z0-9-]*)\b\.?\s*(.*?)\s*$",
+    re.IGNORECASE,
+)
 _SECTION_RE = re.compile(r"^##\s+(?:Section\s+)?(.+?)\s*$", re.IGNORECASE)
-_PAGE_RE = re.compile(r"^<!--\s*pdf-page:\s*(\d+)\s*-->\s*$")
-_SUBSECTION_RE = re.compile(r"^(?:###\s+.+|\([a-z]\)\s+.+)$")
+_PAGE_RE = re.compile(r"^<!--\s*pdf-page:\s*(\d+)(?:\s+printed:\s+(\S+))?\s*-->\s*$")
+_SUBSECTION_HEADING = re.compile(r"^###\s+.+")
 _AID_NAME_RE = re.compile(r"^(\d+)-")
 
 _ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
@@ -62,9 +66,11 @@ class _Section:
 
 def _header(section: _Section, section_label: str) -> str:
     if section.article_number is None:
-        article = section.article_title or "Article"
-    else:
-        article = f"Article {section.article_number}. {section.article_title}".strip()
+        heading = section.article_title or section_label or "Exhibit"
+        if section_label and section_label != heading:
+            return f"{heading}\n{section_label}\n\n"
+        return f"{heading}\n\n"
+    article = f"Article {section.article_number}. {section.article_title}".strip()
     return f"{article}\nSection {section_label}\n\n"
 
 def _page_span(lines: list[_Line]) -> tuple[int | None, int | None]:
@@ -118,6 +124,7 @@ _ROMAN_MARKERS = {
     "xx",
 }
 _LEADING_MARKER = re.compile(r"^\(([a-z]+|\d+)\)\s+")
+_LEADING_MARKER_RUN = re.compile(r"^((?:\([^)]+\))(?:\s+\([^)]+\))*)")
 
 
 def rejoin_pdf_word_splits(value: str) -> str:
@@ -170,6 +177,34 @@ def _leading_tokens(stripped: str) -> list[str]:
     return tokens
 
 
+def _compact_leading_markers(value: str) -> str:
+    match = _LEADING_MARKER_RUN.match(value)
+    if match is None:
+        return value
+    run = match.group(1)
+    return run.replace(" ", "") + value[len(run) :]
+
+
+def _is_subsection_cut(stripped: str) -> bool:
+    if _SUBSECTION_HEADING.match(stripped):
+        return True
+    tokens = _leading_tokens(stripped)
+    if not tokens:
+        return False
+    rest = stripped
+    for _token in tokens:
+        match = _LEADING_MARKER.match(rest)
+        if match is None:
+            return False
+        rest = rest[match.end() :]
+    if not rest:
+        return False
+    first = tokens[0]
+    if first.isdigit() or first in _ROMAN_MARKERS:
+        return True
+    return len(first) == 1 and first.isalpha()
+
+
 def _parent_prefix(stack: list[tuple[str, str]], token: str, *, definitions: bool) -> str:
     kind = _marker_kind(token, definitions=definitions, stack=stack)
     if kind == "letter":
@@ -198,6 +233,7 @@ def _marker_prefixes(section: _Section) -> list[str]:
 
 
 def _stored_section(name: str, prefix: str, heading: str) -> str:
+    heading = _compact_leading_markers(heading)
     if not heading:
         return rejoin_pdf_word_splits(name)
     if prefix:
@@ -338,7 +374,7 @@ def _split_groups(
     cuts = [
         index
         for index, line in enumerate(section.lines)
-        if _SUBSECTION_RE.match(line.text.strip())
+        if _is_subsection_cut(line.text.strip())
     ]
     if not cuts:
         return [(plain, stored_plain, section.lines)]
@@ -393,13 +429,36 @@ def chunk_markdown(
             current_title = article_match.group(2).strip() or current_title
             continue
 
+        exhibit_match = _EXHIBIT_RE.match(raw.strip())
+        if exhibit_match:
+            flush()
+            current_number = None
+            exhibit_id = exhibit_match.group(1).upper()
+            exhibit_title = exhibit_match.group(2).strip()
+            current_title = (
+                f"Exhibit {exhibit_id}. {exhibit_title}"
+                if exhibit_title
+                else f"Exhibit {exhibit_id}"
+            )
+            continue
+
         section_match = _SECTION_RE.match(raw.strip())
         if section_match:
             flush()
+            heading = section_match.group(1).strip()
+            if current_number is None and current_title.startswith("Exhibit "):
+                exhibit_id = current_title.split(".", 1)[0]
+                section_name = (
+                    heading
+                    if heading.startswith(exhibit_id)
+                    else f"{exhibit_id} / {heading}"
+                )
+            else:
+                section_name = heading
             current = _Section(
                 article_number=current_number,
                 article_title=current_title,
-                section=section_match.group(1).strip(),
+                section=section_name,
                 lines=[],
             )
             continue
@@ -424,7 +483,12 @@ def chunk_markdown(
             body = "\n".join(line.text for line in lines).strip()
             page_start, page_end = _page_span(lines)
             number = section.article_number
-            number_bit = f"a{number}" if number is not None else "a"
+            if number is not None:
+                number_bit = f"a{number}"
+            elif section.article_title.startswith("Exhibit "):
+                number_bit = _slug(section.article_title.split(".", 1)[0])
+            else:
+                number_bit = "exhibit"
             chunks.append(
                 Chunk(
                     id=f"{id_prefix}{number_bit}-{_slug(text_label)}-{index}",

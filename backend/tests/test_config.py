@@ -1,5 +1,6 @@
 import pytest
-from app.config import Settings, missing_provider_key
+from app.api import create_app
+from app.config import AppMode, Settings, app_mode, missing_provider_key, require_app_mode
 from pydantic import ValidationError
 
 
@@ -86,7 +87,52 @@ def test_context_caps_default_with_the_rrf_constant() -> None:
     assert settings.retrieval_context_max == 16
 
 
+def test_rate_limits_default_to_the_documented_budget() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.answer_rate_limit == 10
+    assert settings.answer_rate_window_seconds == 60
+    assert settings.access_request_rate_limit == 5
+    assert settings.access_request_rate_window_seconds == 600
+    assert settings.access_request_cap == 100
+
+
+def test_zero_answer_rate_limit_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(answer_rate_limit=0, _env_file=None)
+
+
 def test_missing_provider_key_names_the_env_var() -> None:
     message = missing_provider_key("google", openai="", gemini="", openrouter="")
     assert message is not None
     assert "GEMINI_API_KEY" in message
+
+
+def test_empty_settings_are_demo() -> None:
+    settings = Settings(_env_file=None)
+    assert app_mode(settings) is AppMode.demo
+    assert AppMode.demo.health_label == "fake"
+
+
+def test_complete_settings_are_live() -> None:
+    settings = Settings(
+        database_url="postgresql://postgres:pw@localhost:5432/postgres",
+        supabase_url="https://example.supabase.co",
+        openai_api_key="sk-test",
+        _env_file=None,
+    )
+    assert app_mode(settings) is AppMode.live
+    assert AppMode.live.health_label == "live"
+
+
+def test_half_settings_startup_names_supabase_url() -> None:
+    settings = Settings(
+        database_url="postgresql://postgres:pw@localhost:5432/postgres",
+        supabase_url="",
+        openai_api_key="",
+        _env_file=None,
+    )
+    assert app_mode(settings) is AppMode.invalid
+    with pytest.raises(RuntimeError, match="SUPABASE_URL"):
+        require_app_mode(settings)
+    with pytest.raises(RuntimeError, match="SUPABASE_URL"):
+        create_app(settings)

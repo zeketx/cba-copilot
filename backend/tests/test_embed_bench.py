@@ -152,6 +152,8 @@ def test_ingest_labels_map_onto_question_needles() -> None:
     assert section_matches(section_for_match(apron), '2(e)(1) “Apron Team Salary”')
     assert section_matches(section_for_match(tight), "6(j)(1)(i)")
     assert section_matches(section_for_match(spaced), "8(e) (1)")
+    compact = "8. Trade Rules / (e)(1) Subject to Section 2(e), a veteran may sign and trade"
+    assert section_matches(section_for_match(compact), "8(e) (1)")
     assert section_matches(section_for_match(plain), "4 Determination of Team Salary")
     assert section_for_match("1(yy) Qualifying Veteran Free Agent") == (
         "1(yy) Qualifying Veteran Free Agent"

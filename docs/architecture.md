@@ -24,7 +24,11 @@ Evidence is adequate only when one of the fused hits shares at least two content
 
 The PydanticAI agent returns a `DraftAnswer` of `DraftClaim` rows. Each draft claim carries a `quote`, a verbatim span copied from a cited passage. The default demo drafter sets that quote to the overlapping passage text. Tests also drive the agent with PydanticAI's `TestModel`, which returns a fixed object and does not call an API.
 
-`validate_draft` keeps a claim only when every passage id was retrieved and the whitespace-normalized quote is a substring of at least one cited passage. The kept `Claim` keeps the quote, and the saved turn stores it, so the phase 10 grader can check the quote against the passage while the claim text paraphrases it. The HTTP `PublicClaim` does not send the quote. The retrieved set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`. An `ambiguous` or `missing_inputs` draft becomes a clarification when the kept claims meet that status. A failed answer call is HTTP 502 `answer_failed` and does not persist the turn.
+`validate_draft` keeps a claim only when every passage id was retrieved and the whitespace-normalized quote is a substring of at least one cited passage. The kept `Claim` keeps the quote, and the saved turn stores it, so the phase 10 grader can check the quote against the passage while the claim text paraphrases it. The HTTP `PublicClaim` does not send the quote. The retrieved set is the fused hits plus their context passages. If no claim remains, the reason is `citations_dropped`. An `ambiguous` or `missing_inputs` draft becomes a clarification when the kept claims meet that status. A failed answer call is HTTP 502 `answer_failed` and does not persist the turn. A caller over the in-memory limit receives HTTP 429 before retrieval or the drafter. `rate_limited` is the shared ask and chat budget, or the access-request address budget. `access_requests_full` means this process will not store another access-request email.
+
+## Request limits
+
+`POST /api/ask` accepts a question of 1 to 4,000 characters. `POST /api/chat/stream` accepts 1 to 32 messages, and each message is 1 to 4,000 characters. The counts use `len`, the same character count as the 80-character thread title. A longer question, a longer message, or more messages is HTTP 422. The check is on the request body, so retrieval and the drafter do not run.
 
 ## What the skeleton does not do
 

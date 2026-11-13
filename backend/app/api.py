@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextvars import ContextVar
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Literal
 from uuid import UUID
@@ -12,18 +13,24 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy.orm import Session
 
-from app.assistant.drafter import OverlapDrafter
+from app.assistant.drafter import OverlapDrafter, build_live_drafter
 from app.auth.dependencies import gate_from_settings, get_current_user, http_error
 from app.auth.identity import AppUser, AuthError, Email
 from app.chat.log import ChatLog, MemoryChatLog, SqlChatLog
 from app.chat.model import StoredTurn, ThreadSummary
 from app.chat.service import AnswerFailed, AnswerFn, ThreadChat
-from app.config import Settings
+from app.config import AppMode, Settings, require_app_mode
+from app.corpus import pdf_url
 from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import Chunk, Claim, Clarification, CopilotResponse, Refusal
+from app.http_security import SecurityHeadersMiddleware, http_origin
+from app.limits import DistinctCap, SlidingWindow
 from app.pipeline import answer_question
+from app.retrieval.embed import build_embedder
+from app.retrieval.store import ChunkStore, PostgresChunkStore, postgres_session_factory
 from app.source_view import ElementPlacement, SpanPlacement, render_source
 
 logger = logging.getLogger(__name__)
@@ -32,8 +39,13 @@ if TYPE_CHECKING:
     from app.auth.gate import AccessGate
 
 
+# Character length, same as len(). Oversized bodies are 422 before an answer runs.
+MAX_MESSAGE_CHARS = 4_000
+MAX_CHAT_MESSAGES = 32
+
+
 class AskRequest(BaseModel):
-    question: str = Field(min_length=1)
+    question: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 class AccessRequestBody(BaseModel):
     email: str
@@ -126,14 +138,14 @@ class PublicAssistantMessage(BaseModel):
 class StreamChatMessage(BaseModel):
     id: UUID
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 
 class StreamAskRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     thread_id: UUID = Field(alias="threadId")
-    messages: list[StreamChatMessage] = Field(min_length=1)
+    messages: list[StreamChatMessage] = Field(min_length=1, max_length=MAX_CHAT_MESSAGES)
 
     @model_validator(mode="after")
     def last_message_is_user(self) -> StreamAskRequest:
@@ -199,6 +211,43 @@ def to_public(
         return PublicClarification(reason=response.reason, message=response.message, claims=claims)
     return PublicAnswer(claims=claims)
 
+
+_turn_chunks: ContextVar[dict[str, Chunk]] = ContextVar("turn_chunks")
+
+
+def _claim_passage_ids(response: CopilotResponse) -> list[str]:
+    if isinstance(response, Refusal):
+        return []
+    ids: list[str] = []
+    for claim in response.claims:
+        ids.extend(claim.passage_ids)
+    return ids
+
+
+def _resolve_passages(
+    response: CopilotResponse,
+    known: dict[str, Chunk],
+    store: ChunkStore | None,
+) -> dict[str, Chunk]:
+    passages: dict[str, Chunk] = {}
+    for passage_id in _claim_passage_ids(response):
+        chunk = known.get(passage_id)
+        if chunk is None and store is not None:
+            chunk = store.get(passage_id)
+        if chunk is not None:
+            passages[passage_id] = chunk
+    return passages
+
+
+def _publish(
+    response: CopilotResponse,
+    known: dict[str, Chunk],
+    store: ChunkStore | None,
+) -> PublicAnswer | PublicRefusal | PublicClarification:
+    passages = _resolve_passages(response, known, store)
+    corpus = list(known.values()) if known else list(passages.values())
+    return to_public(response, passages, corpus)
+
 def _public_thread(summary: ThreadSummary) -> PublicThread:
     return PublicThread(
         id=summary.id,
@@ -243,6 +292,21 @@ def _turn_events(
     )
 
 
+def _client_host(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    if request.client is not None and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def _too_many(error: str) -> HTTPException:
+    return HTTPException(status_code=429, detail={"error": error})
+
+
 def _chat_log(settings: Settings) -> ChatLog:
     if settings.database_url:
         return SqlChatLog(settings.sqlalchemy_database_url)
@@ -255,46 +319,131 @@ def create_app(
     gate: AccessGate | None = None,
     log: ChatLog | None = None,
     answer: AnswerFn | None = None,
+    session_factory: Callable[[], Session] | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
-    store = demo_store()
-    embedder = demo_embedder()
-    drafter = OverlapDrafter()
-    by_id = {chunk.id: chunk for chunk in load_demo_chunks()}
-    corpus = list(by_id.values())
+    mode = require_app_mode(settings)
+    demo_chunks = {chunk.id: chunk for chunk in load_demo_chunks()}
+    memory_store = demo_store()
+    offline_embedder = demo_embedder()
+    offline_drafter = OverlapDrafter()
+    open_session = session_factory
+    if mode is AppMode.live and open_session is None:
+        open_session = postgres_session_factory(settings.sqlalchemy_database_url)
+    live_embedder = None
+    live_drafter = None
+    if mode is AppMode.live and answer is None:
+        live_embedder = build_embedder(settings)
+        live_drafter = build_live_drafter(settings)
     chat_log = log if log is not None else _chat_log(settings)
+    answer_kwargs = {
+        "candidate_k": settings.retrieval_candidate_k,
+        "top_k": settings.retrieval_top_k,
+        "rrf_k": settings.retrieval_rrf_k,
+        "context_per_hit": settings.retrieval_context_per_hit,
+        "context_max": settings.retrieval_context_max,
+    }
 
     def run_answer(question: str) -> CopilotResponse:
-        return answer_question(
-            question,
-            store,
-            embedder,
-            drafter,
-            candidate_k=settings.retrieval_candidate_k,
-            top_k=settings.retrieval_top_k,
-            rrf_k=settings.retrieval_rrf_k,
-            context_per_hit=settings.retrieval_context_per_hit,
-            context_max=settings.retrieval_context_max,
-        )
+        if mode is AppMode.demo:
+            if answer is not None:
+                result = answer(question)
+            else:
+                result = answer_question(
+                    question,
+                    memory_store,
+                    offline_embedder,
+                    offline_drafter,
+                    **answer_kwargs,
+                )
+            _turn_chunks.set(_resolve_passages(result, demo_chunks, memory_store))
+            return result
+        assert open_session is not None
+        session = open_session()
+        try:
+            if answer is not None:
+                result = answer(question)
+                _turn_chunks.set({})
+                return result
+            store = PostgresChunkStore(session)
+            assert live_embedder is not None
+            assert live_drafter is not None
+            result = answer_question(
+                question,
+                store,
+                live_embedder,
+                live_drafter,
+                **answer_kwargs,
+            )
+            _turn_chunks.set(_resolve_passages(result, {}, store))
+            return result
+        finally:
+            session.close()
 
-    answer_fn = answer if answer is not None else run_answer
-    app = FastAPI(title="CBA Copilot", version="0.1.0")
+    def public_outcome(
+        response: CopilotResponse,
+        *,
+        reload: bool = False,
+    ) -> PublicAnswer | PublicRefusal | PublicClarification:
+        if mode is AppMode.demo:
+            return _publish(response, demo_chunks, memory_store)
+        if not reload:
+            try:
+                cached = _turn_chunks.get()
+            except LookupError:
+                cached = None
+            if cached is not None:
+                return _publish(response, cached, None)
+        assert open_session is not None
+        session = open_session()
+        try:
+            return _publish(response, {}, PostgresChunkStore(session))
+        finally:
+            session.close()
+
+    answer_window = SlidingWindow(
+        limit=settings.answer_rate_limit,
+        window_seconds=settings.answer_rate_window_seconds,
+    )
+    access_window = SlidingWindow(
+        limit=settings.access_request_rate_limit,
+        window_seconds=settings.access_request_rate_window_seconds,
+    )
+    access_cap = DistinctCap(settings.access_request_cap)
+    production = settings.production
+    app = FastAPI(
+        title="CBA Copilot",
+        version="0.1.0",
+        docs_url=None if production else "/docs",
+        redoc_url=None if production else "/redoc",
+        openapi_url=None if production else "/openapi.json",
+    )
     app.state.gate = gate if gate is not None else gate_from_settings(settings, threads=chat_log)
     app.state.chat_log = chat_log
-    app.state.chat = ThreadChat(app.state.gate, chat_log, answer_fn)
+    app.state.chat = ThreadChat(app.state.gate, chat_log, run_answer)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
+    if production:
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            supabase_origin=http_origin(settings.supabase_url),
+            pdf_origin=http_origin(pdf_url()),
+        )
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
-        return {"ok": "true", "mode": "fake"}
+        return {"ok": "true", "mode": mode.health_label}
 
     @app.post("/api/access-requests")
     def request_access(body: AccessRequestBody, request: Request) -> AccessRequestResponse:
+        if not access_window.allow(_client_host(request)):
+            raise _too_many("rate_limited")
+        if not access_cap.reserve(body.email):
+            raise _too_many("access_requests_full")
         record = request.app.state.gate.submit(Email.parse(body.email))
         return AccessRequestResponse(email=record.email.value, created_at=record.created_at)
 
@@ -372,7 +521,7 @@ def create_app(
                 PublicAssistantMessage(
                     id=turn.assistant_id,
                     position=turn.assistant_position,
-                    response=to_public(turn.outcome, by_id, corpus),
+                    response=public_outcome(turn.outcome, reload=True),
                 )
             )
         return messages
@@ -383,6 +532,8 @@ def create_app(
         request: Request,
         user: Annotated[AppUser, Depends(get_current_user)],
     ) -> StreamingResponse:
+        if not answer_window.allow(str(user.id.value)):
+            raise _too_many("rate_limited")
         last = body.messages[-1]
         try:
             turn = request.app.state.chat.ask(user, body.thread_id, last.id, last.content)
@@ -391,17 +542,22 @@ def create_app(
         except AnswerFailed:
             logger.exception("answer failed")
             raise HTTPException(status_code=502, detail={"error": "answer_failed"}) from None
-        public = to_public(turn.outcome, by_id, corpus)
+        public = public_outcome(turn.outcome)
         return StreamingResponse(_turn_events(turn, public), media_type="text/event-stream")
 
-    @app.post("/api/ask", dependencies=[Depends(get_current_user)])
-    def ask(body: AskRequest) -> PublicAnswer | PublicRefusal | PublicClarification:
+    @app.post("/api/ask")
+    def ask(
+        body: AskRequest,
+        user: Annotated[AppUser, Depends(get_current_user)],
+    ) -> PublicAnswer | PublicRefusal | PublicClarification:
+        if not answer_window.allow(str(user.id.value)):
+            raise _too_many("rate_limited")
         try:
-            result = answer_fn(body.question)
+            result = run_answer(body.question)
         except Exception:
             logger.exception("answer failed")
             raise HTTPException(status_code=502, detail={"error": "answer_failed"}) from None
-        return to_public(result, by_id, list(by_id.values()))
+        return public_outcome(result)
 
     @app.get("/api/definitions")
     def definitions() -> dict[str, object]:

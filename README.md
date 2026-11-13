@@ -52,7 +52,7 @@ pnpm install
 pnpm dev
 ```
 
-The Vite server proxies `/api` to `http://127.0.0.1:8000`. Open `http://127.0.0.1:5173`. No Supabase key and no model key are required. The screen says fixture mode. `GET /api/health` returns `{"ok":"true","mode":"fake"}`.
+The Vite server proxies `/api` to `http://127.0.0.1:8000`. Open `http://127.0.0.1:5173`. No Supabase key and no model key are required. The screen says fixture mode. `GET /api/health` returns `{"ok":"true","mode":"fake"}`. Hosted images build from the repository root with `backend/Dockerfile` and `frontend/Dockerfile`.
 
 Filling `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, or `OPENAI_API_KEY` does not switch this process to live answers. The app still uses the checked-in fixture. Applying the schema still needs the database password and `uv run alembic upgrade head` against the direct URL, not the transaction pooler. A later phase has to wire retrieval and the model before a key can change an answer. The service role stays in `backend/.env`. The frontend never reads it.
 

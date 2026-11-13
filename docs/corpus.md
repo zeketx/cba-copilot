@@ -19,3 +19,5 @@ Do not scrape Hoops Rumors or RealGM.
 ## Page numbers
 
 Printed page 1 of the July 2023 PDF is viewer page 25. `data/corpus.json` records that offset as 24. Citation links use `#page=` on the PDF url, which is the viewer page.
+
+Exhibits start at viewer page 585. Their running headers use printed labels such as A-1 or J-2-7, not Arabic page numbers. Chunks are labeled `Exhibit A / 3. Compensation` (exhibit letter plus section). The PDF link still uses the viewer page.

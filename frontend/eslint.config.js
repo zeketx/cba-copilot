@@ -19,4 +19,10 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ["security-headers.test.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ]);
