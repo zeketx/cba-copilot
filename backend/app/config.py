@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     retrieval_context_max: int = 16
     retrieval_fts_config: str = "english"
 
+    answer_rate_limit: int = Field(default=10, gt=0)
+    answer_rate_window_seconds: int = Field(default=60, gt=0)
+    access_request_rate_limit: int = Field(default=5, gt=0)
+    access_request_rate_window_seconds: int = Field(default=600, gt=0)
+    access_request_cap: int = Field(default=100, gt=0)
+
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     allowed_emails: Annotated[tuple[str, ...], NoDecode] = ()
     environment: str = ""

@@ -205,6 +205,8 @@ Default host is Railway, one frontend service and one backend service, until you
 - [ ] `alembic upgrade head` against the hosted database
 - [ ] The auth site URL is the hosted frontend origin, and that origin is on the redirect allow-list, so the invite link opens this app. Until this box is done, an invited person uses Send code
 - [x] README "Run the offline demo" has the local backend and frontend commands ([#1](https://github.com/zeketx/cba-copilot/pull/1))
+- [x] A question and each chat message are at most 4,000 characters, and a chat request has at most 32 messages. Oversized input returns 422 before retrieval or a model call ([#36](https://github.com/zeketx/cba-copilot/pull/36))
+- [x] In-memory limits on one process ([#37](https://github.com/zeketx/cba-copilot/pull/37)). `POST /api/ask` and `POST /api/chat/stream` share 10 calls per signed-in user per 60 seconds. `POST /api/access-requests` allows 5 calls per client address per 600 seconds, and 100 distinct emails remembered by this process. Over either window is 429 `rate_limited`, before retrieval or a model call, and the rejected call is not counted. A full email cap is 429 `access_requests_full` and does not insert. A repeat of an email this process already stored still returns 200. A malformed body stays 422 and is not counted. A restart clears the counters. The client address is the first `X-Forwarded-For` hop when that header is present, otherwise the socket peer
 - [ ] Smoke test on the deployed URL: ask one question, see an article, a section, and a page, reload
 
 **Exit:** the smoke test passes on the hosted URL. The PDF is not in the deploy image and not in git.
