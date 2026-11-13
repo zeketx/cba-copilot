@@ -12,6 +12,8 @@ _EXHIBIT_LEADING = re.compile(r"^Exhibit\s+\S+\s+(\S+)$")
 _EXHIBIT_TRAILING = re.compile(r"^(\S+)\s+Exhibit\s+\S+$")
 _ARTICLE_OPEN = re.compile(r"^ARTICLE\s+([IVXLCDM]+)$")
 _SECTION_OPEN = re.compile(r"^Section\s+(\d+)\.\s+(.+)$")
+_SPACE_BEFORE_HYPHEN = re.compile(r"(?<=\w) -(?=\w)")
+_SPACE_AFTER_HYPHEN = re.compile(r"(?<=\w)- (?!(?:and|or|through|to)\b)(?=\w)")
 
 
 @dataclass(frozen=True)
@@ -26,8 +28,17 @@ def read_pages(path: Path | str) -> list[PdfPage]:
     pages: list[PdfPage] = []
     for index, page in enumerate(reader.pages):
         raw = page.extract_text() or ""
-        pages.append(split_header(index + 1, raw))
+        pages.append(split_header(index + 1, join_hyphens(raw)))
     return pages
+
+
+def join_hyphens(text: str) -> str:
+    """Drop the space pypdf puts beside a joined hyphen, as in `Mid -Level` or `Two- Way`.
+
+    A suspended hyphen before `and`, `or`, `through`, or `to` keeps its space,
+    as in `Team- or League-related`.
+    """
+    return _SPACE_AFTER_HYPHEN.sub("-", _SPACE_BEFORE_HYPHEN.sub("-", text))
 
 
 def split_header(viewer: int, raw_text: str) -> PdfPage:

@@ -168,10 +168,24 @@ def test_exception_grader_pass_and_fail() -> None:
     ctx = _ctx(AWARDS)
     good = _answer(Claim(text=AWARDS.text, quote=AWARDS.text, passage_ids=["awards"]))
     assert grade_case(case, good, ctx).passed
-    thin = _answer(
-        Claim(text="A player needs sixty-five Regular Season games.", passage_ids=["awards"])
+    digits = _answer(
+        Claim(
+            text="A player needs 65 games, or 62 games and a season-ending injury.",
+            quote=AWARDS.text,
+            passage_ids=["awards"],
+        )
     )
-    assert not grade_case(case, thin, ctx).passed
+    assert grade_case(case, digits, ctx).passed
+    thin = _answer(
+        Claim(
+            text="A player needs sixty-five Regular Season games.",
+            quote="A player needs sixty-five Regular Season games",
+            passage_ids=["awards"],
+        )
+    )
+    assert grade_case(case, thin, ctx).reasons == (
+        "missing required phrases: sixty-two, season-ending injury",
+    )
 
 
 def test_cross_reference_grader_pass_and_fail() -> None:
@@ -222,6 +236,17 @@ def test_season_or_date_grader_pass_and_fail() -> None:
     assert grade_case(case, named, ctx).passed
     ask = Clarification(reason="ambiguous", message="which season?", claims=[named.claims[0]])
     assert grade_case(case, ask, ctx).passed
+    cap = Clarification(
+        reason="missing_inputs", message="which Salary Cap?", claims=[named.claims[0]]
+    )
+    assert grade_case(case, cap, ctx).passed
+    other = _chunk("other", 7, "6(e) Non-Taxpayer Mid-Level Salary Exception", MLE.text)
+    uncited = Clarification(
+        reason="missing_inputs",
+        message="which Salary Cap?",
+        claims=[Claim(text=MLE.text, quote=MLE.text, passage_ids=["other"])],
+    )
+    assert not grade_case(case, uncited, _ctx(MLE, other)).passed
     refuse = Refusal(reason="no_evidence", message="no")
     assert not grade_case(case, refuse, ctx).passed
 

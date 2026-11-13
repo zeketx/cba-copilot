@@ -5,6 +5,8 @@ from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import DraftAnswer
 from app.pipeline import answer_question
 from app.retrieval.embed import OpenAIEmbedder
+from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
 
@@ -162,3 +164,22 @@ def test_live_model_takes_its_key_from_settings(
     )
     built = build_live_model(settings)
     assert built.model_name == expected_name
+
+
+def test_answer_model_runs_at_temperature_zero() -> None:
+    seen: list[object] = []
+
+    def respond(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.append(info.model_settings)
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    info.output_tools[0].name,
+                    {"status": "insufficient_evidence", "claims": []},
+                )
+            ]
+        )
+
+    draft = AgentDrafter(build_agent(FunctionModel(respond))).draft("q", [])
+    assert draft.status == "insufficient_evidence"
+    assert seen == [{"temperature": 0}]

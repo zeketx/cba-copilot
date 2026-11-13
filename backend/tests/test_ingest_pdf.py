@@ -1,6 +1,23 @@
 import pytest
-from ingest.pdf import PdfPage, measure_offset, render_markdown, split_header
+from ingest.pdf import PdfPage, join_hyphens, measure_offset, render_markdown, split_header
 from ingest.rows import chunk_rows
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Taxpayer Mid -Level Salary Exception", "Taxpayer Mid-Level Salary Exception"),
+        ("sixty -two games, a season -ending injury", "sixty-two games, a season-ending injury"),
+        ("a Two- Way Contract for 2023- 24", "a Two-Way Contract for 2023-24"),
+        ("a -b -c", "a-b-c"),
+        ("Team- or League-related content", "Team- or League-related content"),
+        ("First- through third-highest", "First- through third-highest"),
+        ("pre- and post-season", "pre- and post-season"),
+        ("(80% - 79%)", "(80% - 79%)"),
+    ],
+)
+def test_join_hyphens(raw: str, expected: str) -> None:
+    assert join_hyphens(raw) == expected
 
 ODD = (
     "  Article I 1 \nARTICLE I\n\nDEFINITIONS\n"

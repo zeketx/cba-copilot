@@ -175,17 +175,21 @@ The runner and the eleven cases are on `main` ([#24](https://github.com/zeketx/c
 
 Live runs on 2026-11-12 used `deepseek/deepseek-v4.1-flash-1017`. Run `20261113T013036Z` passed 4 of 11. Five of its failures were correct answers that paraphrased, because the grader required the claim text verbatim. `Claim` now keeps the validated quote, and the grader checks the quote. Run `20261113T013506Z` passed 7 of 11. Whole-rule dropped every claim, exception paraphrased "sixty-five" as "65", computation asked for inputs it was given, and missing-inputs computed nothing but did not ask. Whole-rule, computation, and ambiguous changed result between the two runs. No box is checked until one run passes every case.
 
-- [ ] One section contains the whole rule. Pass when every factual sentence cites that section and the quote contains the claim
+Run `20261113T014427Z` added temperature 0 and the compute-or-ask instructions, on the same store, and passed 8 of 11. Computation and missing-inputs passed. Season-or-date asked for the later Salary Cap through `missing_inputs`, which the grader does not count as asking for the date. Two-passages answered from the Article VII inclusion rules without Article I 1(lll). Exception wrote "65" and "62", and its quote still reads "sixty -two" because the hyphen fix is not reloaded yet.
+
+The grader then accepted a `missing_inputs` date question for season-or-date and looked for the exception's phrases in quotes too. The store was reloaded with the hyphen fix, and the 330 changed chunks were re-embedded. Run `20261113T021827Z` passed 11 of 11. A confirming run, `20261113T022026Z`, passed 10 of 11. Its exception answer quoted the sixty-two-game exception but not the sixty-five-game rule, so that box stays open. Both runs meet the exit: every claim cites a retrieved passage that contains its quote, and the refusal has no claim.
+
+- [x] One section contains the whole rule. Pass when every factual sentence cites that section and the quote contains the claim
 - [ ] The same section contains an exception. Pass when the claim quotes the exception, along with the general rule
-- [ ] A section points at another section. Pass when both sections are cited
-- [ ] The answer needs two passages that do not point at each other. Pass when both are cited, or the turn refuses
-- [ ] The rule depends on the season or the effective date. Pass when the answer names the passage it used, or asks which date the user means
-- [ ] The quote states an operation and the question supplies every input. Pass when the number is the operation in the quote applied to those inputs, and the quote is cited
-- [ ] The quote states an operation and one input is missing. Pass when the turn is `missing_inputs` and contains no computed number
-- [ ] The question asks what a term means. Pass when the answer quotes the definition and does not add a number the quote does not contain
-- [ ] The corpus has no passage for the question. Pass when the turn is `no_evidence` and has no factual claim
-- [ ] Two passages match and neither says it controls. Pass when the turn is `ambiguous`, cites both, and does not pick a winner
-- [ ] A draft claim cites a passage that does not contain the claim. Pass when that claim is dropped, and the turn refuses if no valid claim remains
+- [x] A section points at another section. Pass when both sections are cited
+- [x] The answer needs two passages that do not point at each other. Pass when both are cited, or the turn refuses
+- [x] The rule depends on the season or the effective date. Pass when the answer names the passage it used, or asks which date the user means
+- [x] The quote states an operation and the question supplies every input. Pass when the number is the operation in the quote applied to those inputs, and the quote is cited
+- [x] The quote states an operation and one input is missing. Pass when the turn is `missing_inputs` and contains no computed number
+- [x] The question asks what a term means. Pass when the answer quotes the definition and does not add a number the quote does not contain
+- [x] The corpus has no passage for the question. Pass when the turn is `no_evidence` and has no factual claim
+- [x] Two passages match and neither says it controls. Pass when the turn is `ambiguous`, cites both, and does not pick a winner
+- [x] A draft claim cites a passage that does not contain the claim. Pass when that claim is dropped, and the turn refuses if no valid claim remains
 
 **Exit:** each question either cites a retrieved passage that contains the claim, or refuses. No uncited factual claim.
 
@@ -227,5 +231,5 @@ These are open after the work merged on the evening of 2026-11-10. They are not 
 - [ ] Retrieval and question-design follow-up for `second-apron-trade` and `cap-inclusions` in `backend/evals/questions.yaml`. The `2(e)` label on `second-apron-trade` is verified against the CBA (Article VII 2(e)(4) transaction table, printed page 187); the miss is real, not a bad label. `cap-inclusions` needs both Article I 1(lll) and Article VII 4
 - [ ] Review the 30 draft questions in `backend/evals/draft_questions.yaml`
 - [ ] The chunker stores Article VII 6(b)(3)(i), the Early Qualifying Veteran Free Agent rule, inside the 6(b)(2) chunk, and labels 6(b)(3)(ii) as `6(b)(2)(ii)`. A citation of that rule shows the wrong section
-- [ ] `ingest load` text puts a space before a joined hyphen: 767 times in 294 of 915 chunks, such as `Mid -Level`, `Two -Way`, `sixty -two`, and `2023 -24`. A quote that writes the hyphen correctly is not in the stored passage and is dropped. The fix is in `ingest/pdf.py`, then a reload and a re-embed by the owner. The embed bench reads the PDF another way and does not show it
+- [x] Reload and re-embed after the hyphen fix in `ingest/pdf.py`. The stored text put a space beside a joined hyphen, such as `Mid -Level`, `Two- Way`, `sixty -two`, and `2023 -24`. On 2026-11-12 the reload changed 330 of 915 chunks, left none with the spaced hyphen, and `ingest embed --live` refilled all 330 at 1024 dimensions
 - [ ] `cap-inclusions` in `backend/evals/questions.yaml` names `4 Determination of Team Salary`, which matches only the heading chunk on the live store. That may explain part of its miss
