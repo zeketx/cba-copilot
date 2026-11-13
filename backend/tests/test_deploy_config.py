@@ -1,10 +1,17 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BACKEND_TOML = ROOT / "backend" / "railway.toml"
-FRONTEND_TOML = ROOT / "frontend" / "railway.toml"
+BACKEND_RAILWAY = ROOT / "backend" / "railway.toml"
+FRONTEND_RAILWAY = ROOT / "frontend" / "railway.toml"
 DOCKERIGNORE = ROOT / ".dockerignore"
-SECRET_MARKERS = (
+BACKEND_START = "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+DOCKERIGNORE_PATHS = (
+    ".env",
+    "backend/.env",
+    "frontend/.env",
+    "data/downloads/",
+)
+SECRET_NAMES = (
     "OPENAI_API_KEY",
     "OPENROUTER_API_KEY",
     "GEMINI_API_KEY",
@@ -13,22 +20,25 @@ SECRET_MARKERS = (
 )
 
 
-def test_backend_start_command_listens_on_port() -> None:
-    text = BACKEND_TOML.read_text(encoding="utf-8")
-    assert "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT" in text
-    for marker in SECRET_MARKERS:
-        assert marker not in text
+def test_backend_start_command_binds_port() -> None:
+    text = BACKEND_RAILWAY.read_text(encoding="utf-8")
+    assert BACKEND_START in text
 
 
-def test_frontend_start_command_previews_on_port() -> None:
-    text = FRONTEND_TOML.read_text(encoding="utf-8")
+def test_frontend_start_command_previews_built_app() -> None:
+    text = FRONTEND_RAILWAY.read_text(encoding="utf-8")
     assert "$PORT" in text
     assert "vite preview" in text
-    for marker in SECRET_MARKERS:
-        assert marker not in text
 
 
-def test_dockerignore_excludes_env_and_downloads() -> None:
+def test_railway_toml_files_omit_secret_names() -> None:
+    for path in (BACKEND_RAILWAY, FRONTEND_RAILWAY):
+        text = path.read_text(encoding="utf-8")
+        for name in SECRET_NAMES:
+            assert name not in text
+
+
+def test_dockerignore_excludes_env_files_and_downloads() -> None:
     text = DOCKERIGNORE.read_text(encoding="utf-8")
-    for path in (".env", "backend/.env", "frontend/.env", "data/downloads/"):
-        assert path in text
+    for entry in DOCKERIGNORE_PATHS:
+        assert entry in text

@@ -6,4 +6,3 @@ data/downloads/
 **/.venv
 **/node_modules
 **/__pycache__
-backend/evals/reports/
