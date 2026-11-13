@@ -1,0 +1,9 @@
+.env
+backend/.env
+frontend/.env
+data/downloads/
+.git
+**/.venv
+**/node_modules
+**/__pycache__
+backend/evals/reports/
