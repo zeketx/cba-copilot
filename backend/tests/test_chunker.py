@@ -218,8 +218,7 @@ def test_parent_path_changes_the_section_label_and_not_the_text() -> None:
             "Section 6. Exceptions to the Salary Cap / (i) Standard Traded Player Exception. "
             "Incoming salary is limited.\n"
             "\n"
-            "(i) Standard Traded Player Exception. Incoming salary is limited.\n"
-            "(ii) Aggregated exception. Two or more players.",
+            "(i) Standard Traded Player Exception. Incoming salary is limited.",
         ),
         (
             veteran,
@@ -257,6 +256,35 @@ def test_parent_path_changes_the_section_label_and_not_the_text() -> None:
     for chunk, before in expected_text:
         assert chunk.text == before
         assert chunk.section != before.split("Section ", 1)[1].split("\n", 1)[0]
+
+
+def test_early_qualifying_line_splits_from_following_roman() -> None:
+    text = (
+        "# Article VII. BASKETBALL RELATED INCOME\n"
+        "## Section 6. Exceptions to the Salary Cap\n"
+        "(b) Veteran Free Agent Exception. A team may sign a veteran.\n"
+        "(1) Qualifying Veteran Free Agents may sign after July 1.\n"
+        "(2) Non-Qualifying Veteran Free Agents follow a later date.\n"
+        "(3) (i) If the player is an Early Qualifying Veteran Free\n"
+        "Agent, the contract may begin on July 6.\n"
+        "(ii) If the player is not an Early Qualifying Veteran Free Agent,\n"
+        "the contract may begin on July 7.\n"
+        "(c) Other Exception. A later letter group stays separate.\n"
+    )
+    chunks = chunk_markdown(text, source_url=SOURCE, max_section_chars=40)
+    labels = [chunk.section for chunk in chunks]
+    early = next(chunk for chunk in chunks if "(b)(3)(i) " in chunk.section)
+    later = next(chunk for chunk in chunks if "(b)(3)(ii)" in chunk.section)
+    one = next(chunk for chunk in chunks if "(b)(1)" in chunk.section)
+    two = next(chunk for chunk in chunks if "(b)(2)" in chunk.section)
+    assert "If the player is an Early Qualifying Veteran Free" in early.text
+    assert "the contract may begin on July 7" not in early.text
+    assert "If the player is not an Early Qualifying Veteran Free Agent" in later.text
+    assert "July 6" not in later.text
+    assert "Qualifying Veteran Free Agents may sign after July 1" in one.text
+    assert "Non-Qualifying Veteran Free Agents follow a later date" in two.text
+    assert all("(b)(2)(ii)" not in label for label in labels)
+    assert all(label.startswith("6. Exceptions to the Salary Cap / ") for label in labels)
 
 
 def test_roman_and_aid_filename() -> None:
