@@ -247,7 +247,7 @@
   match: any
   articles:
     - article: 7
-      section_contains: "4(d) Free"
+      section_contains: "4(d)(1)"
       verified: true
       note: "Printed page 217. Until he re-signs, signs elsewhere, or is renounced, he is included at 150 percent of his prior salary when that salary was at least the estimated average player salary."
 

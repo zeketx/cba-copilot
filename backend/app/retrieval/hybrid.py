@@ -4,6 +4,7 @@ from app.domain import Chunk
 from app.retrieval.aliases import expand_query
 from app.retrieval.embed import Embedder
 from app.retrieval.fusion import reciprocal_rank_fusion
+from app.retrieval.phrases import phrase_ranks
 from app.retrieval.refs import citation_targets, select_section_ids
 from app.retrieval.store import ChunkStore, documents_for
 from app.retrieval.text import tokens
@@ -26,7 +27,17 @@ def hybrid_retrieve(
     expanded = expand_query(question)
     vector_ids = store.vector_search(embedder.embed_query(expanded), candidate_k)
     keyword_ids = store.keyword_search(expanded, candidate_k)
-    fused = reciprocal_rank_fusion([vector_ids, keyword_ids], k=rrf_k)
+    seen: set[str] = set()
+    candidates: list[Chunk] = []
+    for passage_id in [*vector_ids, *keyword_ids]:
+        if passage_id in seen:
+            continue
+        seen.add(passage_id)
+        chunk = store.get(passage_id)
+        if chunk is not None:
+            candidates.append(chunk)
+    lexical_ids = phrase_ranks(question, candidates)
+    fused = reciprocal_rank_fusion([vector_ids, keyword_ids, lexical_ids], k=rrf_k)
     hits: list[Chunk] = []
     for passage_id, _score in fused[:top_k]:
         chunk = store.get(passage_id)

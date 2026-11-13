@@ -67,9 +67,29 @@ def section_for_match(section: str) -> str:
     return stripped
 
 
+_PAREN_SPACE = re.compile(r"\)\s+\(")
+
+
+def compact_parentheticals(value: str) -> str:
+    """Join `(e) (1)` into `(e)(1)` so a compact label still matches a spaced needle."""
+    return _PAREN_SPACE.sub(")(", value)
+
+
 def section_matches(section: str, needle: str) -> bool:
     if not needle:
         return False
+    if _section_find(section, needle):
+        return True
+    compact_needle = compact_parentheticals(needle)
+    if compact_needle != needle and _section_find(section, compact_needle):
+        return True
+    compact_section = compact_parentheticals(section)
+    if compact_section != section and _section_find(compact_section, compact_needle):
+        return True
+    return False
+
+
+def _section_find(section: str, needle: str) -> bool:
     start = 0
     while True:
         index = section.find(needle, start)
