@@ -11,7 +11,7 @@ _ID_CHARS = set("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 @dataclass(frozen=True)
 class ExpectedSection:
-    article: int
+    article: int | None
     section_contains: str
 
 
