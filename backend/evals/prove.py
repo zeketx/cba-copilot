@@ -263,7 +263,8 @@ def _grade_exception(case: CorpusCase, response: CopilotResponse, ctx: GradeCont
     unsupported = _unsupported(response, ctx)
     if unsupported:
         return _fail(unsupported)
-    blob = response_blob(response).lower()
+    quotes = " ".join(claim.quote for claim in response_claims(response))
+    blob = f"{response_blob(response)} {normalize_space(quotes)}".lower()
     absent = [phrase for phrase in case.required_phrases if phrase.lower() not in blob]
     if absent:
         return _fail(f"missing required phrases: {', '.join(absent)}")
@@ -301,9 +302,7 @@ def _grade_two_passages(case: CorpusCase, response: CopilotResponse, ctx: GradeC
 def _grade_season_or_date(
     case: CorpusCase, response: CopilotResponse, ctx: GradeContext
 ) -> Verdict:
-    if response.kind == "clarification" and response.reason == "ambiguous":
-        return _ok()
-    if response.kind != "answer":
+    if response.kind not in ("answer", "clarification"):
         return _fail("expected the cited passage or a question about the date")
     missing = missing_sections(response, ctx, case.expected_sections)
     if missing:
