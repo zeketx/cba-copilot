@@ -21,6 +21,7 @@ def test_app_role_sql_creates_one_login_role() -> None:
     assert text.count("CREATE ROLE cba_copilot_app") == 1
     assert "LOGIN" in text
     assert "NOSUPERUSER" in text
+    assert "BYPASSRLS" in text
     assert "service_role" not in text
     assert "SUPERUSER" not in text.replace("NOSUPERUSER", "")
 
@@ -48,3 +49,4 @@ def test_app_role_sql_has_no_row_policy() -> None:
     text = _sql().lower()
     assert "create policy" not in text
     assert "alembic_version" not in text
+    assert "bypassrls" in text

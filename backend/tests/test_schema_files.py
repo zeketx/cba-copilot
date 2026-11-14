@@ -20,6 +20,9 @@ CHAT_MIGRATION = ROOT / "backend" / "alembic" / "versions" / "c0a2023b0003_chat_
 ACCESS_MIGRATION = (
     ROOT / "backend" / "alembic" / "versions" / "c0a2023b0004_access_requests.py"
 )
+POLICY_MIGRATION = (
+    ROOT / "backend" / "alembic" / "versions" / "c0a2023b0008_chat_row_policies.py"
+)
 ENV_PY = ROOT / "backend" / "alembic" / "env.py"
 
 
@@ -204,3 +207,20 @@ def test_access_request_model_exposes_locked_columns() -> None:
     assert list(table.foreign_keys) == []
     assert table.c.email.primary_key
     assert table.c.created_at.nullable is False
+
+
+def test_chat_row_policies_revise_0007_and_are_reversible() -> None:
+    text = POLICY_MIGRATION.read_text(encoding="utf-8")
+    assert 'down_revision: Union[str, Sequence[str], None] = "c0a2023b0007"' in text
+    assert "CREATE POLICY" in text
+    assert "auth.uid()" in text
+    for name in ("users", "chat_threads", "chat_messages", "message_citations"):
+        assert name in text
+    upgrade, downgrade = text.split("def downgrade", 1)
+    assert "CREATE POLICY" in upgrade
+    assert "DROP POLICY" in downgrade
+    assert "DISABLE ROW LEVEL SECURITY" not in downgrade
+    assert "FORCE ROW LEVEL SECURITY" not in text
+    assert "GRANT" not in text
+    assert "access_requests" not in text
+    assert "CREATE POLICY" not in CHAT_MIGRATION.read_text(encoding="utf-8")
