@@ -31,6 +31,8 @@ def test_backend_image_runs_production_uvicorn_on_port_as_non_root() -> None:
     text = BACKEND_DOCKERFILE.read_text(encoding="utf-8")
     assert "ENVIRONMENT=production" in text
     assert "uvicorn app.main:app --host 0.0.0.0 --port ${PORT" in text
+    assert "--proxy-headers" in text
+    assert "forwarded-allow-ips" in text
     assert "COPY data/corpus.json" in text
     assert "COPY definitions/" in text
     assert "USER app" in text
