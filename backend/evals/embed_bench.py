@@ -125,6 +125,12 @@ class ModelReport:
     lenient_hybrid: RankMetrics | None = None
     lenient_draft_hybrid: RankMetrics | None = None
     lenient_flips: list[str] = field(default_factory=list)
+    query_latency_uncached_p50_ms: float | None = None
+    query_latency_uncached_p95_ms: float | None = None
+    query_latency_cached_p50_ms: float | None = None
+    query_latency_cached_p95_ms: float | None = None
+    query_uncached_count: int = 0
+    query_cached_count: int = 0
 
 
 def load_bench_questions(paths: list[Path]) -> tuple[list[BenchQuestion], list[str]]:
@@ -350,6 +356,7 @@ def score_model(
         dense_rankings: dict[str, list[Chunk]] = {}
         hybrid_rankings: dict[str, list[Chunk]] = {}
         latencies: list[float] = []
+        cached_flags: list[bool] = []
         misses: list[str] = []
         query_before = int(getattr(embedder, "prompt_tokens", 0))
         for question in questions:
@@ -361,6 +368,7 @@ def score_model(
             query = embedder.embed_query(expanded)
             elapsed_ms = (time.perf_counter() - started) * 1000
             latencies.append(elapsed_ms)
+            cached_flags.append(_query_was_cached(embedder))
             dense = rank_dense(chunks, vectors, query)
             hybrid = rank_hybrid(
                 chunks,
@@ -403,9 +411,7 @@ def score_model(
             index_cost_usd=_usd(index_tokens, price_per_million),
             index_cost_this_run_usd=_usd(index_this_run, price_per_million),
             per_1k_queries_usd=_usd(per_question * 1000, price_per_million),
-            query_latency_p50_ms=percentile(latencies, 50) if latencies else None,
-            query_latency_p95_ms=percentile(latencies, 95) if latencies else None,
-            query_count=len(latencies),
+            **_query_latency_fields(latencies, cached_flags),
             context_length=context_length,
             storage_float32_bytes=len(chunks) * dimensions * 4,
             cache_bytes=cache_path.stat().st_size if cache_path.exists() else 0,
@@ -471,6 +477,35 @@ def _usd(tokens: float, price_per_million: float | None) -> float | None:
     if price_per_million is None:
         return None
     return tokens / 1_000_000 * price_per_million
+
+
+def _query_was_cached(embedder: object) -> bool:
+    return bool(getattr(embedder, "last_query_cached", False))
+
+
+def _query_latency_fields(
+    latencies: list[float],
+    cached_flags: list[bool],
+) -> dict[str, float | int | None]:
+    uncached = [ms for ms, hit in zip(latencies, cached_flags, strict=True) if not hit]
+    cached = [ms for ms, hit in zip(latencies, cached_flags, strict=True) if hit]
+    return {
+        "query_latency_p50_ms": percentile(uncached, 50) if uncached else None,
+        "query_latency_p95_ms": percentile(uncached, 95) if uncached else None,
+        "query_count": len(latencies),
+        "query_latency_uncached_p50_ms": percentile(uncached, 50) if uncached else None,
+        "query_latency_uncached_p95_ms": percentile(uncached, 95) if uncached else None,
+        "query_latency_cached_p50_ms": percentile(cached, 50) if cached else None,
+        "query_latency_cached_p95_ms": percentile(cached, 95) if cached else None,
+        "query_uncached_count": len(uncached),
+        "query_cached_count": len(cached),
+    }
+
+
+def _warmup_embedder(embedder: object) -> None:
+    warmup = getattr(embedder, "warmup", None)
+    if callable(warmup):
+        warmup()
 
 
 def catalog_from_payload(payload: object) -> dict[str, CatalogEntry]:
@@ -653,7 +688,11 @@ def render_markdown(reports: list[ModelReport], *, price_fetch: str, generated_a
             f"Tokens sent this run {report.index_tokens_this_run}. "
             f"Query tokens {report.query_tokens}. "
             f"Context length {report.context_length or 'not reported'}. "
-            f"Cache file {report.cache_bytes} bytes."
+            f"Cache file {report.cache_bytes} bytes. "
+            f"Uncached query p95 {_ms(report.query_latency_uncached_p95_ms)} ms "
+            f"({report.query_uncached_count}). "
+            f"Cached query p95 {_ms(report.query_latency_cached_p95_ms)} ms "
+            f"({report.query_cached_count})."
         )
         lines.append(
             "Dense misses, first relevant chunk never appeared: "
@@ -668,10 +707,13 @@ def _latency_sentence(reports: list[ModelReport]) -> str:
     if any(report.latency_scope == "hybrid_retrieve" for report in reports):
         return (
             "Query latency times `hybrid_retrieve`: the query embedding plus both Postgres "
-            "searches. The nearest-rank percentile uses `ceil`."
+            "searches. Headline p50/p95 are the uncached path, so a warm query-embedding "
+            "cache cannot meet the gate. Cached percentiles are reported separately. "
+            "The nearest-rank percentile uses `ceil`."
         )
     return (
         "Query latency is one pass over `embed_query` only. "
+        "Headline p50/p95 are uncached. Cached percentiles are reported separately. "
         "The nearest-rank percentile uses `ceil`."
     )
 
@@ -870,9 +912,10 @@ def rank_with_hybrid(
     top_k: int,
     context_per_hit: int = 4,
     context_max: int = 16,
-) -> tuple[dict[str, list[Chunk]], list[float]]:
+) -> tuple[dict[str, list[Chunk]], list[float], list[bool]]:
     rankings: dict[str, list[Chunk]] = {}
     latencies: list[float] = []
+    cached_flags: list[bool] = []
     for question in questions:
         started = time.perf_counter()
         ranked = hybrid_retrieve(
@@ -886,8 +929,9 @@ def rank_with_hybrid(
             context_max=context_max,
         )
         latencies.append((time.perf_counter() - started) * 1000)
+        cached_flags.append(_query_was_cached(embedder))
         rankings[question.id] = ranked.hits
-    return rankings, latencies
+    return rankings, latencies, cached_flags
 
 
 def open_database(settings: Settings):
@@ -924,6 +968,7 @@ def _database_report(
     skipped: list[str],
     rankings: dict[str, list[Chunk]],
     latencies: list[float],
+    cached_flags: list[bool],
     query_tokens: int,
 ) -> ModelReport:
     draft = [question for question in questions if question.draft]
@@ -955,9 +1000,7 @@ def _database_report(
         index_cost_usd=None,
         index_cost_this_run_usd=None,
         per_1k_queries_usd=None,
-        query_latency_p50_ms=percentile(latencies, 50) if latencies else None,
-        query_latency_p95_ms=percentile(latencies, 95) if latencies else None,
-        query_count=len(latencies),
+        **_query_latency_fields(latencies, cached_flags),
         context_length=None,
         storage_float32_bytes=len(chunks) * dimensions * 4,
         cache_bytes=0,
@@ -990,7 +1033,17 @@ def _print_database_summary(report: ModelReport) -> None:
         _print_metrics("strict all", report.hybrid)
     if report.lenient_hybrid is not None:
         _print_metrics("lenient all", report.lenient_hybrid)
-    print(f"query p95 {_ms(report.query_latency_p95_ms)} ms (hybrid_retrieve)")
+    print(
+        f"query p95 {_ms(report.query_latency_p95_ms)} ms uncached "
+        f"(hybrid_retrieve, n={report.query_uncached_count})"
+    )
+    if report.query_cached_count:
+        print(
+            f"query p95 cached {_ms(report.query_latency_cached_p95_ms)} ms "
+            f"(n={report.query_cached_count})"
+        )
+    else:
+        print("query p95 cached n/a (0 hits)")
     if report.lenient_flips:
         print("lenient flips:")
         for line in report.lenient_flips:
@@ -1020,9 +1073,10 @@ def _run_database(
     try:
         opened = open_database(settings)
         _session, store, chunks, _engine = opened
+        _warmup_embedder(embedder)
         before = int(getattr(embedder, "prompt_tokens", 0))
         top_k = max(settings.retrieval_candidate_k, settings.retrieval_top_k, 8)
-        rankings, latencies = rank_with_hybrid(
+        rankings, latencies, cached_flags = rank_with_hybrid(
             store,
             embedder,
             questions,
@@ -1040,6 +1094,7 @@ def _run_database(
             skipped,
             rankings,
             latencies,
+            cached_flags,
             query_tokens,
         )
     except RuntimeError as exc:
@@ -1165,6 +1220,7 @@ def main(
                         openrouter_api_key=loaded_settings.openrouter_api_key,
                     )
                 )
+        _warmup_embedder(embedder)
         try:
             reports.append(
                 score_model(

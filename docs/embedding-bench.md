@@ -42,7 +42,7 @@ Dense recall is a full-corpus cosine ranking. Hybrid recall is the app's in-memo
 
 Index dollars are `usage.prompt_tokens` from OpenRouter, times the price per million tokens. The price comes from the models endpoint (`output_modalities=embeddings`). If that call fails, the report uses the pinned table and says `pinned`. A cache hit shows zero dollars in the this-run column. Hash is free and reports no provider tokens.
 
-Query p50 and p95 time only `embed_query`, one pass. The percentile is nearest-rank with `ceil`. Float32 bytes are `chunks × dimensions × 4`. That is a storage estimate for a vector column. This bench does not write the database.
+Query p50 and p95 time only `embed_query`, one pass. Headline percentiles are the uncached path. Cached query-embedding hits are reported separately, so a warm in-process cache cannot meet the 500 ms gate. The percentile is nearest-rank with `ceil`. Float32 bytes are `chunks × dimensions × 4`. That is a storage estimate for a vector column. This bench does not write the database.
 
 Do not treat the hash row as a semantic bake-off. It is a signed bag of tokens, so its recall follows lexical overlap after the app's nickname expansion.
 
@@ -58,6 +58,6 @@ uv run python -m evals.embed_bench --database
 
 Without `--database`, the command stays on the in-memory bench and does not connect. With `--database` and no `DATABASE_URL`, or with OpenRouter selected and no key, it exits with status 2 before a connection and before a request.
 
-The report writes the same two files. Strict and lenient rows each list hybrid recall@5, recall@8, and MRR for the drafts and for every scored question. Query p95 is one number. It times the whole `hybrid_retrieve` call, which is the query embedding plus both Postgres searches. Strict is the current label match. Lenient also accepts a parent label when the chunk text contains the remaining markers, such as `(1)` for `6(e)(1)`, and it joins PDF spaces inside a word so `V eteran` matches `Veteran`. A parent label with no marker in the text stays a miss. Questions that flip from a strict miss to a lenient hit list the rank-1 label and the start of that chunk. A question whose label is absent from the corpus still counts in the average.
+The report writes the same two files. Strict and lenient rows each list hybrid recall@5, recall@8, and MRR for the drafts and for every scored question. Query p95 is the uncached `hybrid_retrieve` time (query embedding plus both Postgres searches). Cached and uncached percentiles are both in the JSON. Strict is the current label match. Lenient also accepts a parent label when the chunk text contains the remaining markers, such as `(1)` for `6(e)(1)`, and it joins PDF spaces inside a word so `V eteran` matches `Veteran`. A parent label with no marker in the text stays a miss. Questions that flip from a strict miss to a lenient hit list the rank-1 label and the start of that chunk. A question whose label is absent from the corpus still counts in the average.
 
 LENIENT is the gate metric. A hit counts when the chunk's label is the needle's parent (same article, section, and letter) and the chunk text contains the remaining sub-markers (the text-marker guard). STRICT is still reported as a chunk-boundary signal. It is not the gate.

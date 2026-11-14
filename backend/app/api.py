@@ -1,9 +1,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Callable, Iterator
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -411,12 +413,30 @@ def create_app(
     )
     access_cap = DistinctCap(settings.access_request_cap)
     production = settings.production
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        if live_embedder is not None:
+            warmup = getattr(live_embedder, "warmup", None)
+            if callable(warmup):
+                try:
+                    await asyncio.to_thread(warmup)
+                except Exception:
+                    logger.warning("OpenRouter embedding connection warmup failed")
+        try:
+            yield
+        finally:
+            close = getattr(live_embedder, "close", None)
+            if callable(close):
+                close()
+
     app = FastAPI(
         title="CBA Copilot",
         version="0.1.0",
         docs_url=None if production else "/docs",
         redoc_url=None if production else "/redoc",
         openapi_url=None if production else "/openapi.json",
+        lifespan=lifespan,
     )
     app.state.gate = gate if gate is not None else gate_from_settings(settings, threads=chat_log)
     app.state.chat_log = chat_log

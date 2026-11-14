@@ -229,7 +229,7 @@ These wait until phase 11's exit passes.
 
 These are open after the work merged on the evening of 2026-11-10. They are not a new phase.
 
-- [ ] Retrieval p95 from Railway `us-east4` was 557 ms, then 401 ms, on two `evals.embed_bench --database` runs on 2026-11-13. The gate is 500 ms. Database time is about 1 ms; the OpenRouter query embedding is the rest
+- [ ] Retrieval p95 from Railway `us-east4` was 557 ms, then 401 ms, on two `evals.embed_bench --database` runs on 2026-11-13. The gate is 500 ms. Database time is about 1 ms; the OpenRouter query embedding is the rest. The live embedder now reuses a pooled HTTP/2 client, warms that connection at startup, and caches query embeddings in-process; re-measure uncached p95 from Railway before checking this off
 - [ ] Custom SMTP for Supabase Auth (Resend is connected). The default sender has a low hourly limit
 - [ ] Check whether Railway forwards a client-sent `X-Forwarded-For` first hop. If it does, the access-request limit can be dodged by setting that header
 - [ ] The backend runs Uvicorn without `--proxy-headers`, so its own CSP names `http://` for the API origin. Harmless for JSON responses, but untidy

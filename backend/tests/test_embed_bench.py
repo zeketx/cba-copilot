@@ -10,6 +10,7 @@ from evals.embed_bench import (
     HASH_MODEL,
     KEY_REQUIRED,
     LIVE_REQUIRED,
+    _query_latency_fields,
     catalog_from_payload,
     embed_corpus,
     lenient_flip_lines,
@@ -660,3 +661,130 @@ def test_database_flag_scores_ingest_labels(tmp_path, monkeypatch, capsys) -> No
     assert scored["lenient_flips"] == []
     assert "query p95" in stdout
     assert "hybrid_retrieve" in stdout
+    assert "uncached" in stdout
+    assert "0 hits" in stdout
+    assert scored["query_cached_count"] == 0
+    assert scored["query_uncached_count"] == scored["query_count"]
+    assert scored["query_latency_p95_ms"] == scored["query_latency_uncached_p95_ms"]
+    assert scored["query_latency_cached_p95_ms"] is None
+
+
+def test_headline_query_p95_is_uncached_only() -> None:
+    fields = _query_latency_fields(
+        [10.0, 20.0, 400.0, 1.0],
+        [False, False, False, True],
+    )
+    assert fields["query_count"] == 4
+    assert fields["query_uncached_count"] == 3
+    assert fields["query_cached_count"] == 1
+    assert fields["query_latency_p95_ms"] == fields["query_latency_uncached_p95_ms"] == 400.0
+    assert fields["query_latency_cached_p95_ms"] == 1.0
+    empty_uncached = _query_latency_fields([1.0, 2.0], [True, True])
+    assert empty_uncached["query_latency_p95_ms"] is None
+    assert empty_uncached["query_latency_cached_p95_ms"] == 2.0
+
+
+def test_database_bench_reports_a_repeat_query_as_cached(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    bird = _chunk(
+        "bird-id",
+        1,
+        "1. Definitions / (yy) “Qualifying Veteran Free Agent” means three seasons",
+        "qualifying veteran free agent bird rights three seasons",
+        "Definitions",
+    )
+    chunks = [bird]
+
+    class _Result:
+        def __init__(self, ids: list[str]) -> None:
+            self._ids = ids
+
+        def all(self):
+            return [SimpleNamespace(id=item) for item in self._ids]
+
+    class _Session:
+        def execute(self, statement, params=None):
+            sql = str(statement)
+            if "search_vector" in sql or "<=>" in sql:
+                return _Result(["bird-id"])
+            return _Result([])
+
+        def close(self) -> None:
+            return None
+
+    class _Engine:
+        def dispose(self) -> None:
+            return None
+
+    class _CachingEmbedder:
+        def __init__(self) -> None:
+            self.seen: set[str] = set()
+            self.last_query_cached = False
+            self.prompt_tokens = 0
+            self.warmed = 0
+
+        def warmup(self) -> None:
+            self.warmed += 1
+
+        def embed_query(self, text: str) -> list[float]:
+            self.last_query_cached = text in self.seen
+            self.seen.add(text)
+            if not self.last_query_cached:
+                self.prompt_tokens += 1
+            return [1.0, 0.0, 0.0]
+
+        def close(self) -> None:
+            return None
+
+    session = _Session()
+    store = PostgresChunkStore(session, {chunk.id: chunk for chunk in chunks})
+    embedder = _CachingEmbedder()
+
+    def open_fake(_settings):
+        return session, store, chunks, _Engine()
+
+    monkeypatch.setattr("evals.embed_bench.open_database", open_fake)
+    monkeypatch.setattr("evals.embed_bench.build_embedder", lambda _settings: embedder)
+    questions = tmp_path / "questions.yaml"
+    questions.write_text(
+        """
+- id: bird
+  draft: true
+  question: What makes a player a Qualifying Veteran Free Agent?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(yy)"
+- id: bird-again
+  draft: true
+  question: What makes a player a Qualifying Veteran Free Agent?
+  expect: answer
+  match: any
+  articles:
+    - article: 1
+      section_contains: "1(yy)"
+""",
+        encoding="utf-8",
+    )
+    code = main(
+        ["--database", "--questions", str(questions), "--report-dir", str(tmp_path / "reports")],
+        settings=Settings(
+            database_url="postgresql://postgres:pw@127.0.0.1:5432/cba",
+            embedding_provider="hash",
+            _env_file=None,
+        ),
+    )
+    assert code == 0
+    assert embedder.warmed == 1
+    report = json.loads((tmp_path / "reports" / "embed-bench.json").read_text(encoding="utf-8"))
+    scored = report["models"][0]
+    assert scored["query_uncached_count"] == 1
+    assert scored["query_cached_count"] == 1
+    assert scored["query_latency_p95_ms"] == scored["query_latency_uncached_p95_ms"]
+    assert scored["query_latency_cached_p95_ms"] is not None
+    assert embedder.prompt_tokens == 1
+    stdout = capsys.readouterr().out
+    assert "uncached" in stdout
+    assert "query p95 cached" in stdout

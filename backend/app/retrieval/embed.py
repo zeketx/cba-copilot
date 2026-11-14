@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import math
+import threading
+import time
+from collections import OrderedDict
 from typing import Literal, Protocol
 
 import httpx
@@ -12,6 +15,14 @@ from app.retrieval.text import tokens
 
 OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings"
 _EMBED_BATCH = 16
+QUERY_CACHE_MAX = 256
+QUERY_CACHE_TTL_SECONDS = 1_800.0
+OPENROUTER_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
+OPENROUTER_LIMITS = httpx.Limits(
+    max_keepalive_connections=8,
+    max_connections=16,
+    keepalive_expiry=60.0,
+)
 
 
 class Embedder(Protocol):
@@ -82,8 +93,78 @@ class OpenAIEmbedder:
         return vectors
 
 
+class QueryEmbeddingCache:
+    def __init__(
+        self,
+        *,
+        max_entries: int = QUERY_CACHE_MAX,
+        ttl_seconds: float = QUERY_CACHE_TTL_SECONDS,
+    ) -> None:
+        self._max_entries = max_entries
+        self._ttl_seconds = ttl_seconds
+        self._entries: OrderedDict[tuple[str, str, int | str], tuple[tuple[float, ...], float]] = (
+            OrderedDict()
+        )
+        self._lock = threading.Lock()
+
+    def get(self, key: tuple[str, str, int | str]) -> list[float] | None:
+        if self._max_entries <= 0:
+            return None
+        now = time.monotonic()
+        with self._lock:
+            item = self._entries.get(key)
+            if item is None:
+                return None
+            vector, expires_at = item
+            if expires_at <= now:
+                del self._entries[key]
+                return None
+            self._entries.move_to_end(key)
+            return list(vector)
+
+    def put(self, key: tuple[str, str, int | str], vector: list[float]) -> None:
+        if self._max_entries <= 0:
+            return
+        expires_at = time.monotonic() + self._ttl_seconds
+        stored = tuple(vector)
+        with self._lock:
+            self._entries[key] = (stored, expires_at)
+            self._entries.move_to_end(key)
+            while len(self._entries) > self._max_entries:
+                self._entries.popitem(last=False)
+
+
+def normalize_query_text(text: str) -> str:
+    return " ".join(text.split())
+
+
+def openrouter_http_client(*, http2: bool = True) -> httpx.Client:
+    if http2:
+        try:
+            return httpx.Client(
+                timeout=OPENROUTER_TIMEOUT,
+                limits=OPENROUTER_LIMITS,
+                http2=True,
+            )
+        except ImportError:
+            pass
+    return httpx.Client(
+        timeout=OPENROUTER_TIMEOUT,
+        limits=OPENROUTER_LIMITS,
+        http2=False,
+    )
+
+
 class OpenRouterEmbedder:
-    def __init__(self, settings: Settings, *, client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        client: httpx.Client | None = None,
+        cache: QueryEmbeddingCache | None = None,
+        cache_max_entries: int = QUERY_CACHE_MAX,
+        cache_ttl_seconds: float = QUERY_CACHE_TTL_SECONDS,
+    ) -> None:
         if settings.resolved_embedding_provider != "openrouter":
             raise RuntimeError("OpenRouterEmbedder requires EMBEDDING_PROVIDER=openrouter.")
         if not settings.embedding_model.strip():
@@ -98,20 +179,50 @@ class OpenRouterEmbedder:
         self._api_key = key
         self._expected_dimensions = settings.embedding_dimensions
         self.dimensions = settings.embedding_dimensions
+        self._cache_dims: int | str = (
+            settings.embedding_dimensions
+            if settings.embedding_dimensions is not None
+            else "unset"
+        )
         self.prompt_tokens = 0
         self.total_tokens = 0
-        self._client = client or httpx.Client(timeout=120.0)
+        self.last_query_cached = False
+        self._client = client or openrouter_http_client()
         self._owns_client = client is None
+        self._cache = cache if cache is not None else QueryEmbeddingCache(
+            max_entries=cache_max_entries,
+            ttl_seconds=cache_ttl_seconds,
+        )
 
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
 
+    def warmup(self) -> None:
+        try:
+            self._client.get(OPENROUTER_EMBEDDINGS_URL, headers=self._headers())
+        except httpx.HTTPError:
+            return
+
     def embed_query(self, text: str) -> list[float]:
-        return self._embed([text], role="query")[0]
+        key = (normalize_query_text(text), self.model, self._cache_dims)
+        cached = self._cache.get(key)
+        if cached is not None:
+            self.last_query_cached = True
+            return cached
+        self.last_query_cached = False
+        vector = self._embed([text], role="query")[0]
+        self._cache.put(key, vector)
+        return vector
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return self._embed(texts, role="document")
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
 
     def _embed(self, texts: list[str], *, role: Literal["query", "document"]) -> list[list[float]]:
         if not texts:
@@ -138,10 +249,7 @@ class OpenRouterEmbedder:
         try:
             response = self._client.post(
                 OPENROUTER_EMBEDDINGS_URL,
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=self._headers(),
                 json=body,
             )
         except httpx.HTTPError as exc:
