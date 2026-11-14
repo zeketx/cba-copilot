@@ -1,6 +1,11 @@
-from ingest.cba_text import chunk_cba_text
+from pathlib import Path
+
+import pytest
+from evals.embed_bench import PDF_PATH
+from ingest.cba_text import chunk_cba_text, read_pdf_layout
 
 SOURCE = "https://example.test/cba.pdf"
+FIXTURE = Path(__file__).parent / "fixtures" / "article_vii_6b_layout.txt"
 
 LAYOUT = """
                                                               Article I      1
@@ -80,6 +85,44 @@ def test_wrapped_section_title_and_exhibit() -> None:
     exhibit = next(chunk for chunk in chunks if chunk.article_number is None)
     assert exhibit.section == "Exhibit A"
     assert "UNIFORM PLAYER CONTRACT" in exhibit.text
+
+
+@pytest.mark.skipif(not PDF_PATH.is_file(), reason="the official CBA PDF is gitignored")
+def test_official_pdf_layout_keeps_early_qualifying_out_of_6b2() -> None:
+    chunks = chunk_cba_text(
+        read_pdf_layout(PDF_PATH),
+        source_url=SOURCE,
+        page_offset=24,
+    )
+    early = [
+        chunk
+        for chunk in chunks
+        if chunk.article_number == 7 and chunk.section.startswith("6(b)(3)(i)")
+    ]
+    two = [
+        chunk
+        for chunk in chunks
+        if chunk.article_number == 7 and chunk.section.startswith("6(b)(2)")
+    ]
+    assert len(early) == 1
+    assert "Early Qualifying Veteran Free" in early[0].text
+    assert all("Early Qualifying Veteran Free" not in chunk.text for chunk in two)
+    assert all(not chunk.section.startswith("6(b)(2)(ii)") for chunk in chunks)
+
+
+def test_early_qualifying_compound_marker_is_not_a_wrapped_citation() -> None:
+    chunks = _chunks(FIXTURE.read_text(encoding="utf-8"))
+    labels = [chunk.section for chunk in chunks if chunk.article_number == 7]
+    early = next(chunk for chunk in chunks if "175 percent" in chunk.text)
+    later = next(chunk for chunk in chunks if "Offer Sheet" in chunk.text)
+    two = next(chunk for chunk in chunks if "Non-Qualifying Veteran Free Agent" in chunk.text)
+    assert early.section.startswith("6(b)(3)(i)")
+    assert later.section.startswith("6(b)(3)(ii)")
+    assert "175 percent" not in two.text
+    assert "Offer Sheet" not in two.text
+    assert "Early Qualifying Veteran Free" not in two.text
+    assert all("6(b)(2)(ii)" not in label for label in labels)
+    assert all("6(b)(2)(i)" not in label for label in labels)
 
 
 def test_page_offset_uses_the_viewer_page_in_the_url() -> None:

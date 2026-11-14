@@ -28,6 +28,7 @@ from app.retrieval.embed import (
 )
 from app.retrieval.fusion import reciprocal_rank_fusion
 from app.retrieval.hybrid import hybrid_retrieve
+from app.retrieval.phrases import phrase_ranks
 from app.retrieval.store import ChunkStore, MemoryChunkStore, PostgresChunkStore
 from ingest.cba_text import chunk_cba_text, read_pdf_layout
 
@@ -294,12 +295,27 @@ def rank_hybrid(
     *,
     candidate_k: int,
     rrf_k: int,
+    question: str,
 ) -> list[Chunk]:
     store = MemoryChunkStore(chunks, vectors)
     vector_ids = store.vector_search(query, candidate_k)
     keyword_ids = store.keyword_search(expanded, candidate_k)
-    fused = reciprocal_rank_fusion([vector_ids, keyword_ids], k=rrf_k)
     order = {chunk.id: chunk for chunk in chunks}
+    seen: set[str] = set()
+    candidates: list[Chunk] = []
+    for passage_id in [*vector_ids, *keyword_ids]:
+        if passage_id in seen:
+            continue
+        seen.add(passage_id)
+        chunk = order.get(passage_id)
+        if chunk is not None:
+            candidates.append(chunk)
+    lexical_ids = phrase_ranks(question, candidates) or keyword_ids
+    fused = reciprocal_rank_fusion(
+        [vector_ids, lexical_ids],
+        k=rrf_k,
+        weights=[1.0, 2.0],
+    )
     return [order[chunk_id] for chunk_id, _score in fused if chunk_id in order]
 
 
@@ -369,6 +385,7 @@ def score_model(
                 query,
                 candidate_k=candidate_k,
                 rrf_k=rrf_k,
+                question=question.question,
             )
             dense_rankings[question.id] = dense
             hybrid_rankings[question.id] = hybrid

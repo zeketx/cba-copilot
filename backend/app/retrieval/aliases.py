@@ -6,8 +6,8 @@ ALIASES: tuple[tuple[str, str], ...] = (
     ("early bird", "early qualifying veteran free agent"),
     ("non-bird", "non-qualifying veteran free agent"),
     ("non bird", "non-qualifying veteran free agent"),
-    ("second apron", "second apron level"),
-    ("second-apron", "second apron level"),
+    ("second apron", "second apron level transaction restrictions"),
+    ("second-apron", "second apron level transaction restrictions"),
     ("taxpayer mid-level", "taxpayer mid-level salary exception"),
     ("taxpayer mle", "taxpayer mid-level salary exception"),
     ("non-taxpayer", "non-taxpayer mid-level salary exception"),
@@ -18,10 +18,11 @@ ALIASES: tuple[tuple[str, str], ...] = (
     ("sign-and-trade", "signed and traded section 8"),
     ("sign and trade", "signed and traded section 8"),
     ("two-way", "two-way contract"),
+    ("does salary mean", "not including unlikely bonuses"),
     ("bird", "qualifying veteran free agent"),
     ("awards", "league honors most valuable player defensive"),
     ("award", "league honors most valuable player defensive"),
-    ("cap", "salary cap team salary"),
+    ("cap", "salary cap"),
 )
 
 

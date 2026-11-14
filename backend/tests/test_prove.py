@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 
 import pytest
+from app.assistant.drafter import OverlapDrafter
 from app.config import Settings
+from app.demo import demo_embedder, demo_store
 from app.domain import (
     Chunk,
     CitedAnswer,
@@ -25,6 +27,7 @@ from evals.prove import (
     main,
     missing_live_settings,
     parse_numbers,
+    run_case,
 )
 from ingest.pdf import measure_offset, read_pages, render_markdown
 from ingest.rows import chunk_rows
@@ -157,6 +160,19 @@ def test_whole_rule_grader_pass_and_fail() -> None:
     assert grade_case(case, unsupported, _ctx(APRON, other)).reasons == (
         "claim quote is not in a cited passage",
     )
+
+
+def test_exception_case_passes_on_the_demo_path() -> None:
+    settings = Settings(_env_file=None)
+    store = demo_store(settings.resolved_embedding_dimensions)
+    embedder = demo_embedder(settings.resolved_embedding_dimensions)
+    case = next(item for item in load_cases() if item.kind == "exception")
+    result = run_case(case, store, embedder, OverlapDrafter(), settings)
+    assert result.verdict.passed, result.verdict.reasons
+    blob = " ".join(claim.quote for claim in result.response.claims).lower()
+    assert "sixty-five" in blob
+    assert "sixty-two" in blob
+    assert "season-ending injury" in blob
 
 
 def test_exception_grader_pass_and_fail() -> None:

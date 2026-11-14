@@ -21,6 +21,7 @@ STOPWORDS = frozenset(
         "what",
         "how",
         "which",
+        "when",
         "is",
         "are",
         "was",

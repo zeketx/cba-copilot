@@ -82,6 +82,29 @@ def test_hybrid_fuses_memory_hits() -> None:
     assert not evidence_is_adequate("nhl coach timeouts overtime", result.hits)
 
 
+def test_hybrid_ranks_the_salary_definition_above_unlikely_bonus_overlap() -> None:
+    salary = _chunk(
+        "salary",
+        '"Salary" means Compensation, not including Unlikely Bonuses.',
+        '1(lll) “Salary” means',
+        article=1,
+    )
+    distractor = _chunk(
+        "bonus",
+        "No Player Contract may provide for any Unlikely Bonus. Salary plus amounts.",
+        "5(b)(2) Unlikely Bonus",
+    )
+    embedder, store = _memory([distractor, salary])
+    result = hybrid_retrieve(
+        store,
+        "What does Salary mean, and which amounts are included when computing Team Salary?",
+        embedder,
+        top_k=2,
+        candidate_k=5,
+    )
+    assert result.hits[0].id == "salary"
+
+
 def test_neighbors_stay_inside_the_article_and_follow_chunk_order() -> None:
     late = _chunk("late", "isolated late section", "10 Late")
     middle = _chunk("middle", "purple marquee middle section", "2 Middle")

@@ -29,3 +29,14 @@ def test_duplicate_keeps_the_first_rank() -> None:
     scores = dict(fused)
     assert scores["a"] == 1 / 61
     assert scores["b"] == 1 / 63
+
+
+def test_phrase_weight_lifts_a_precise_hit_over_a_keyword_only_hit() -> None:
+    fused = reciprocal_rank_fusion(
+        [["kw-only"], ["precise"]],
+        k=60,
+        weights=[1.0, 2.0],
+    )
+    assert fused[0][0] == "precise"
+    assert fused[0][1] == 2.0 / 61
+    assert fused[1][0] == "kw-only"

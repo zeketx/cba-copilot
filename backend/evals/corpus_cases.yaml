@@ -104,8 +104,7 @@
         Article VII Section 6(b)(3)(i), the Veteran Free Agent Exception. For an
         Early Qualifying Veteran Free Agent it caps the first-year salary at the
         greater of 175 percent of the prior regular salary or 105 percent of the
-        prior average player salary. Ingest stores 6(b)(3)(i) inside the 6(b)(2)
-        chunk. The 1(t) definition only names the status.
+        prior average player salary. The 1(t) definition only names the status.
         max(1.75 * 10000000, 1.05 * 12000000) = 17500000.
   expected_number: 17500000
 

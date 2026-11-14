@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+from evals.embed_bench import PDF_PATH
 from evals.metrics import section_for_match, section_matches
 from ingest.chunker import (
     article_number_from_aid_name,
@@ -7,6 +9,8 @@ from ingest.chunker import (
     rejoin_pdf_word_splits,
     roman_to_int,
 )
+from ingest.pdf import measure_offset, read_pages, render_markdown
+from ingest.rows import chunk_rows
 
 FIXTURE = Path(__file__).parent / "fixtures" / "article_vii_excerpt.md"
 DEFINITIONS = Path(__file__).parent / "fixtures" / "article_i_definitions.md"
@@ -256,6 +260,63 @@ def test_parent_path_changes_the_section_label_and_not_the_text() -> None:
     for chunk, before in expected_text:
         assert chunk.text == before
         assert chunk.section != before.split("Section ", 1)[1].split("\n", 1)[0]
+
+
+@pytest.mark.skipif(not PDF_PATH.is_file(), reason="the official CBA PDF is gitignored")
+def test_official_pdf_markdown_keeps_early_qualifying_out_of_6b2() -> None:
+    pages = read_pages(PDF_PATH)
+    rows = chunk_rows(
+        render_markdown(pages),
+        source_url=SOURCE,
+        offset=measure_offset(pages),
+    )
+    early = [
+        row
+        for row in rows
+        if row.article_number == 7 and row.section.startswith("6.") and "(b)(3)(i)" in row.section
+    ]
+    two = [
+        row
+        for row in rows
+        if row.article_number == 7 and row.section.startswith("6.") and "/ (b)(2)" in row.section
+    ]
+    assert len(early) == 1
+    assert "Early Qualifying Veteran Free" in early[0].text
+    assert all("Early Qualifying Veteran Free" not in row.text for row in two)
+    assert all(
+        "(b)(2)(ii)" not in row.section
+        for row in rows
+        if row.article_number == 7 and row.section.startswith("6.")
+    )
+
+
+def test_early_qualifying_pdf_line_with_spaced_compound_marker() -> None:
+    text = (
+        "# Article VII. BASKETBALL RELATED INCOME\n"
+        "## Section 6. Exceptions to the Salary Cap\n"
+        "(b) Veteran Free Agent Exception. A team may sign a veteran.\n"
+        "(1) If the player is a Qualifying Veteran Free Agent, the new Player\n"
+        "Contract may provide for Salary plus Unlikely Bonuses.\n"
+        "(2) If the player is a Non-Qualifying Veteran Free Agent, then,\n"
+        "the new Player Contract may provide in the first Salary Cap Year.\n"
+        "             (3) (i)      If the player is an Early Qualifying Veteran Free\n"
+        "                 Agent, the new Player Contract must cover at least two (2)\n"
+        "                 Seasons and may provide 175 percent of the Regular Salary.\n"
+        "      (ii)       Notwithstanding anything to the contrary in Section 5(a)(2)\n"
+        "                 above or this Section 6(b)(3), if an Early Qualifying Veteran\n"
+        "                 Free Agent receives an Offer Sheet the Prior Team may match.\n"
+        "(c) Disabled Player Exception. A later letter group stays separate.\n"
+    )
+    chunks = chunk_markdown(text, source_url=SOURCE, max_section_chars=40)
+    labels = [chunk.section for chunk in chunks]
+    early = next(chunk for chunk in chunks if "175 percent of the Regular Salary" in chunk.text)
+    later = next(chunk for chunk in chunks if "Offer Sheet" in chunk.text)
+    two = next(chunk for chunk in chunks if "Non-Qualifying Veteran Free Agent" in chunk.text)
+    assert "(b)(3)(i)" in early.section
+    assert "(b)(3)(ii)" in later.section
+    assert "175 percent" not in two.text
+    assert "Offer Sheet" not in two.text
+    assert all("(b)(2)(ii)" not in label for label in labels)
 
 
 def test_early_qualifying_line_splits_from_following_roman() -> None:
