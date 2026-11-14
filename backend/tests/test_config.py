@@ -94,11 +94,17 @@ def test_rate_limits_default_to_the_documented_budget() -> None:
     assert settings.access_request_rate_limit == 5
     assert settings.access_request_rate_window_seconds == 600
     assert settings.access_request_cap == 100
+    assert settings.trusted_proxy_count == 1
 
 
 def test_zero_answer_rate_limit_is_rejected() -> None:
     with pytest.raises(ValidationError):
         Settings(answer_rate_limit=0, _env_file=None)
+
+
+def test_negative_trusted_proxy_count_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(trusted_proxy_count=-1, _env_file=None)
 
 
 def test_missing_provider_key_names_the_env_var() -> None:

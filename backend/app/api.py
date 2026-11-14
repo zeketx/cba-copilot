@@ -27,7 +27,7 @@ from app.definitions import load_definitions
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import Chunk, Claim, Clarification, CopilotResponse, Refusal
 from app.http_security import SecurityHeadersMiddleware, http_origin
-from app.limits import DistinctCap, SlidingWindow
+from app.limits import DistinctCap, SlidingWindow, client_address
 from app.pipeline import answer_question
 from app.retrieval.embed import build_embedder
 from app.retrieval.store import ChunkStore, PostgresChunkStore, postgres_session_factory
@@ -292,15 +292,14 @@ def _turn_events(
     )
 
 
-def _client_host(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        first = forwarded.split(",")[0].strip()
-        if first:
-            return first
-    if request.client is not None and request.client.host:
-        return request.client.host
-    return "unknown"
+def _client_host(request: Request, settings: Settings) -> str:
+    peer = request.client.host if request.client is not None and request.client.host else None
+    return client_address(
+        peer=peer,
+        forwarded_for=request.headers.get("x-forwarded-for", ""),
+        real_ip=request.headers.get("x-real-ip", ""),
+        trusted_proxy_count=settings.trusted_proxy_count,
+    )
 
 
 def _too_many(error: str) -> HTTPException:
@@ -440,7 +439,7 @@ def create_app(
 
     @app.post("/api/access-requests")
     def request_access(body: AccessRequestBody, request: Request) -> AccessRequestResponse:
-        if not access_window.allow(_client_host(request)):
+        if not access_window.allow(_client_host(request, settings)):
             raise _too_many("rate_limited")
         if not access_cap.reserve(body.email):
             raise _too_many("access_requests_full")

@@ -12,6 +12,26 @@ from collections import deque
 from collections.abc import Callable
 
 
+def client_address(
+    *,
+    peer: str | None,
+    forwarded_for: str = "",
+    real_ip: str = "",
+    trusted_proxy_count: int = 1,
+) -> str:
+    if trusted_proxy_count <= 0:
+        return peer or "unknown"
+    real = real_ip.strip()
+    if real:
+        return real
+    hops = [hop.strip() for hop in forwarded_for.split(",") if hop.strip()]
+    if hops:
+        if len(hops) >= trusted_proxy_count:
+            return hops[-trusted_proxy_count]
+        return hops[-1]
+    return peer or "unknown"
+
+
 class SlidingWindow:
     def __init__(
         self,

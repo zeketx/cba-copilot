@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     access_request_rate_limit: int = Field(default=5, gt=0)
     access_request_rate_window_seconds: int = Field(default=600, gt=0)
     access_request_cap: int = Field(default=100, gt=0)
+    trusted_proxy_count: int = Field(default=1, ge=0)
 
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     allowed_emails: Annotated[tuple[str, ...], NoDecode] = ()
