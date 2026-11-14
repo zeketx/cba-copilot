@@ -89,32 +89,79 @@ def _phrase_variants(phrase: str) -> list[str]:
     return variants
 
 
-def _boundary_match(haystack: str, phrase: str) -> bool:
-    folded = _fold_ws(haystack)
-    for variant in _phrase_variants(phrase):
-        pattern = rf"(?<![a-z0-9-]){re.escape(_fold_ws(variant))}(?![a-z0-9-])"
-        if re.search(pattern, folded) is not None:
+_WORD_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
+
+
+def _phrase_needles(phrases: list[str]) -> list[tuple[int, tuple[str, ...]]]:
+    needles: list[tuple[int, tuple[str, ...]]] = []
+    for phrase in phrases:
+        seen: set[str] = set()
+        variants: list[str] = []
+        for variant in _phrase_variants(phrase):
+            folded = _fold_ws(variant)
+            if not folded or folded in seen:
+                continue
+            seen.add(folded)
+            variants.append(folded)
+        if variants:
+            needles.append((len(phrase.split()), tuple(variants)))
+    return needles
+
+
+def _boundary_find(haystack: str, needle: str) -> bool:
+    if not needle:
+        return False
+    start = 0
+    length = len(needle)
+    while True:
+        index = haystack.find(needle, start)
+        if index < 0:
+            return False
+        left = index == 0 or haystack[index - 1] not in _WORD_CHARS
+        end = index + length
+        right = end == len(haystack) or haystack[end] not in _WORD_CHARS
+        if left and right:
             return True
-    return False
+        start = index + 1
+
+
+def _has_phrase(haystack: str, variants: tuple[str, ...]) -> bool:
+    return any(_boundary_find(haystack, variant) for variant in variants)
+
+
+def _score_folded(
+    section: str, body: str, needles: list[tuple[int, tuple[str, ...]]]
+) -> int:
+    score = 0
+    for words, variants in needles:
+        if _has_phrase(section, variants):
+            score += 3 * words
+        elif _has_phrase(body, variants):
+            score += words
+    return score
 
 
 def phrase_score(chunk: Chunk, phrases: list[str]) -> int:
-    section = f"{chunk.section} {chunk.article_title}".lower()
-    body = chunk.text.lower()
-    score = 0
-    for phrase in phrases:
-        if _boundary_match(section, phrase):
-            score += 3 * len(phrase.split())
-        elif _boundary_match(body, phrase):
-            score += len(phrase.split())
-    return score
+    return _score_folded(
+        _fold_ws(f"{chunk.section} {chunk.article_title}"),
+        _fold_ws(chunk.text),
+        _phrase_needles(phrases),
+    )
 
 
 def phrase_ranks(question: str, chunks: list[Chunk]) -> list[str]:
     phrases = query_phrases(question)
     if not phrases:
         return []
-    scored = [(phrase_score(chunk, phrases), index, chunk.id) for index, chunk in enumerate(chunks)]
-    scored = [item for item in scored if item[0] > 0]
+    needles = _phrase_needles(phrases)
+    scored: list[tuple[int, int, str]] = []
+    for index, chunk in enumerate(chunks):
+        score = _score_folded(
+            _fold_ws(f"{chunk.section} {chunk.article_title}"),
+            _fold_ws(chunk.text),
+            needles,
+        )
+        if score:
+            scored.append((score, index, chunk.id))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [chunk_id for _score, _index, chunk_id in scored]

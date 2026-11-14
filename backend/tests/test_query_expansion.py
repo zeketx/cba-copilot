@@ -162,3 +162,18 @@ def test_phrase_boundary_does_not_treat_non_qualifying_as_qualifying() -> None:
     assert phrase_score(qualifying, phrases) > phrase_score(non_qualifying, phrases)
     ranked = phrase_ranks(question, [non_qualifying, qualifying])
     assert ranked[0] == qualifying.id
+
+
+def test_minimum_player_salary_outranks_a_generic_salary_chunk() -> None:
+    question = "How long can a contract under the Minimum Player Salary Exception run?"
+    exception = _chunk(
+        "6(i) Minimum Player Salary Exception",
+        "The contract cannot exceed two seasons and pays the player's Minimum Player Salary.",
+    )
+    salary = _chunk(
+        '1(lll) “Salary”',
+        "Salary means Compensation, not including Unlikely Bonuses.",
+        article_title="DEFINITIONS",
+    )
+    ranked = phrase_ranks(question, [salary, exception])
+    assert ranked[0] == exception.id

@@ -116,9 +116,10 @@ class CaseResult:
     response: CopilotResponse
     retrieved_ids: list[str]
     verdict: Verdict
+    error: str | None = None
 
     def as_json(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "id": self.case.id,
             "kind": self.case.kind,
             "question": self.case.question,
@@ -127,6 +128,9 @@ class CaseResult:
             "verdict": "pass" if self.verdict.passed else "fail",
             "reasons": list(self.verdict.reasons),
         }
+        if self.error:
+            payload["error"] = self.error
+        return payload
 
 
 Grader = Callable[[CorpusCase, CopilotResponse, GradeContext], Verdict]
@@ -449,6 +453,17 @@ def _answer_kwargs(settings: Settings) -> dict[str, int]:
     }
 
 
+def error_result(case: CorpusCase, exc: BaseException) -> CaseResult:
+    message = f"{type(exc).__name__}: {exc}"
+    return CaseResult(
+        case=case,
+        response=Refusal(reason="no_evidence", message="Case failed before a draft was graded."),
+        retrieved_ids=[],
+        verdict=_fail(message),
+        error=message,
+    )
+
+
 def run_case(
     case: CorpusCase,
     store: ChunkStore,
@@ -494,7 +509,13 @@ def run_suite(
     drafter: Drafter,
     settings: Settings,
 ) -> list[CaseResult]:
-    return [run_case(case, store, embedder, drafter, settings) for case in cases]
+    results: list[CaseResult] = []
+    for case in cases:
+        try:
+            results.append(run_case(case, store, embedder, drafter, settings))
+        except Exception as exc:
+            results.append(error_result(case, exc))
+    return results
 
 
 def _live_output_dir() -> Path:

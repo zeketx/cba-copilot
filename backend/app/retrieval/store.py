@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.domain import Chunk
 from app.retrieval.queries import (
     chunk_by_id_sql,
+    chunks_by_ids_sql,
     context_batch_sql,
     keyword_search_sql,
     neighbor_batch_sql,
@@ -24,6 +25,8 @@ class ChunkStore(Protocol):
     def keyword_search(self, query: str, limit: int) -> list[str]: ...
 
     def get(self, passage_id: str) -> Chunk | None: ...
+
+    def get_many(self, passage_ids: list[str]) -> dict[str, Chunk]: ...
 
     def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext: ...
 
@@ -104,6 +107,13 @@ class MemoryChunkStore:
 
     def get(self, passage_id: str) -> Chunk | None:
         return self._chunks.get(passage_id)
+
+    def get_many(self, passage_ids: list[str]) -> dict[str, Chunk]:
+        return {
+            passage_id: self._chunks[passage_id]
+            for passage_id in passage_ids
+            if passage_id in self._chunks
+        }
 
     def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext:
         if not hits:
@@ -192,6 +202,31 @@ class PostgresChunkStore:
         chunk = _chunk_from_row(row)
         self._chunks[passage_id] = chunk
         return chunk
+
+    def get_many(self, passage_ids: list[str]) -> dict[str, Chunk]:
+        found: dict[str, Chunk] = {}
+        missing: list[str] = []
+        seen: set[str] = set()
+        for passage_id in passage_ids:
+            if passage_id in seen:
+                continue
+            seen.add(passage_id)
+            cached = self._chunks.get(passage_id)
+            if cached is not None:
+                found[passage_id] = cached
+            else:
+                missing.append(passage_id)
+        if not missing:
+            return found
+        rows = self._session.execute(
+            text(chunks_by_ids_sql()),
+            {"chunk_ids": ",".join(missing)},
+        ).all()
+        for row in rows:
+            chunk = _chunk_from_row(row)
+            self._chunks[chunk.id] = chunk
+            found[chunk.id] = chunk
+        return found
 
     def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext:
         if not hits:
