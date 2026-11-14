@@ -52,4 +52,4 @@ After `ingest load` has rewritten chunk text, score the live store. `ingest load
 uv run python -m evals.embed_bench --database
 ```
 
-That command needs the same `DATABASE_URL` and OpenRouter settings. It refuses without `--database`. The live gate from issue 11 is draft hybrid recall@5 of at least 0.90, Bird rights, Team Salary, and Minimum Team Salary inside the top 5, and query p95 of at most 500 ms. This p95 times `hybrid_retrieve`.
+That command needs the same `DATABASE_URL` and OpenRouter settings. It refuses without `--database`. The live gate from issue 11 is draft hybrid recall@5 of at least 0.90, Bird rights, Team Salary, and Minimum Team Salary inside the top 5, and uncached query p95 of at most 500 ms. This p95 times `hybrid_retrieve` and excludes in-process query-embedding cache hits.
