@@ -38,8 +38,9 @@ function anonKey(): string {
   return key;
 }
 
-export async function requestSignInCode(email: string): Promise<void> {
-  const response = await fetch(goTrueUrl("/auth/v1/otp"), {
+export async function requestSignInLink(email: string): Promise<void> {
+  const redirectTo = encodeURIComponent(`${window.location.origin}/`);
+  const response = await fetch(goTrueUrl(`/auth/v1/otp?redirect_to=${redirectTo}`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -52,21 +53,24 @@ export async function requestSignInCode(email: string): Promise<void> {
   }
 }
 
-export async function completeSignIn(email: string, code: string): Promise<void> {
-  const response = await fetch(goTrueUrl("/auth/v1/verify"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: anonKey(),
-    },
-    body: JSON.stringify({ type: "email", email, token: code }),
-  });
-  if (!response.ok) {
-    throw new SignInFailed();
+export type SignInRedirect = "none" | "signed_in" | "failed";
+
+/**
+ * Picks up the session Supabase puts in the URL fragment after the user clicks
+ * the email sign-in link, stores the access token, and strips it from the URL.
+ */
+export function consumeSignInRedirect(): SignInRedirect {
+  const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(window.location.search);
+  const token = fragment.get("access_token");
+  const failed = fragment.has("error") || query.has("error") || query.has("error_code");
+  if (!token && !failed) {
+    return "none";
   }
-  const body = (await response.json()) as { access_token?: unknown };
-  if (typeof body.access_token !== "string" || body.access_token === "") {
-    throw new SignInFailed();
+  window.history.replaceState(null, "", window.location.pathname);
+  if (token) {
+    setAccessToken(token);
+    return "signed_in";
   }
-  setAccessToken(body.access_token);
+  return "failed";
 }
