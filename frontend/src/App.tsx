@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Markdown from "react-markdown";
 import { Button } from "@/components/beautifui/Button";
-import ContextCards, { type ContextChunk } from "@/components/beautifui/ContextCards";
 import SidebarNav from "@/components/beautifui/SidebarNav";
 import { StreamText } from "@/components/beautifui/StreamText";
 import ThinkingState from "@/components/beautifui/ThinkingState";
+import { CitedAnswer } from "@/components/chat/CitedAnswer";
 import { SourcePanel } from "@/components/chat/SourcePanel";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
 import {
@@ -37,7 +36,6 @@ import {
 import {
   SAMPLE_QUESTIONS,
   type ChatMessage,
-  type PublicClaim,
   type PublicCitation,
   type PublicResponse,
   type ThreadSummary,
@@ -588,10 +586,10 @@ export function App() {
         </DialogContent>
       </Dialog>
       {sessionToken === null ? (
-        <div className="min-h-screen" />
+        <div className="h-dvh" />
       ) : (
-    <div className="mx-auto flex h-full min-h-screen max-w-5xl flex-col bg-page shadow-raised">
-      <header className="flex items-center justify-between border-b border-line px-4 py-3">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-page">
+      <header className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <div>
           {fixtureMode ? (
             <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Fixture mode</p>
@@ -613,7 +611,7 @@ export function App() {
           </Button>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1">
         <SidebarNav
           fill
           className="hidden border-r border-line md:flex"
@@ -628,7 +626,7 @@ export function App() {
           onDelete={(id) => void deleteChat(id)}
           onSignOut={() => signOut("user")}
         />
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-w-[22rem]">
           <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2 md:hidden">
             {threads.map((thread) => (
               <button
@@ -643,14 +641,14 @@ export function App() {
               </button>
             ))}
           </div>
-          <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-6">
             {notAllowed ? (
-              <p className="mx-auto max-w-2xl text-[13px] text-red">
+              <p className="mx-auto max-w-3xl text-[13px] text-red">
                 This email is signed in and is not on the allow-list.
               </p>
             ) : null}
                 {messages.length === 0 && askTurn.phase === "idle" ? (
-                  <div className="mx-auto max-w-2xl px-1 py-10">
+                  <div className="mx-auto max-w-3xl px-1 py-10">
                     <p className="text-[15px] font-medium text-ink">Ask about the 2023 CBA</p>
                     {fixtureMode === false ? (
                       <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
@@ -690,7 +688,7 @@ export function App() {
                         assistant === null &&
                         index === messages.length - 1;
                   return (
-                    <article key={message.id} className="mx-auto max-w-2xl space-y-3">
+                    <article key={message.id} className="mx-auto max-w-3xl space-y-3">
                       <div className="flex justify-end pl-14">
                         <p className="rounded-xl bg-field px-3 py-1.5 text-[13px] leading-[1.4] text-ink">
                           {message.text}
@@ -736,7 +734,7 @@ export function App() {
                 {error ? (
                   <div
                     role="alert"
-                    className="mx-auto flex max-w-2xl flex-col gap-2 rounded-card border border-line bg-surface px-3 py-3 shadow-card"
+                    className="mx-auto flex max-w-3xl flex-col gap-2 rounded-card border border-line bg-surface px-3 py-3 shadow-card"
                   >
                     <p className="text-[13px] leading-relaxed text-ink">{error.copy}</p>
                     {error.retry && error.retryText ? (
@@ -754,13 +752,13 @@ export function App() {
                 ) : null}
           </div>
             <form
-              className="border-t border-line px-4 py-3"
+              className="shrink-0 border-t border-line px-4 py-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 void ask(question);
               }}
             >
-              <div className="mx-auto flex max-w-2xl flex-col gap-2 rounded-control border border-line bg-field p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.035)]">
+              <div className="mx-auto flex max-w-3xl flex-col gap-2 rounded-control border border-line bg-field p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.035)]">
                 <label className="sr-only" htmlFor="question">
                   Question
                 </label>
@@ -789,61 +787,12 @@ export function App() {
           status={glossary.status}
           entries={glossary.entries}
           open={glossaryOpen}
+          collapsed={active !== null}
           onClose={() => setGlossaryOpen(false)}
         />
       </div>
     </div>
       )}
-    </>
-  );
-}
-
-function AnswerProse({ text }: { text: string }) {
-  return (
-    <div className="text-[13px] leading-relaxed text-ink [&_a]:text-accent [&_code]:rounded-sm [&_code]:bg-field [&_code]:px-1 [&_code]:font-mono [&_code]:text-[12px] [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-medium [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
-      <Markdown>{text}</Markdown>
-    </div>
-  );
-}
-
-function ClaimCards({
-  claims,
-  active,
-  onOpen,
-  markdown = false,
-}: {
-  claims: PublicClaim[];
-  active: PublicCitation | null;
-  onOpen: (citation: PublicCitation) => void;
-  markdown?: boolean;
-}) {
-  return (
-    <>
-      {claims.map((claim) => (
-        <div key={claim.text} className="space-y-3">
-          {markdown ? (
-            <AnswerProse text={claim.text} />
-          ) : (
-            <p className="text-[13px] leading-relaxed text-ink">{claim.text}</p>
-          )}
-          <ContextCards
-            className="max-w-none"
-            chunks={claim.citations.map((citation) =>
-              citationChunk(citation, active?.passageId === citation.passageId),
-            )}
-            labels={{
-              header: "Retrieved passages",
-              count: String(claim.citations.length),
-            }}
-            onOpen={(_chunk, index) => {
-              const citation = claim.citations[index];
-              if (citation) {
-                onOpen(citation);
-              }
-            }}
-          />
-        </div>
-      ))}
     </>
   );
 }
@@ -870,34 +819,14 @@ function StaticReply({
           <div className="rounded-card bg-surface px-3 py-2 text-[13px] leading-relaxed text-ink">
             {response.message}
           </div>
-          <ClaimCards claims={response.claims} active={active} onOpen={onOpen} />
+          <CitedAnswer claims={response.claims} active={active} onOpen={onOpen} />
         </>
       );
     case "answer":
-      return <ClaimCards claims={response.claims} active={active} onOpen={onOpen} markdown />;
+      return <CitedAnswer claims={response.claims} active={active} onOpen={onOpen} markdown />;
     default: {
       const _exhaustive: never = response;
       return _exhaustive;
     }
   }
-}
-
-function citationChunk(citation: PublicCitation, selected: boolean): ContextChunk {
-  const pages =
-    citation.pageStart == null
-      ? "PDF"
-      : citation.pageEnd != null && citation.pageEnd !== citation.pageStart
-        ? `pp. ${citation.pageStart}–${citation.pageEnd}`
-        : `p. ${citation.pageStart}`;
-  const article = citation.articleNumber == null ? "Article" : `Art. ${citation.articleNumber}`;
-  const excerpt = citation.excerpt.trim();
-  return {
-    title: `${article} § ${citation.section}`,
-    chars: pages,
-    body: excerpt || citation.pageOrSection,
-    source: citation.pageOrSection,
-    badge: "CBA",
-    tone: "bg-accent",
-    selected,
-  };
 }

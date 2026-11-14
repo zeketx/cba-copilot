@@ -9,7 +9,7 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test security-headers.test.ts"
+    "test": "node --experimental-strip-types --test security-headers.test.ts citation.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",

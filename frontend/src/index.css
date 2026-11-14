@@ -7,14 +7,17 @@ body,
   height: 100%;
 }
 
-@media (min-width: 768px) {
+/* Below 1024px the source viewer covers the screen; above it, it docks beside
+ * the chat and gives up width before the chat drops under its min width. */
+@media (min-width: 1024px) {
   .source-panel {
     position: static;
     inset: auto;
     z-index: 0;
     height: 100%;
     width: var(--source-width);
-    flex-shrink: 0;
+    min-width: 280px;
+    flex-shrink: 1;
     border-left: 1px solid var(--line);
   }
 

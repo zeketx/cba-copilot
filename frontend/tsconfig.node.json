@@ -15,5 +15,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["vite.config.ts", "security-headers.ts", "security-headers.test.ts"]
+  "include": ["vite.config.ts", "security-headers.ts", "security-headers.test.ts", "citation.test.ts"]
 }
