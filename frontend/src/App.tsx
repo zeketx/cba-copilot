@@ -30,9 +30,9 @@ import { ApiError, apiRequest } from "@/lib/http";
 import { chatRequestError, isAbortError, type ChatRequestError } from "@/lib/request-error";
 import {
   clearAccessToken,
-  completeSignIn,
+  consumeSignInRedirect,
   getAccessToken,
-  requestSignInCode,
+  requestSignInLink,
 } from "@/lib/session";
 import {
   SAMPLE_QUESTIONS,
@@ -82,6 +82,7 @@ export function App() {
   const [error, setError] = useState<VisibleError | null>(null);
   const [active, setActive] = useState<PublicCitation | null>(null);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [signInRedirect] = useState(() => consumeSignInRedirect());
   const [sessionToken, setSessionToken] = useState<string | null>(() => getAccessToken());
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [signOutReason, setSignOutReason] = useState<SignOutReason | null>(null);
@@ -90,10 +91,13 @@ export function App() {
     "idle" | "sending" | "sent" | "leaving" | "failed"
   >("idle");
   const [signInEmail, setSignInEmail] = useState("");
-  const [signInCode, setSignInCode] = useState("");
-  const [signInNotice, setSignInNotice] = useState<string | null>(null);
+  const [signInNotice, setSignInNotice] = useState<string | null>(() =>
+    signInRedirect === "failed" ? "That sign-in link expired or was already used. Send a new one." : null,
+  );
   const [notAllowed, setNotAllowed] = useState(false);
-  const [gateView, setGateView] = useState<"request" | "login">("request");
+  const [gateView, setGateView] = useState<"request" | "login">(() =>
+    signInRedirect === "failed" ? "login" : "request",
+  );
   const [fixtureMode, setFixtureMode] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -194,7 +198,7 @@ export function App() {
     setRequestState("sent");
   }
 
-  async function sendCode() {
+  async function sendLink() {
     const email = signInEmail.trim();
     if (!email) {
       return;
@@ -202,26 +206,8 @@ export function App() {
     setSignOutReason(null);
     setSignInNotice(null);
     try {
-      await requestSignInCode(email);
-      setSignInNotice("Enter the six-digit code from your email.");
-    } catch {
-      setSignInNotice("This address cannot sign in.");
-    }
-  }
-
-  async function finishSignIn() {
-    const email = signInEmail.trim();
-    const code = signInCode.trim();
-    if (!email || !code) {
-      return;
-    }
-    setSignOutReason(null);
-    setSignInNotice(null);
-    try {
-      await completeSignIn(email, code);
-      setSessionToken(getAccessToken());
-      setNotAllowed(false);
-      setSignInCode("");
+      await requestSignInLink(email);
+      setSignInNotice("Check your email and click the sign-in link.");
     } catch {
       setSignInNotice("This address cannot sign in.");
     }
@@ -540,13 +526,13 @@ export function App() {
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          void finishSignIn();
+          void sendLink();
         }}
       >
         <DialogHeader>
           <DialogTitle>Sign in</DialogTitle>
           <DialogDescription>
-            Enter your email and send a code. Only approved emails can use the copilot.
+            Enter your email and we'll send you a sign-in link. Only approved emails can use the copilot.
           </DialogDescription>
         </DialogHeader>
         {sessionEndedNotice}
@@ -565,27 +551,9 @@ export function App() {
           placeholder="you@example.com"
           className="mt-4"
         />
-        <label className="sr-only" htmlFor="sign-in-code">
-          Six-digit code
-        </label>
-        <Input
-          id="sign-in-code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          value={signInCode}
-          onChange={(event) => {
-            setSignOutReason(null);
-            setSignInCode(event.target.value);
-          }}
-          placeholder="123456"
-          className="mt-2"
-        />
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={() => void sendCode()}>
-            Send code
-          </Button>
           <Button type="submit" variant="primary" size="sm">
-            Sign in
+            Send sign-in link
           </Button>
         </div>
         {signInNotice ? <p className="mt-3 text-[13px] text-ink-3">{signInNotice}</p> : null}
