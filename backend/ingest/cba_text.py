@@ -116,8 +116,26 @@ def _slug(value: str) -> str:
 def _wrapped_numeric_citation(token: str, rest: str) -> bool:
     if not token.isdigit():
         return False
-    close = rest.find(")")
+    stripped = rest.lstrip()
+    if stripped.startswith("("):
+        return False
+    close = stripped.find(")")
     return close != -1 and close < _WRAPPED_CITATION_CHARS
+
+
+def _nested_markers(rest: str) -> tuple[list[str], str]:
+    tokens: list[str] = []
+    remaining = rest
+    while True:
+        match = _MARKER.match(remaining)
+        if match is None:
+            break
+        token = match.group(2).lower()
+        if len(token) > 6:
+            break
+        tokens.append(token)
+        remaining = match.group(3).strip()
+    return tokens, remaining
 
 
 def _accept_marker(line: str) -> tuple[str, str] | None:
@@ -312,12 +330,14 @@ class _CbaTextParser:
     def _begin_marker(self, token: str, rest: str, line: str, viewer: int) -> None:
         if self._section_number is None:
             self._section_number = ""
+        extra, heading = _nested_markers(rest)
         definitions = self._article == 1 and self._section_number == "1"
-        kind = _marker_kind(token, definitions=definitions, stack=self._stack)
         self._flush()
-        self._stack = _apply_marker(self._stack, kind, token)
+        for marker in (token, *extra):
+            kind = _marker_kind(marker, definitions=definitions, stack=self._stack)
+            self._stack = _apply_marker(self._stack, kind, marker)
         base = self._section_number
-        self._open_buffer(_label(base, self._stack, _short_heading(rest)))
+        self._open_buffer(_label(base, self._stack, _short_heading(heading)))
         self._add(line, viewer)
 
     def _begin_exhibit(self, exhibit_id: str, line: str, viewer: int) -> None:

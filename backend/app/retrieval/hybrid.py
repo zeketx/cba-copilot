@@ -36,8 +36,15 @@ def hybrid_retrieve(
         chunk = store.get(passage_id)
         if chunk is not None:
             candidates.append(chunk)
-    lexical_ids = phrase_ranks(question, candidates)
-    fused = reciprocal_rank_fusion([vector_ids, keyword_ids, lexical_ids], k=rrf_k)
+    # Keyword overlap gathers candidates. It is too coarse to rank: "salary" hits
+    # most of Article VII. Phrase matches are the lexical ranking, with keyword
+    # overlap as a fallback when the question has no usable phrase.
+    lexical_ids = phrase_ranks(question, candidates) or keyword_ids
+    fused = reciprocal_rank_fusion(
+        [vector_ids, lexical_ids],
+        k=rrf_k,
+        weights=[1.0, 2.0],
+    )
     hits: list[Chunk] = []
     for passage_id, _score in fused[:top_k]:
         chunk = store.get(passage_id)

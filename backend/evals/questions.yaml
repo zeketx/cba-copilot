@@ -43,7 +43,7 @@
       note: "Article VII Section 6(f) and Section 2(e) row K, printed pages 191 and 237."
 
 - id: cap-inclusions
-  question: What counts toward the cap vs. what doesn't.
+  question: What does Salary mean, and which amounts are included when computing Team Salary?
   expect: answer
   match: all
   articles:
@@ -54,7 +54,7 @@
     - article: 7
       section_contains: "4(a)"
       verified: true
-      note: "Article VII Section 4(a), Computation, printed pages 211-217. The Section 4 chunk is only the heading."
+      note: "Article VII Section 4(a), Computation, printed pages 211-217. The Section 4 heading chunk has no body."
 
 - id: outside-cba
   question: How many timeouts may an NHL coach call during a playoff overtime?
