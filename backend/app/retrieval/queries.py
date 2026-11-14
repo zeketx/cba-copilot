@@ -139,6 +139,19 @@ FROM cba_chunks c
 WHERE CAST(c.id AS text) = :chunk_id
 """.strip()
 
+CHUNKS_BY_IDS_SQL = """
+SELECT CAST(c.id AS text) AS id,
+       c.article_number,
+       c.article_title,
+       c.section,
+       c.page_start,
+       c.page_end,
+       c.text,
+       c.source_url
+FROM cba_chunks c
+WHERE CAST(c.id AS text) = ANY(string_to_array(:chunk_ids, ','))
+""".strip()
+
 def vector_search_sql() -> str:
     return VECTOR_SEARCH_SQL
 
@@ -153,3 +166,7 @@ def context_batch_sql() -> str:
 
 def chunk_by_id_sql() -> str:
     return CHUNK_BY_ID_SQL
+
+
+def chunks_by_ids_sql() -> str:
+    return CHUNKS_BY_IDS_SQL
