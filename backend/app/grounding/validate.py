@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import re
@@ -22,6 +21,7 @@ from app.retrieval.refs import section_path, select_section_ids
 
 _HYPHEN_BREAK = re.compile(r"(?<=\w)-\s+(?=\w)")
 _WORD_HYPHEN = re.compile(r"(?<=\w)-(?=\w)")
+_PAREN_GAP = re.compile(r"\)\s+\(")
 
 
 def normalize_space(text: str) -> str:
@@ -29,9 +29,9 @@ def normalize_space(text: str) -> str:
 
 
 def normalize_quote(text: str) -> str:
-    """Fold joined hyphens and table newlines so a verbatim quote still matches."""
     joined = _HYPHEN_BREAK.sub("-", text)
-    return normalize_space(_WORD_HYPHEN.sub(" ", joined))
+    compacted = _PAREN_GAP.sub(")(", joined)
+    return normalize_space(_WORD_HYPHEN.sub(" ", compacted))
 
 
 def _resolve_passage_ids(raw_ids: list[str], passages: list[Chunk]) -> list[str] | None:
@@ -59,14 +59,23 @@ def _resolve_passage_ids(raw_ids: list[str], passages: list[Chunk]) -> list[str]
     return resolved
 
 
+def _prompt_quote_text(chunk: Chunk) -> str:
+    header = f"[{chunk.id}] Article {chunk.article_number} Section {chunk.section}"
+    return normalize_quote(f"{header}\n{chunk.section}\n{chunk.text}")
+
+
+def _quote_spans_cited_bodies(quote: str, bodies: list[str]) -> bool:
+    return quote in " ".join(bodies)
+
+
 def _quote_in_cited_passages(claim: DraftClaim, by_id: dict[str, Chunk]) -> bool:
     quote = normalize_quote(claim.quote)
     if not quote:
         return False
-    bodies = [normalize_quote(by_id[passage_id].text) for passage_id in claim.passage_ids]
-    if any(quote in body for body in bodies):
+    chunks = [by_id[passage_id] for passage_id in claim.passage_ids]
+    if any(quote in _prompt_quote_text(chunk) for chunk in chunks):
         return True
-    return quote in " ".join(bodies)
+    return _quote_spans_cited_bodies(quote, [normalize_quote(chunk.text) for chunk in chunks])
 
 
 def _to_claim(claim: DraftClaim) -> Claim:

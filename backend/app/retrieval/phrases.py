@@ -92,7 +92,7 @@ def _phrase_variants(phrase: str) -> list[str]:
 _WORD_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
 
 
-def _phrase_needles(phrases: list[str]) -> list[tuple[int, tuple[str, ...]]]:
+def _folded_variant_needles(phrases: list[str]) -> list[tuple[int, tuple[str, ...]]]:
     needles: list[tuple[int, tuple[str, ...]]] = []
     for phrase in phrases:
         seen: set[str] = set()
@@ -145,7 +145,7 @@ def phrase_score(chunk: Chunk, phrases: list[str]) -> int:
     return _score_folded(
         _fold_ws(f"{chunk.section} {chunk.article_title}"),
         _fold_ws(chunk.text),
-        _phrase_needles(phrases),
+        _folded_variant_needles(phrases),
     )
 
 
@@ -153,7 +153,7 @@ def phrase_ranks(question: str, chunks: list[Chunk]) -> list[str]:
     phrases = query_phrases(question)
     if not phrases:
         return []
-    needles = _phrase_needles(phrases)
+    needles = _folded_variant_needles(phrases)
     scored: list[tuple[int, int, str]] = []
     for index, chunk in enumerate(chunks):
         score = _score_folded(

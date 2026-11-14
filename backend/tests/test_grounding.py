@@ -245,6 +245,67 @@ def test_general_rule_and_exception_quote_can_span_cited_passages() -> None:
     assert result.kind == "answer"
 
 
+def test_quote_copied_from_compact_prompt_header_keeps_the_claim() -> None:
+    passage = Chunk(
+        id="uuid-early",
+        article_number=7,
+        article_title="Exceptions to the Salary Cap",
+        section=(
+            "6. Exceptions to the Salary Cap / (b)(3)(i) If the player is an "
+            "Early Qualifying Veteran Free Agent, the new Player Contract must "
+            "cover at least two (2) Seasons"
+        ),
+        page_start=232,
+        page_end=232,
+        text=(
+            "Article 7. Exceptions to the Salary Cap\n"
+            "Section 6. Exceptions to the Salary Cap / (3) (i) If the player is "
+            "an Early Qualifying Veteran Free Agent, the new Player Contract "
+            "must cover at least two (2) Seasons"
+        ),
+        source_url="https://example.test/cba.pdf#page=256",
+    )
+    result = validate_draft(
+        DraftAnswer(
+            claims=[
+                DraftClaim(
+                    text="Early Bird contracts cover at least two seasons.",
+                    quote=(
+                        "Article 7 Section 6. Exceptions to the Salary Cap / "
+                        "(b)(3)(i) If the player is an Early Qualifying "
+                        "Veteran Free Agent"
+                    ),
+                    passage_ids=["6(b)(3)(i)"],
+                )
+            ]
+        ),
+        [passage],
+    )
+    assert result.kind == "answer"
+    assert result.claims[0].passage_ids == ["uuid-early"]
+
+
+def test_spaced_body_markers_match_a_compact_quote() -> None:
+    passage = _passage(
+        "uuid-early",
+        "(3) (i) If the player is an Early Qualifying Veteran Free Agent.",
+    )
+    passage = passage.model_copy(update={"section": "6. Exceptions to the Salary Cap / (b)(3)(i)"})
+    result = validate_draft(
+        DraftAnswer(
+            claims=[
+                _claim(
+                    "Early Bird status.",
+                    ["uuid-early"],
+                    quote="(3)(i) If the player is an Early Qualifying Veteran Free Agent.",
+                )
+            ]
+        ),
+        [passage],
+    )
+    assert result.kind == "answer"
+
+
 def test_early_qualifying_fixture_accepts_compact_label_and_hyphen_quote() -> None:
     chunks = chunk_cba_text(
         _EQVFA_FIXTURE.read_text(encoding="utf-8"),
