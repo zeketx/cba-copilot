@@ -131,8 +131,8 @@ export function CitedAnswer({ claims, active, onOpen, markdown = false }: CitedA
   const listId = `sources-${sources[0]?.passageId ?? "none"}-${claims.length}`;
 
   return (
-    <div className="w-full">
-      <div className="space-y-2">
+    <div className="w-full min-w-0">
+      <div className="space-y-2 break-words">
         {claims.map((claim, index) => (
           // The last paragraph runs inline so the chips sit at the end of the sentence.
           <div
@@ -140,7 +140,7 @@ export function CitedAnswer({ claims, active, onOpen, markdown = false }: CitedA
             className={cn(PROSE, "[&>p:nth-last-child(2)]:mb-0 [&>p:nth-last-child(2)]:inline")}
           >
             {markdown ? <Markdown>{claim.text}</Markdown> : <p>{claim.text}</p>}
-            <span className="ml-1 inline">
+            <span className="ml-1 inline [overflow-wrap:anywhere]">
               {claim.citations.map((citation) => (
                 <SourceChip
                   key={citation.passageId}
@@ -192,18 +192,33 @@ export function CitedAnswer({ claims, active, onOpen, markdown = false }: CitedA
           </div>
 
           <div
-            className="grid transition-[grid-template-rows,opacity] duration-300"
+            className={cn(
+              "md:grid md:transition-[grid-template-rows,opacity] md:duration-300",
+              sourcesOpen
+                ? "max-md:fixed max-md:inset-0 max-md:z-30 max-md:flex max-md:flex-col max-md:bg-surface max-md:pt-[env(safe-area-inset-top)] max-md:pb-[env(safe-area-inset-bottom)]"
+                : "max-md:hidden",
+            )}
             style={{
               gridTemplateRows: sourcesOpen ? "1fr" : "0fr",
               opacity: sourcesOpen ? 1 : 0,
               transitionTimingFunction: "cubic-bezier(0.23, 1, 0.32, 1)",
             }}
           >
-            <div className="overflow-hidden">
+            <div className="hidden shrink-0 items-center justify-between border-b border-line px-4 py-3 max-md:flex">
+              <h2 className="text-base font-semibold text-ink">Sources</h2>
+              <button
+                type="button"
+                onClick={() => setSourcesOpen(false)}
+                className="rounded-control px-2 py-1 text-[13px] text-ink-2 hover:bg-hover hover:text-ink"
+              >
+                Close
+              </button>
+            </div>
+            <div className="overflow-hidden max-md:min-h-0 max-md:flex-1 max-md:overflow-y-auto max-md:opacity-100">
               <ol
                 id={listId}
                 hidden={!sourcesOpen}
-                className="mt-1.5 flex flex-col rounded-[10px] bg-inset p-1 shadow-hairline"
+                className="mt-1.5 flex flex-col rounded-[10px] bg-inset p-1 shadow-hairline max-md:mx-4 max-md:mt-3 max-md:mb-4"
               >
                 {sources.map((citation) => {
                   const selected = active?.passageId === citation.passageId;

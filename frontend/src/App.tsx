@@ -549,11 +549,9 @@ export function App() {
           placeholder="you@example.com"
           className="mt-4"
         />
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="submit" variant="primary" size="sm">
-            Send sign-in link
-          </Button>
-        </div>
+        <Button type="submit" variant="primary" size="md" className="mt-4 w-full">
+          Send sign-in link
+        </Button>
         {signInNotice ? <p className="mt-3 text-[13px] text-ink-3">{signInNotice}</p> : null}
         <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
           <Button
@@ -589,7 +587,7 @@ export function App() {
         <div className="h-dvh" />
       ) : (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-page">
-      <header className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div>
           {fixtureMode ? (
             <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Fixture mode</p>
@@ -689,8 +687,8 @@ export function App() {
                         index === messages.length - 1;
                   return (
                     <article key={message.id} className="mx-auto max-w-3xl space-y-3">
-                      <div className="flex justify-end pl-14">
-                        <p className="rounded-xl bg-field px-3 py-1.5 text-[13px] leading-[1.4] text-ink">
+                      <div className="flex justify-end pl-8 sm:pl-14">
+                        <p className="max-w-full min-w-0 break-words rounded-xl bg-field px-3 py-1.5 text-[13px] leading-[1.4] text-ink">
                           {message.text}
                         </p>
                       </div>
@@ -752,7 +750,7 @@ export function App() {
                 ) : null}
           </div>
             <form
-              className="shrink-0 border-t border-line px-4 py-3"
+              className="shrink-0 border-t border-line px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
               onSubmit={(event) => {
                 event.preventDefault();
                 void ask(question);
@@ -767,7 +765,7 @@ export function App() {
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
                   placeholder="Ask about the 2023 CBA"
-                  className="min-h-4.5 bg-transparent text-[13px] leading-[1.4] text-ink outline-none placeholder:text-ink-3"
+                  className="min-h-11 w-full min-w-0 bg-transparent text-base leading-[1.4] text-ink outline-none placeholder:text-ink-3 md:min-h-4.5 md:text-[13px]"
                 />
                 <div className="flex items-center justify-end">
                   <Button
