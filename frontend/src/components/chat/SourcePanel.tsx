@@ -83,7 +83,7 @@ export function SourcePanel({
       {view === "pdf" ? (
         <iframe
           key={citation.sourceUrl}
-          title={pdfFrameTitle(citation)}
+          aria-label={pdfFrameTitle(citation)}
           src={citation.sourceUrl}
           className="h-full min-h-0 w-full flex-1 border-0 bg-white"
         />

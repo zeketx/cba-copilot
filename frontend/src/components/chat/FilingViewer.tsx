@@ -65,7 +65,7 @@ export function FilingViewer({
   return (
     <iframe
       ref={frameRef}
-      title="CBA source"
+      aria-label="CBA source"
       sandbox="allow-same-origin"
       srcDoc={html}
       className="h-full min-h-0 w-full flex-1 border-0 bg-white"

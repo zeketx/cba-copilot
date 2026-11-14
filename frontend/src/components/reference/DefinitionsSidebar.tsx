@@ -6,15 +6,24 @@ type DefinitionsSidebarProps = {
   status: string;
   entries: DefinitionEntry[];
   open: boolean;
+  /** Hide the desktop column, e.g. while the source viewer needs the room. */
+  collapsed?: boolean;
   onClose: () => void;
 };
 
-export function DefinitionsSidebar({ status, entries, open, onClose }: DefinitionsSidebarProps) {
+export function DefinitionsSidebar({
+  status,
+  entries,
+  open,
+  collapsed = false,
+  onClose,
+}: DefinitionsSidebarProps) {
   return (
     <aside
       className={cn(
-        "fixed inset-0 z-30 overflow-y-auto bg-surface p-4 md:static md:z-0 md:block md:w-80 md:border-l md:border-line",
-        open ? "block" : "hidden md:block",
+        "fixed inset-0 z-30 overflow-y-auto bg-surface p-4 md:static md:z-0 md:w-80 md:shrink-0 md:border-l md:border-line",
+        open ? "block" : "hidden",
+        collapsed ? "md:hidden" : "md:block",
       )}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
