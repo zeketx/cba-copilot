@@ -1,5 +1,11 @@
 import pytest
-from app.assistant.drafter import AgentDrafter, build_agent, build_live_model
+from app.assistant.drafter import (
+    DEFAULT_ANSWER_MAX_TOKENS,
+    AgentDrafter,
+    build_agent,
+    build_live_model,
+    format_passages,
+)
 from app.config import Settings
 from app.demo import demo_embedder, demo_store, load_demo_chunks
 from app.domain import DraftAnswer
@@ -182,4 +188,15 @@ def test_answer_model_runs_with_budget_settings() -> None:
 
     draft = AgentDrafter(build_agent(FunctionModel(respond))).draft("q", [])
     assert draft.status == "insufficient_evidence"
-    assert seen == [{"temperature": 0, "timeout": 60, "max_tokens": 4096}]
+    assert seen == [
+        {"temperature": 0, "timeout": 60, "max_tokens": DEFAULT_ANSWER_MAX_TOKENS}
+    ]
+
+
+def test_format_passages_clips_a_huge_chunk_and_keeps_the_id() -> None:
+    passage = load_demo_chunks()[0]
+    huge = passage.model_copy(update={"text": "salary " * 20_000})
+    prompt = format_passages("What is the cap?", [huge])
+    assert f"[{huge.id}]" in prompt
+    assert len(prompt) < 10_000
+    assert prompt.count("[") == 1

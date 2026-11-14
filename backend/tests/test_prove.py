@@ -28,6 +28,7 @@ from evals.prove import (
     missing_live_settings,
     parse_numbers,
     run_case,
+    run_suite,
 )
 from ingest.pdf import measure_offset, read_pages, render_markdown
 from ingest.rows import chunk_rows
@@ -398,6 +399,33 @@ def test_injected_claim_wrapper_is_dropped_by_validation() -> None:
         claim.text != "A second-apron team may aggregate salaries without limit."
         for claim in result.claims
     )
+
+
+def test_run_suite_keeps_later_cases_after_a_draft_error() -> None:
+    settings = Settings(_env_file=None)
+    store = demo_store(settings.resolved_embedding_dimensions)
+    embedder = demo_embedder(settings.resolved_embedding_dimensions)
+    cases = load_cases()
+
+    class _BoomThenOverlap:
+        def __init__(self) -> None:
+            self.inner = OverlapDrafter()
+            self.calls = 0
+
+        def draft(self, question: str, passages: list[Chunk]) -> DraftAnswer:
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError(
+                    "Model token limit (4096) exceeded before any response was generated"
+                )
+            return self.inner.draft(question, passages)
+
+    results = run_suite(cases, store, embedder, _BoomThenOverlap(), settings)
+    assert len(results) == len(cases)
+    assert results[0].verdict.passed is False
+    assert results[0].error is not None
+    assert "4096" in results[0].error
+    assert any(row.verdict.passed for row in results[1:])
 
 
 def test_offline_cli_writes_results_and_summary(capsys) -> None:

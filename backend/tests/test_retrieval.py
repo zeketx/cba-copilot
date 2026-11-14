@@ -10,6 +10,7 @@ from app.retrieval.embed import HashEmbedder
 from app.retrieval.hybrid import evidence_is_adequate, hybrid_retrieve
 from app.retrieval.queries import (
     chunk_by_id_sql,
+    chunks_by_ids_sql,
     context_batch_sql,
     keyword_search_sql,
     neighbor_batch_sql,
@@ -441,6 +442,40 @@ class _Session:
                     ),
                 ]
             )
+        if sql == chunks_by_ids_sql():
+            wanted = str((params or {}).get("chunk_ids") or "").split(",")
+            known = set(self.search_ids) | {"loaded"}
+            rows = []
+            for item in wanted:
+                if item not in known:
+                    continue
+                if item == "loaded":
+                    rows.append(
+                        SimpleNamespace(
+                            id="loaded",
+                            article_number=7,
+                            article_title="Cap",
+                            section="1 Intro",
+                            page_start=1,
+                            page_end=2,
+                            text="loaded body",
+                            source_url="https://example.test/cba.pdf",
+                        )
+                    )
+                    continue
+                rows.append(
+                    SimpleNamespace(
+                        id=item,
+                        article_number=7,
+                        article_title="Cap",
+                        section="1 Section",
+                        page_start=1,
+                        page_end=1,
+                        text=f"{item} zebra quota. See Section 6(j) of this Article.",
+                        source_url="https://example.test/cba.pdf",
+                    )
+                )
+            return _Rows(rows)
         if sql == chunk_by_id_sql() and params and params.get("chunk_id") == "loaded":
             return _Rows(
                 [
@@ -465,7 +500,12 @@ def _context_statements(sql: list[str]) -> list[str]:
 
 
 def test_context_sql_is_fixed() -> None:
-    for statement in (neighbor_batch_sql(), context_batch_sql(), chunk_by_id_sql()):
+    for statement in (
+        neighbor_batch_sql(),
+        context_batch_sql(),
+        chunk_by_id_sql(),
+        chunks_by_ids_sql(),
+    ):
         assert "cba_chunks" in statement or "source_documents" in statement
         assert "{" not in statement
         assert "%s" not in statement
@@ -524,4 +564,41 @@ def test_postgres_context_statements_do_not_grow_with_top_k() -> None:
         )
         counts.append(len(_context_statements(session.sql)))
         assert chunk_by_id_sql() not in session.sql
+        assert chunks_by_ids_sql() not in session.sql
     assert counts == [2, 2]
+
+
+def test_postgres_get_many_uses_one_statement_for_missing_ids() -> None:
+    session = _Session()
+    store = PostgresChunkStore(session)
+    found = store.get_many(["loaded", "loaded", "missing"])
+    assert found["loaded"].text == "loaded body"
+    assert "missing" not in found
+    assert session.sql == [chunks_by_ids_sql()]
+    again = store.get_many(["loaded"])
+    assert again["loaded"].text == "loaded body"
+    assert session.sql == [chunks_by_ids_sql()]
+
+
+def test_hybrid_fetches_uncached_candidates_in_one_query() -> None:
+    ids = ["h1", "h2", "h3"]
+    session = _Session(ids)
+    store = PostgresChunkStore(session)
+    embedder = HashEmbedder(dimensions=64)
+    result = hybrid_retrieve(
+        store,
+        "zebra quota",
+        embedder,
+        top_k=2,
+        candidate_k=3,
+        context_per_hit=0,
+        context_max=0,
+    )
+    assert [chunk.id for chunk in result.hits]
+    assert session.sql.count(chunks_by_ids_sql()) == 1
+    assert chunk_by_id_sql() not in session.sql
+    assert "phrase_ms" in result.timings
+    assert "embed_ms" in result.timings
+    assert "db_ms" in result.timings
+    assert "fusion_ms" in result.timings
+    assert "retrieval_excluding_embed_ms" in result.timings

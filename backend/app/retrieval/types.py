@@ -30,6 +30,7 @@ class Retrieval(BaseModel):
     hits: list[Chunk]
     context: list[Chunk] = Field(default_factory=list)
     documents: list[DocumentMeta] = Field(default_factory=list)
+    timings: dict[str, float] = Field(default_factory=dict)
 
     def passages(self) -> list[Chunk]:
         return [*self.hits, *self.context]

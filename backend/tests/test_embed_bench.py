@@ -662,6 +662,14 @@ def test_database_flag_scores_ingest_labels(tmp_path, monkeypatch, capsys) -> No
     assert "query p95" in stdout
     assert "hybrid_retrieve" in stdout
     assert "uncached" in stdout
+    assert "breakdown p95" in stdout
+    assert "keyword/phrase" in stdout
+    assert "retrieval excluding embed" in stdout
+    assert scored["embed_p95_ms"] is not None
+    assert scored["db_p95_ms"] is not None
+    assert scored["phrase_p95_ms"] is not None
+    assert scored["fusion_p95_ms"] is not None
+    assert scored["retrieval_excluding_embed_p95_ms"] is not None
     assert "0 hits" in stdout
     assert scored["query_cached_count"] == 0
     assert scored["query_uncached_count"] == scored["query_count"]

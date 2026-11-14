@@ -132,6 +132,16 @@ class ModelReport:
     query_latency_cached_p95_ms: float | None = None
     query_uncached_count: int = 0
     query_cached_count: int = 0
+    embed_p50_ms: float | None = None
+    embed_p95_ms: float | None = None
+    db_p50_ms: float | None = None
+    db_p95_ms: float | None = None
+    phrase_p50_ms: float | None = None
+    phrase_p95_ms: float | None = None
+    fusion_p50_ms: float | None = None
+    fusion_p95_ms: float | None = None
+    retrieval_excluding_embed_p50_ms: float | None = None
+    retrieval_excluding_embed_p95_ms: float | None = None
 
 
 def load_bench_questions(paths: list[Path]) -> tuple[list[BenchQuestion], list[str]]:
@@ -724,9 +734,10 @@ def _latency_sentence(reports: list[ModelReport]) -> str:
     if any(report.latency_scope == "hybrid_retrieve" for report in reports):
         return (
             "Query latency times `hybrid_retrieve`: the query embedding plus both Postgres "
-            "searches. Headline p50/p95 are the uncached path, so a warm query-embedding "
-            "cache cannot meet the gate. Cached percentiles are reported separately. "
-            "The nearest-rank percentile uses `ceil`."
+            "searches, phrase ranking, fusion, and context load. Headline p50/p95 are the "
+            "uncached path, so a warm query-embedding cache cannot meet the gate. Cached "
+            "percentiles are reported separately. The report also splits embed, db, "
+            "keyword/phrase, and fusion. The nearest-rank percentile uses `ceil`."
         )
     return (
         "Query latency is one pass over `embed_query` only. "
@@ -919,6 +930,35 @@ def chunk_from_row(row: object) -> Chunk:
     )
 
 
+def _breakdown_fields(timings: list[dict[str, float]]) -> dict[str, float | None]:
+    def values(key: str) -> list[float]:
+        return [row[key] for row in timings if key in row]
+
+    def pair(key: str) -> tuple[float | None, float | None]:
+        samples = values(key)
+        if not samples:
+            return None, None
+        return percentile(samples, 50), percentile(samples, 95)
+
+    embed_p50, embed_p95 = pair("embed_ms")
+    db_p50, db_p95 = pair("db_ms")
+    phrase_p50, phrase_p95 = pair("phrase_ms")
+    fusion_p50, fusion_p95 = pair("fusion_ms")
+    rest_p50, rest_p95 = pair("retrieval_excluding_embed_ms")
+    return {
+        "embed_p50_ms": embed_p50,
+        "embed_p95_ms": embed_p95,
+        "db_p50_ms": db_p50,
+        "db_p95_ms": db_p95,
+        "phrase_p50_ms": phrase_p50,
+        "phrase_p95_ms": phrase_p95,
+        "fusion_p50_ms": fusion_p50,
+        "fusion_p95_ms": fusion_p95,
+        "retrieval_excluding_embed_p50_ms": rest_p50,
+        "retrieval_excluding_embed_p95_ms": rest_p95,
+    }
+
+
 def rank_with_hybrid(
     store: ChunkStore,
     embedder: Embedder,
@@ -929,10 +969,11 @@ def rank_with_hybrid(
     top_k: int,
     context_per_hit: int = 4,
     context_max: int = 16,
-) -> tuple[dict[str, list[Chunk]], list[float], list[bool]]:
+) -> tuple[dict[str, list[Chunk]], list[float], list[bool], list[dict[str, float]]]:
     rankings: dict[str, list[Chunk]] = {}
     latencies: list[float] = []
     cached_flags: list[bool] = []
+    timings: list[dict[str, float]] = []
     for question in questions:
         started = time.perf_counter()
         ranked = hybrid_retrieve(
@@ -948,7 +989,8 @@ def rank_with_hybrid(
         latencies.append((time.perf_counter() - started) * 1000)
         cached_flags.append(_query_was_cached(embedder))
         rankings[question.id] = ranked.hits
-    return rankings, latencies, cached_flags
+        timings.append(ranked.timings)
+    return rankings, latencies, cached_flags, timings
 
 
 def open_database(settings: Settings):
@@ -987,6 +1029,7 @@ def _database_report(
     latencies: list[float],
     cached_flags: list[bool],
     query_tokens: int,
+    timings: list[dict[str, float]] | None = None,
 ) -> ModelReport:
     draft = [question for question in questions if question.draft]
     existing = [question for question in questions if not question.draft]
@@ -1029,6 +1072,7 @@ def _database_report(
             aggregate(draft, rankings, matches=lenient_chunk_matches) if draft else None
         ),
         lenient_flips=lenient_flip_lines(questions, rankings),
+        **(_breakdown_fields(timings) if timings else {}),
     )
 
 
@@ -1061,6 +1105,13 @@ def _print_database_summary(report: ModelReport) -> None:
         )
     else:
         print("query p95 cached n/a (0 hits)")
+    print(
+        f"breakdown p95 embed {_ms(report.embed_p95_ms)} ms, "
+        f"db {_ms(report.db_p95_ms)} ms, "
+        f"keyword/phrase {_ms(report.phrase_p95_ms)} ms, "
+        f"fusion {_ms(report.fusion_p95_ms)} ms, "
+        f"retrieval excluding embed {_ms(report.retrieval_excluding_embed_p95_ms)} ms"
+    )
     if report.lenient_flips:
         print("lenient flips:")
         for line in report.lenient_flips:
@@ -1093,7 +1144,7 @@ def _run_database(
         _warmup_embedder(embedder)
         before = int(getattr(embedder, "prompt_tokens", 0))
         top_k = max(settings.retrieval_candidate_k, settings.retrieval_top_k, 8)
-        rankings, latencies, cached_flags = rank_with_hybrid(
+        rankings, latencies, cached_flags, timings = rank_with_hybrid(
             store,
             embedder,
             questions,
@@ -1113,6 +1164,7 @@ def _run_database(
             latencies,
             cached_flags,
             query_tokens,
+            timings,
         )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)

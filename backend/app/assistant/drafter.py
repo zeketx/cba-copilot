@@ -21,10 +21,20 @@ from app.retrieval.text import tokens
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
 _INSTRUCTIONS = Path(__file__).with_name("instructions.md").read_text(encoding="utf-8")
+DEFAULT_ANSWER_MAX_TOKENS = 16384
+_MAX_PASSAGE_CHARS = 4_000
+_MAX_PROMPT_CHARS = 48_000
 
 
 class Drafter(Protocol):
     def draft(self, question: str, passages: list[Chunk]) -> DraftAnswer: ...
+
+
+def _clip_passage_text(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    clipped = text[:limit].rsplit(" ", 1)[0].rstrip()
+    return f"{clipped}…"
 
 
 def format_passages(question: str, passages: list[Chunk]) -> str:
@@ -32,11 +42,18 @@ def format_passages(question: str, passages: list[Chunk]) -> str:
     if not passages:
         blocks.append("None.")
         return "\n".join(blocks)
+    used = 0
     for passage in passages:
-        blocks.append(
+        body = _clip_passage_text(passage.text, _MAX_PASSAGE_CHARS)
+        block = (
             f"[{passage.id}] Article {passage.article_number} Section {passage.section}\n"
-            f"{passage.text}"
+            f"{body}"
         )
+        extra = len(block) + (2 if used else 0)
+        if used and used + extra > _MAX_PROMPT_CHARS:
+            break
+        blocks.append(block)
+        used += extra
     return "\n\n".join(blocks)
 
 
@@ -83,12 +100,16 @@ class AgentDrafter:
         return result.output
 
 
-def build_agent(model: object) -> Agent[None, DraftAnswer]:
+def build_agent(
+    model: object,
+    *,
+    max_tokens: int = DEFAULT_ANSWER_MAX_TOKENS,
+) -> Agent[None, DraftAnswer]:
     return Agent(
         model,
         output_type=DraftAnswer,
         instructions=_INSTRUCTIONS,
-        model_settings={"temperature": 0, "timeout": 60, "max_tokens": 4096},
+        model_settings={"temperature": 0, "timeout": 60, "max_tokens": max_tokens},
     )
 
 
@@ -117,4 +138,6 @@ def build_live_model(settings: Settings) -> Model:
 
 
 def build_live_drafter(settings: Settings) -> AgentDrafter:
-    return AgentDrafter(build_agent(build_live_model(settings)))
+    return AgentDrafter(
+        build_agent(build_live_model(settings), max_tokens=settings.answer_max_tokens)
+    )

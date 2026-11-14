@@ -9,6 +9,7 @@ def test_openai_answer_id_uses_the_chat_model() -> None:
     assert settings.answer_model_id == "gpt-4o"
     assert settings.openai_embedding_model == "text-embedding-3-small"
     assert settings.openai_embedding_dimensions == 1536
+    assert settings.answer_max_tokens == 16384
 
 
 def test_named_answer_model_keeps_the_provider_prefix() -> None:

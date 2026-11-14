@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int | None = EMBEDDING_DIMENSIONS
     answer_provider: str = "openai"
     answer_model: str = ""
+    answer_max_tokens: int = Field(default=16384, gt=0)
     gemini_api_key: str = ""
     openrouter_api_key: str = ""
 
