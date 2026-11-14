@@ -21,7 +21,7 @@ export function DefinitionsSidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-0 z-30 overflow-y-auto bg-surface p-4 md:static md:z-0 md:w-80 md:shrink-0 md:border-l md:border-line",
+        "fixed inset-0 z-30 overflow-y-auto bg-surface p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] md:static md:z-0 md:w-80 md:shrink-0 md:border-l md:border-line md:pt-4 md:pb-4",
         open ? "block" : "hidden",
         collapsed ? "md:hidden" : "md:block",
       )}

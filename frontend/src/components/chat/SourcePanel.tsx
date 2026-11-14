@@ -37,7 +37,7 @@ export function SourcePanel({
 
   return (
     <aside
-      className="source-panel fixed inset-0 z-20 flex min-h-0 bg-surface"
+      className="source-panel fixed inset-0 z-40 flex min-h-0 bg-surface pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
       style={{ ["--source-width" as string]: `${width}px` }}
     >
       <button
@@ -51,12 +51,12 @@ export function SourcePanel({
         className="source-resize hidden"
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="min-w-0 flex-1">
           <p className="font-mono text-[11px] tracking-wide text-ink-3 uppercase">Official source</p>
-          <h2 className="text-base font-medium leading-snug text-ink">{sourceSubtitle(citation)}</h2>
+          <h2 className="text-base font-medium leading-snug break-words text-ink">{sourceSubtitle(citation)}</h2>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-1">
           <Button
             type="button"
             variant={view === "pdf" ? "primary" : "quiet"}
