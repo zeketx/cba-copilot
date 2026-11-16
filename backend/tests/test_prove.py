@@ -27,6 +27,7 @@ from evals.prove import (
     main,
     missing_live_settings,
     parse_numbers,
+    phrase_in_blob,
     run_case,
     run_suite,
 )
@@ -203,6 +204,38 @@ def test_exception_grader_pass_and_fail() -> None:
     assert grade_case(case, thin, ctx).reasons == (
         "missing required phrases: sixty-two, season-ending injury",
     )
+
+
+def test_exception_grader_accepts_digit_forms_of_number_words() -> None:
+    passage = _chunk(
+        "awards-digits",
+        29,
+        "6 Games Played Requirement",
+        (
+            "A player needs sixty-five (65) Regular Season games, "
+            "or sixty-two (62) games and a season-ending injury."
+        ),
+    )
+    case = _case(
+        "exception",
+        expected_sections=[{"article": 29, "section_contains": "6"}],
+        required_phrases=["sixty-five", "sixty-two", "season-ending injury"],
+    )
+    digits_only = _answer(
+        Claim(
+            text="A player needs 65 games, or 62 games and a season-ending injury.",
+            quote="(65)",
+            passage_ids=["awards-digits"],
+        )
+    )
+    assert grade_case(case, digits_only, _ctx(passage)).passed
+
+
+def test_phrase_in_blob_equates_number_words_and_digits() -> None:
+    assert phrase_in_blob("sixty-five", "the player needs 65 games")
+    assert phrase_in_blob("65", "the player needs sixty-five games")
+    assert phrase_in_blob("sixty-five", "sixty-five Regular Season games")
+    assert not phrase_in_blob("sixty-two", "the player needs 65 games")
 
 
 def test_cross_reference_grader_pass_and_fail() -> None:

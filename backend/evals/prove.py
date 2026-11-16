@@ -60,6 +60,89 @@ CaseKind = Literal[
 ]
 
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_ONES = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+}
+_TEENS = {
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+}
+_TENS = {
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
+}
+
+
+def _words_to_int(phrase: str) -> int | None:
+    parts = [part for part in re.split(r"[\s-]+", phrase.strip().lower()) if part and part != "and"]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        word = parts[0]
+        if word in _ONES:
+            return _ONES[word]
+        if word in _TEENS:
+            return _TEENS[word]
+        if word in _TENS:
+            return _TENS[word]
+        return None
+    if len(parts) == 2 and parts[0] in _TENS and parts[1] in _ONES:
+        return _TENS[parts[0]] + _ONES[parts[1]]
+    return None
+
+
+def _int_to_words(value: int) -> str | None:
+    if 0 <= value <= 9:
+        return next(word for word, number in _ONES.items() if number == value)
+    if 10 <= value <= 19:
+        return next(word for word, number in _TEENS.items() if number == value)
+    if value >= 20 and value in _TENS.values():
+        return next(word for word, number in _TENS.items() if number == value)
+    if 21 <= value <= 99:
+        tens, ones = divmod(value, 10)
+        tens_word = next(word for word, number in _TENS.items() if number == tens * 10)
+        ones_word = next(word for word, number in _ONES.items() if number == ones)
+        return f"{tens_word}-{ones_word}"
+    return None
+
+
+def phrase_in_blob(phrase: str, blob: str) -> bool:
+    needle = phrase.lower()
+    hay = blob.lower()
+    if needle in hay:
+        return True
+    as_int = _words_to_int(needle)
+    if as_int is not None and re.search(rf"(?<!\d){as_int}(?!\d)", hay):
+        return True
+    digits = needle.replace(",", "")
+    if digits.isdigit():
+        words = _int_to_words(int(digits))
+        if words and (words in hay or words.replace("-", " ") in hay):
+            return True
+    return False
 
 
 class ExpectedSectionSpec(BaseModel):
@@ -269,7 +352,7 @@ def _grade_exception(case: CorpusCase, response: CopilotResponse, ctx: GradeCont
         return _fail(unsupported)
     quotes = " ".join(claim.quote for claim in response_claims(response))
     blob = f"{response_blob(response)} {normalize_space(quotes)}".lower()
-    absent = [phrase for phrase in case.required_phrases if phrase.lower() not in blob]
+    absent = [phrase for phrase in case.required_phrases if not phrase_in_blob(phrase, blob)]
     if absent:
         return _fail(f"missing required phrases: {', '.join(absent)}")
     return _ok()
