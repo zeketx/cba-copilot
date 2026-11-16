@@ -127,8 +127,13 @@ def _elapsed_ms(started: float) -> float:
 
 
 def driver_sql(sql: str) -> str:
-    """Turn SQLAlchemy :name binds into psycopg %(name)s, leaving ::casts alone."""
-    return _NAMED_BIND.sub(r"%(\1)s", sql)
+    """Turn SQLAlchemy :name binds into psycopg %(name)s, leaving ::casts alone.
+
+    psycopg treats % as a placeholder marker. Literal percents (ILIKE
+    wildcards such as `'%' || needle || '%'`) must be %% on the driver
+    path. Double them before rewriting :name so %(name)s is not escaped.
+    """
+    return _NAMED_BIND.sub(r"%(\1)s", sql.replace("%", "%%"))
 
 
 def as_pgvector(value: object) -> PgVector:

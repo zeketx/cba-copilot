@@ -16,7 +16,7 @@ from app.retrieval.queries import (
     neighbor_batch_sql,
     vector_search_sql,
 )
-from app.retrieval.store import MemoryChunkStore, PostgresChunkStore
+from app.retrieval.store import MemoryChunkStore, PostgresChunkStore, driver_sql
 from app.retrieval.types import DocumentMeta
 
 
@@ -673,7 +673,7 @@ def test_hybrid_fetches_uncached_candidates_in_one_query() -> None:
 
 
 def test_sqlalchemy_vector_stringifies_native_vector_does_not() -> None:
-    from app.retrieval.store import NativeVector, as_pgvector, driver_sql
+    from app.retrieval.store import NativeVector, as_pgvector
     from pgvector import Vector as PgVector
     from pgvector.sqlalchemy import Vector as SqlVector
 
@@ -690,3 +690,61 @@ def test_sqlalchemy_vector_stringifies_native_vector_does_not() -> None:
     assert ":query_vec" not in vector_sql
     assert driver_sql("x::uuid[]") == "x::uuid[]"
     assert "CAST(:query_vec" not in vector_search_sql()
+
+
+def _psycopg_format(sql: str, params: dict[str, object]) -> bytes:
+    """Parse pyformat SQL the same way Cursor.execute does."""
+    from psycopg._queries import PostgresQuery
+    from psycopg.adapt import Transformer
+
+    query = PostgresQuery(Transformer())
+    query.convert(sql, params)
+    return query.query
+
+
+def test_driver_sql_escapes_literal_percent_before_named_binds() -> None:
+    converted = driver_sql("SELECT ('%' || :needle || '%')")
+    assert converted == "SELECT ('%%' || %(needle)s || '%%')"
+    formatted = _psycopg_format(converted, {"needle": "6(e)"})
+    assert b"('%' || $1 || '%')" in formatted
+
+
+def test_driver_path_sql_is_valid_psycopg_pyformat() -> None:
+    import re
+
+    from psycopg import ProgrammingError
+
+    hit_ids = "00000000-0000-0000-0000-000000000001"
+    # Every statement PostgresChunkStore sends on the raw psycopg path.
+    queries = [
+        (vector_search_sql(), {"query_vec": [0.1, 0.2], "limit": 8}),
+        (neighbor_batch_sql(), {"hit_ids": hit_ids}),
+        (
+            context_batch_sql(),
+            {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)|||6(g)"},
+        ),
+    ]
+    for sql, params in queries:
+        formatted = _psycopg_format(driver_sql(sql), params)
+        assert formatted
+        assert b"$" in formatted
+
+    context = context_batch_sql()
+    assert "('%' || trim(both FROM needle) || '%')" in context
+    escaped = driver_sql(context)
+    assert "('%%' || trim(both FROM needle) || '%%')" in escaped
+    assert "%(sections)s" in escaped
+    assert "%(articles)s" in escaped
+    assert "%(hit_ids)s" in escaped
+    postgres = _psycopg_format(
+        escaped,
+        {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)|||6(g)"},
+    )
+    assert b"('%' || trim(both FROM needle) || '%')" in postgres
+
+    buggy = re.sub(r"(?<!:):([A-Za-z_][A-Za-z0-9_]*)", r"%(\1)s", context)
+    with pytest.raises(ProgrammingError, match="only '%s', '%b', '%t'"):
+        _psycopg_format(
+            buggy,
+            {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)"},
+        )
