@@ -497,6 +497,17 @@ def test_pick_source_document_uses_the_one_row_or_the_corpus_url() -> None:
         pick_source_document([], set())
 
 
+def test_open_database_uses_the_app_session_factory() -> None:
+    import inspect
+
+    from evals.embed_bench import open_database
+
+    source = inspect.getsource(open_database)
+    assert "postgres_session_factory" in source
+    assert "create_engine" not in source
+    assert "sessionmaker" not in source
+
+
 def test_database_without_url_or_key_does_not_connect(monkeypatch, capsys) -> None:
     def boom(*_args, **_kwargs):
         raise AssertionError("database opened")
@@ -669,7 +680,13 @@ def test_database_flag_scores_ingest_labels(tmp_path, monkeypatch, capsys) -> No
     assert scored["db_p95_ms"] is not None
     assert scored["phrase_p95_ms"] is not None
     assert scored["fusion_p95_ms"] is not None
+    assert scored["vector_p95_ms"] is not None
+    assert scored["keyword_p95_ms"] is not None
+    assert scored["fetch_p95_ms"] is not None
+    assert scored["context_p95_ms"] is not None
     assert scored["retrieval_excluding_embed_p95_ms"] is not None
+    assert "vector" in stdout
+    assert "context" in stdout
     assert "0 hits" in stdout
     assert scored["query_cached_count"] == 0
     assert scored["query_uncached_count"] == scored["query_count"]

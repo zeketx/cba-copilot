@@ -76,6 +76,44 @@ def test_phrase_match_treats_a_newline_as_a_space() -> None:
     assert any(phrase == "second apron level" for phrase in phrases)
 
 
+def test_minimum_salary_alias_names_exhibit_c_and_one_jj() -> None:
+    expanded = expand_query(
+        "What is the minimum salary for a player with 0 years of service?"
+    ).lower()
+    assert "exhibit c" in expanded
+    assert "minimum player salary" in expanded
+    assert "minimum annual salary scale" in expanded
+    exception = expand_query(
+        "How long can a contract under the Minimum Player Salary Exception run?"
+    ).lower()
+    assert "exhibit c" not in exception
+
+
+def test_minimum_salary_phrases_prefer_exhibit_c_and_one_jj() -> None:
+    question = "What is the minimum salary for a player with 0 years of service?"
+    exhibit = _chunk(
+        "Exhibit C Baseline Minimum Annual Salary Scale",
+        "0 Years of Service Year 1 1,017,781. Baseline Minimum Annual Salary Scale.",
+        article_title="Exhibits",
+    )
+    exhibit.article_number = None
+    one_jj = _chunk(
+        "1(jj) Minimum Player Salary",
+        "Minimum Player Salary means the Exhibit C Baseline Minimum Annual Salary "
+        "Scale adjusted by the percentage increase in the Salary Cap.",
+        article_title="DEFINITIONS",
+    )
+    one_jj.article_number = 1
+    generic = _chunk(
+        '1(lll) “Salary”',
+        "Salary means Compensation, not including Unlikely Bonuses.",
+        article_title="DEFINITIONS",
+    )
+    ranked = phrase_ranks(question, [generic, exhibit, one_jj])
+    assert ranked[0] in {exhibit.id, one_jj.id}
+    assert generic.id not in ranked[:2]
+
+
 def test_taxpayer_alias_still_expands_on_its_own() -> None:
     expanded = expand_query("How large is the taxpayer mid-level exception?").lower()
     assert "taxpayer mid-level salary exception" in expanded

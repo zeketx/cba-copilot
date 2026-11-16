@@ -27,6 +27,7 @@ from evals.prove import (
     main,
     missing_live_settings,
     parse_numbers,
+    phrase_in_blob,
     run_case,
     run_suite,
 )
@@ -34,7 +35,7 @@ from ingest.pdf import measure_offset, read_pages, render_markdown
 from ingest.rows import chunk_rows
 
 
-def _chunk(passage_id: str, article: int, section: str, text: str):
+def _chunk(passage_id: str, article: int | None, section: str, text: str):
     from app.domain import Chunk
 
     return Chunk(
@@ -100,6 +101,62 @@ EARLY = _chunk(
         "or 105 percent of the prior average player salary."
     ),
 )
+EQVFA = _chunk(
+    "eqvfa",
+    7,
+    "6(b)(3)(i) If the player is an Early Qualifying Veteran Free Agent",
+    (
+        "If the player is an Early Qualifying Veteran Free Agent, the new "
+        "Player Contract may provide in the first Salary Cap Year up to the "
+        "greater of: (A) one hundred seventy-five percent (175%) of the "
+        "Regular Salary for the final Salary Cap Year covered by his prior "
+        "Contract, or (B) one hundred five percent (105%) of the Average "
+        "Player Salary for the prior Salary Cap Year."
+    ),
+)
+EXHIBIT_C = _chunk(
+    "exhibit-c",
+    None,
+    "Exhibit C. Baseline Minimum Annual Salary Scale Years Of",
+    "Years of Service Year 1. 0 1,017,781.",
+)
+CAP_YEAR = _chunk(
+    "jj",
+    1,
+    "1(jj) Minimum Annual Salary Scale",
+    (
+        "For the 2023-24 Salary Cap Year, Exhibit C adjusted by applying the "
+        "percentage increase in the Salary Cap from 2022-23. Later Salary Cap "
+        "Years adjust that table with the percentage increase in the Salary Cap."
+    ),
+)
+NT_MLE = _chunk(
+    "nt-mle",
+    7,
+    "6(e) Non-Taxpayer Mid-Level Salary Exception",
+    (
+        "The term of a Player Contract signed pursuant to the Non-Taxpayer "
+        "Mid-Level Salary Exception may not exceed four (4) Seasons in length."
+    ),
+)
+ROOM_MLE = _chunk(
+    "room-mle",
+    7,
+    "6(g) Mid-Level Salary Exception for Room Teams",
+    (
+        "The term of a Player Contract signed pursuant to the Mid-Level "
+        "Salary Exception for Room Teams may not exceed three (3) Seasons "
+        "in length."
+    ),
+)
+_EQVFA_PHRASES = [
+    "greater of",
+    "175",
+    "105",
+    "Regular Salary",
+    "Average Player Salary",
+]
+_EQVFA_SECTIONS = [{"article": 7, "section_contains": "6(b)(3)(i)"}]
 SALARY = _chunk(
     "salary",
     1,
@@ -130,9 +187,11 @@ def test_graders_cover_every_case_kind() -> None:
         "season_or_date",
         "computation",
         "missing_inputs",
+        "ask_after_rule",
+        "minimum_salary",
         "definition",
         "no_evidence",
-        "ambiguous",
+        "mle_terms",
         "bad_citation",
     }
 
@@ -160,6 +219,13 @@ def test_whole_rule_grader_pass_and_fail() -> None:
     )
     assert grade_case(case, unsupported, _ctx(APRON, other)).reasons == (
         "claim quote is not in a cited passage",
+    )
+    extra = _answer(
+        paraphrase.claims[0],
+        Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]),
+    )
+    assert grade_case(case, extra, _ctx(APRON, EARLY)).reasons == (
+        "a claim did not cite the expected section",
     )
 
 
@@ -203,6 +269,38 @@ def test_exception_grader_pass_and_fail() -> None:
     assert grade_case(case, thin, ctx).reasons == (
         "missing required phrases: sixty-two, season-ending injury",
     )
+
+
+def test_exception_grader_accepts_digit_forms_of_number_words() -> None:
+    passage = _chunk(
+        "awards-digits",
+        29,
+        "6 Games Played Requirement",
+        (
+            "A player needs sixty-five (65) Regular Season games, "
+            "or sixty-two (62) games and a season-ending injury."
+        ),
+    )
+    case = _case(
+        "exception",
+        expected_sections=[{"article": 29, "section_contains": "6"}],
+        required_phrases=["sixty-five", "sixty-two", "season-ending injury"],
+    )
+    digits_only = _answer(
+        Claim(
+            text="A player needs 65 games, or 62 games and a season-ending injury.",
+            quote="(65)",
+            passage_ids=["awards-digits"],
+        )
+    )
+    assert grade_case(case, digits_only, _ctx(passage)).passed
+
+
+def test_phrase_in_blob_equates_number_words_and_digits() -> None:
+    assert phrase_in_blob("sixty-five", "the player needs 65 games")
+    assert phrase_in_blob("65", "the player needs sixty-five games")
+    assert phrase_in_blob("sixty-five", "sixty-five Regular Season games")
+    assert not phrase_in_blob("sixty-two", "the player needs 65 games")
 
 
 def test_cross_reference_grader_pass_and_fail() -> None:
@@ -289,24 +387,192 @@ def test_computation_grader_pass_and_fail() -> None:
 def test_missing_inputs_grader_pass_and_fail() -> None:
     case = _case(
         "missing_inputs",
-        expected_sections=[{"article": 1, "section_contains": "1(t)"}],
+        expected_sections=_EQVFA_SECTIONS,
+        required_phrases=_EQVFA_PHRASES,
     )
-    ctx = _ctx(EARLY)
-    good = Clarification(
+    ctx = _ctx(EQVFA)
+    rule = (
+        "The first-year cap is the greater of 175 percent of Regular Salary "
+        "or 105 percent of Average Player Salary."
+    )
+    good = _answer(Claim(text=rule, quote=EQVFA.text, passage_ids=["eqvfa"]))
+    assert grade_case(case, good, ctx).passed
+    with_follow_up = _answer(
+        Claim(
+            text=rule + " Give me the prior salary and I'll compute it.",
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        )
+    )
+    assert grade_case(case, with_follow_up, ctx).passed
+    asked_first = Clarification(
         reason="missing_inputs",
         message="The cited passage needs inputs the question does not give: prior salary.",
-        claims=[Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"])],
+        claims=[Claim(text=rule, quote=EQVFA.text, passage_ids=["eqvfa"])],
     )
+    assert grade_case(case, asked_first, ctx).reasons == ("opened with a clarifying question",)
+    uncited = _answer(Claim(text=rule, quote=EQVFA.text, passage_ids=["eqvfa"]))
+    other = _chunk("other", 1, "1(t)", EQVFA.text)
+    assert grade_case(case, uncited, _ctx(other)).reasons == (
+        "missing article 7 section 6(b)(3)(i)",
+    )
+
+
+def test_ask_after_rule_grader_pass_and_fail() -> None:
+    case = _case(
+        "ask_after_rule",
+        expected_sections=_EQVFA_SECTIONS,
+        required_phrases=_EQVFA_PHRASES,
+    )
+    ctx = _ctx(EQVFA)
+    rule = (
+        "The first-year cap is the greater of 175 percent of Regular Salary "
+        "or 105 percent of Average Player Salary. Give me the prior salary "
+        "and I'll compute it."
+    )
+    good = _answer(Claim(text=rule, quote=EQVFA.text, passage_ids=["eqvfa"]))
     assert extra_numbers(good, ctx) == set()
     assert grade_case(case, good, ctx).passed
-    computed = Clarification(
-        reason="missing_inputs",
-        message="Need salary. The cap would be 17500000.",
-        claims=[Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"])],
+    no_ask = _answer(
+        Claim(
+            text=(
+                "The first-year cap is the greater of 175 percent of Regular "
+                "Salary or 105 percent of Average Player Salary."
+            ),
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        )
+    )
+    assert grade_case(case, no_ask, ctx).reasons == ("did not ask for the prior salary",)
+    computed = _answer(
+        Claim(
+            text=rule + " That is 15000000.",
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        )
     )
     assert not grade_case(case, computed, ctx).passed
-    answer = _answer(Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]))
-    assert not grade_case(case, answer, ctx).passed
+    asked_first = Clarification(
+        reason="missing_inputs",
+        message="Need the prior salary.",
+        claims=[Claim(text=rule, quote=EQVFA.text, passage_ids=["eqvfa"])],
+    )
+    assert grade_case(case, asked_first, ctx).reasons == ("opened with a clarifying question",)
+    rule_only = (
+        "The first-year cap is the greater of 175 percent of Regular Salary "
+        "or 105 percent of Average Player Salary."
+    )
+    closing_ask = _answer(
+        Claim(text=rule_only, quote=EQVFA.text, passage_ids=["eqvfa"]),
+        Claim(
+            text=(
+                "What was the Regular Salary for the final Salary Cap Year "
+                "covered by his prior Contract?"
+            ),
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        ),
+    )
+    assert grade_case(case, closing_ask, ctx).passed
+    dollar = _answer(
+        Claim(text=rule_only, quote=EQVFA.text, passage_ids=["eqvfa"]),
+        Claim(
+            text="Give me the prior salary. The maximum is $15,000,000.",
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        ),
+    )
+    assert grade_case(case, dollar, ctx).reasons == ("response names a dollar figure",)
+    invented = _answer(
+        Claim(
+            text=rule + " That is 15000000.",
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        )
+    )
+    assert grade_case(case, invented, ctx).reasons == ("response names a dollar figure",)
+
+
+def test_minimum_salary_grader_pass_and_fail() -> None:
+    case = _case(
+        "minimum_salary",
+        expected_sections=[
+            {"article": None, "section_contains": "Exhibit C"},
+            {"article": 1, "section_contains": "1(jj)"},
+        ],
+    )
+    ctx = _ctx(EXHIBIT_C, CAP_YEAR)
+    good_text = (
+        "Exhibit C's baseline for 0 years of service Year 1 is 1,017,781. "
+        "1(jj) sets 2023-24 as that baseline adjusted by the percentage "
+        "increase in the Salary Cap from 2022-23. Later seasons adjust "
+        "with the cap. The CBA does not state the adjusted dollar."
+    )
+    good = _answer(
+        Claim(text=good_text, quote=EXHIBIT_C.text, passage_ids=["exhibit-c"]),
+        Claim(text=good_text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert grade_case(case, good, ctx).passed
+    as_current = _answer(
+        Claim(
+            text=(
+                "The current minimum is 1,017,781 for 0 years of service "
+                "in 2023-24. Later seasons adjust."
+            ),
+            quote=EXHIBIT_C.text,
+            passage_ids=["exhibit-c"],
+        ),
+        Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert grade_case(case, as_current, ctx).reasons == (
+        "presented 1017781 as the 2023-24 or current minimum",
+    )
+    as_2023 = _answer(
+        Claim(
+            text=(
+                "Exhibit C sets 1,017,781 for 0 years of service in Year 1. "
+                "That is the 2023-24 figure. Later seasons adjust with the cap."
+            ),
+            quote=EXHIBIT_C.text,
+            passage_ids=["exhibit-c"],
+        ),
+        Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert grade_case(case, as_2023, ctx).reasons == (
+        "presented 1017781 as the 2023-24 or current minimum",
+    )
+    guessed = _answer(
+        Claim(
+            text=(
+                "Exhibit C is 1,017,781 for 0 years of service in 2023-24. "
+                "Later seasons adjust. For 2026-27 that is 1,200,000."
+            ),
+            quote=EXHIBIT_C.text,
+            passage_ids=["exhibit-c"],
+        ),
+        Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert grade_case(case, guessed, ctx).reasons == (
+        "response adds a later-year dollar amount",
+    )
+    uncited = _answer(
+        Claim(text=good_text, quote=EXHIBIT_C.text, passage_ids=["exhibit-c"]),
+        Claim(text=good_text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert grade_case(case, uncited, _ctx(EXHIBIT_C)).reasons == (
+        "missing article 1 section 1(jj)",
+    )
+    refused = Refusal(reason="no_evidence", message="no retrieved passage states the amount")
+    assert grade_case(case, refused, _ctx()).passed
+    unlabeled = _answer(
+        Claim(
+            text="The minimum is 1,017,781.",
+            quote=EXHIBIT_C.text,
+            passage_ids=["exhibit-c"],
+        ),
+        Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert not grade_case(case, unlabeled, ctx).passed
 
 
 def test_definition_grader_pass_and_fail() -> None:
@@ -332,26 +598,36 @@ def test_no_evidence_grader_pass_and_fail() -> None:
     assert not grade_case(case, dropped, ctx).passed
 
 
-def test_ambiguous_grader_pass_and_fail() -> None:
+def test_mle_terms_grader_pass_and_fail() -> None:
     case = _case(
-        "ambiguous",
+        "mle_terms",
         expected_sections=[
-            {"article": 1, "section_contains": "1(yy)"},
-            {"article": 1, "section_contains": "1(t)"},
+            {"article": 7, "section_contains": "6(e)"},
+            {"article": 7, "section_contains": "6(g)"},
         ],
+        required_phrases=["Non-Taxpayer", "Room Teams", "four", "three"],
     )
-    ctx = _ctx(BIRD, EARLY)
-    good = Clarification(
-        reason="ambiguous",
-        message="which one?",
-        claims=[
-            Claim(text=BIRD.text, quote=BIRD.text, passage_ids=["bird"]),
-            Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]),
-        ],
+    ctx = _ctx(NT_MLE, ROOM_MLE)
+    both = (
+        "Non-Taxpayer Mid-Level contracts may not exceed four seasons. "
+        "The Mid-Level Salary Exception for Room Teams may not exceed three seasons."
+    )
+    good = _answer(
+        Claim(text=both, quote=NT_MLE.text, passage_ids=["nt-mle"]),
+        Claim(text=both, quote=ROOM_MLE.text, passage_ids=["room-mle"]),
     )
     assert grade_case(case, good, ctx).passed
-    winner = _answer(Claim(text=BIRD.text, quote=BIRD.text, passage_ids=["bird"]))
-    assert not grade_case(case, winner, ctx).passed
+    asked = Clarification(
+        reason="ambiguous",
+        message="which exception?",
+        claims=[
+            Claim(text=both, quote=NT_MLE.text, passage_ids=["nt-mle"]),
+            Claim(text=both, quote=ROOM_MLE.text, passage_ids=["room-mle"]),
+        ],
+    )
+    assert grade_case(case, asked, ctx).reasons == ("opened with a clarifying question",)
+    one = _answer(Claim(text=both, quote=NT_MLE.text, passage_ids=["nt-mle"]))
+    assert grade_case(case, one, ctx).reasons == ("missing article 7 section 6(g)",)
 
 
 def test_bad_citation_grader_pass_and_fail() -> None:
@@ -439,7 +715,7 @@ def test_offline_cli_writes_results_and_summary(capsys) -> None:
     assert summary.is_file()
     payload = json.loads(results.read_text(encoding="utf-8"))
     assert payload["live"] is False
-    assert len(payload["cases"]) == 11
+    assert len(payload["cases"]) == 13
     assert "docs/phase10" not in str(directory)
 
 

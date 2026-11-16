@@ -3,10 +3,9 @@ from __future__ import annotations
 
 VECTOR_SEARCH_SQL = """
 SELECT c.id,
-       1 - (c.embedding <=> CAST(:query_vec AS vector)) AS score
+       1 - (c.embedding <=> :query_vec) AS score
 FROM cba_chunks c
-WHERE c.embedding IS NOT NULL
-ORDER BY c.embedding <=> CAST(:query_vec AS vector)
+ORDER BY c.embedding <=> :query_vec
 LIMIT :limit
 """.strip()
 
@@ -20,7 +19,9 @@ ORDER BY score DESC, c.id
 LIMIT :limit
 """.strip()
 
-NEIGHBOR_BATCH_SQL = """
+_HIT_IDS = "CAST(string_to_array(:hit_ids, ',') AS uuid[])"
+
+NEIGHBOR_BATCH_SQL = f"""
 SELECT 'prev' AS slot,
        CAST(c.id AS text) AS hit_id,
        CAST(p.id AS text) AS id,
@@ -29,7 +30,7 @@ SELECT 'prev' AS slot,
        p.section,
        p.page_start,
        p.page_end,
-       p.text AS body,
+       CAST(NULL AS text) AS body,
        p.source_url
 FROM cba_chunks c
 JOIN cba_chunks p
@@ -42,7 +43,7 @@ JOIN cba_chunks p
         AND p2.article_number IS NOT DISTINCT FROM c.article_number
         AND p2.chunk_index < c.chunk_index
  )
-WHERE CAST(c.id AS text) = ANY(string_to_array(:hit_ids, ','))
+WHERE c.id = ANY({_HIT_IDS})
 UNION ALL
 SELECT 'next' AS slot,
        CAST(c.id AS text) AS hit_id,
@@ -52,7 +53,7 @@ SELECT 'next' AS slot,
        n.section,
        n.page_start,
        n.page_end,
-       n.text AS body,
+       CAST(NULL AS text) AS body,
        n.source_url
 FROM cba_chunks c
 JOIN cba_chunks n
@@ -65,10 +66,10 @@ JOIN cba_chunks n
         AND n2.article_number IS NOT DISTINCT FROM c.article_number
         AND n2.chunk_index > c.chunk_index
  )
-WHERE CAST(c.id AS text) = ANY(string_to_array(:hit_ids, ','))
+WHERE c.id = ANY({_HIT_IDS})
 """.strip()
 
-CONTEXT_BATCH_SQL = """
+CONTEXT_BATCH_SQL = f"""
 SELECT 'chunk' AS kind,
        c.chunk_index,
        CAST(c.id AS text) AS id,
@@ -77,7 +78,7 @@ SELECT 'chunk' AS kind,
        c.section,
        c.page_start,
        c.page_end,
-       c.text AS body,
+       CAST(NULL AS text) AS body,
        c.source_url,
        CAST(NULL AS text) AS title,
        CAST(NULL AS text) AS sha256,
@@ -92,6 +93,16 @@ WHERE c.article_number = ANY(
     WHEN :articles = '' THEN CAST(ARRAY[] AS integer[])
     ELSE CAST(string_to_array(:articles, ',') AS integer[])
   END
+)
+AND (
+  :sections = ''
+  OR c.section ILIKE ANY (
+    ARRAY(
+      SELECT ('%' || trim(both FROM needle) || '%')
+      FROM unnest(string_to_array(:sections, '|||')) AS needle
+      WHERE trim(both FROM needle) <> ''
+    )
+  )
 )
 UNION ALL
 SELECT 'document' AS kind,
@@ -115,7 +126,7 @@ FROM source_documents d
 WHERE d.id IN (
   SELECT c.document_id
   FROM cba_chunks c
-  WHERE CAST(c.id AS text) = ANY(string_to_array(:hit_ids, ','))
+  WHERE c.id = ANY({_HIT_IDS})
      OR c.article_number = ANY(
        CASE
          WHEN :articles = '' THEN CAST(ARRAY[] AS integer[])
@@ -136,7 +147,7 @@ SELECT CAST(c.id AS text) AS id,
        c.text,
        c.source_url
 FROM cba_chunks c
-WHERE CAST(c.id AS text) = :chunk_id
+WHERE c.id = CAST(:chunk_id AS uuid)
 """.strip()
 
 CHUNKS_BY_IDS_SQL = """
@@ -149,7 +160,7 @@ SELECT CAST(c.id AS text) AS id,
        c.text,
        c.source_url
 FROM cba_chunks c
-WHERE CAST(c.id AS text) = ANY(string_to_array(:chunk_ids, ','))
+WHERE c.id = ANY(CAST(string_to_array(:chunk_ids, ',') AS uuid[]))
 """.strip()
 
 def vector_search_sql() -> str:

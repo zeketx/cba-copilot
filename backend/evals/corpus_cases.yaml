@@ -115,12 +115,58 @@
     under the veteran free agent exception?
   expected_sections:
     - article: 7
-      section_contains: "6(b)"
+      section_contains: "6(b)(3)(i)"
       page_start: 231
       page_end: 232
       note: >
-        The same 6(b) passage states the 175 percent / 105 percent operation,
-        and the question omits both salaries.
+        Article VII Section 6(b)(3)(i). The first-year cap is the greater of
+        175 percent of prior Regular Salary or 105 percent of prior Average
+        Player Salary. Intentional policy change: this case now expects a
+        cited answer, not a missing_inputs clarification.
+  required_phrases:
+    - "greater of"
+    - "175"
+    - "105"
+    - "Regular Salary"
+    - "Average Player Salary"
+
+- id: ask-after-rule
+  kind: ask_after_rule
+  question: What's the most we can pay our early qualifying veteran next year?
+  expected_sections:
+    - article: 7
+      section_contains: "6(b)(3)(i)"
+      page_start: 231
+      page_end: 232
+      note: >
+        Same 6(b)(3)(i) rule. The question asks for a dollar amount and names
+        no prior salary, so the turn must state the rule, then ask for that
+        salary, and must not invent a dollar figure.
+  required_phrases:
+    - "greater of"
+    - "175"
+    - "105"
+    - "Regular Salary"
+    - "Average Player Salary"
+
+- id: minimum-salary
+  kind: minimum_salary
+  question: What is the minimum salary for a player with 0 years of service?
+  expected_sections:
+    - article: null
+      section_contains: "Exhibit C"
+      note: >
+        Exhibit C Baseline Minimum Annual Salary Scale. 0 years of service,
+        Year 1 is 1,017,781. That cell is the baseline, not the 2023-24 amount.
+    - article: 1
+      section_contains: "1(jj)"
+      page_start: 5
+      page_end: 5
+      note: >
+        Article I Section 1(jj), printed page 5. 2023-24 is Exhibit C adjusted
+        by the percentage increase in the Salary Cap from 2022-23 to 2023-24.
+        Later Salary Cap Years chain-adjust. The PDF states no adjusted dollar
+        figure. Withdrawn: treating 1,017,781 as the 2023-24 minimum.
 
 - id: definition
   kind: definition
@@ -139,27 +185,30 @@
   question: How many timeouts may an NHL coach call during a playoff overtime?
   expected_sections: []
 
-- id: ambiguous
-  kind: ambiguous
-  question: >
-    How many seasons can a contract signed with the mid-level exception run for
-    a team that is over the Salary Cap?
+- id: mle-terms
+  kind: mle_terms
+  question: How many seasons can a contract signed with the mid-level exception run?
   expected_sections:
     - article: 7
       section_contains: "6(e)"
       page_start: 236
       page_end: 237
       note: >
-        Article VII Section 6(e), the Non-Taxpayer Mid-Level Salary Exception,
-        allows contracts of up to four seasons.
+        Article VII Section 6(e)(2). The Non-Taxpayer Mid-Level Salary
+        Exception may not exceed four (4) Seasons.
     - article: 7
-      section_contains: "6(f)"
-      page_start: 237
-      page_end: 238
+      section_contains: "6(g)"
+      page_start: 238
+      page_end: 239
       note: >
-        Article VII Section 6(f), the Taxpayer Mid-Level Salary Exception,
-        allows contracts of up to two seasons. The question does not say which
-        apron the team is under, so neither passage controls.
+        Article VII Section 6(g)(2). The Mid-Level Salary Exception for Room
+        Teams may not exceed three (3) Seasons. Product retarget: require both
+        branches, each labeled with its own citation. Not an ambiguous fork.
+  required_phrases:
+    - "Non-Taxpayer"
+    - "Room Teams"
+    - "four"
+    - "three"
 
 - id: bad-citation
   kind: bad_citation

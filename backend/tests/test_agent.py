@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from app.assistant.drafter import (
     DEFAULT_ANSWER_MAX_TOKENS,
@@ -191,6 +193,24 @@ def test_answer_model_runs_with_budget_settings() -> None:
     assert seen == [
         {"temperature": 0, "timeout": 60, "max_tokens": DEFAULT_ANSWER_MAX_TOKENS}
     ]
+
+
+def test_instructions_answer_with_the_rule_instead_of_asking_for_inputs() -> None:
+    text = Path(__file__).resolve().parents[1] / "app" / "assistant" / "instructions.md"
+    body = text.read_text(encoding="utf-8")
+    assert "even when you could state the formula as an answer" not in body
+    assert "If the question asks what the rule, cap, or formula is, use answer" in body
+    assert "Do not use ambiguous when passages only differ by season" in body
+    assert "sixty-five and sixty-two" in body
+    assert "cite both passages" in body
+    assert "Give me the prior salary and I'll compute it" in body
+    assert "Exhibit C Baseline Minimum Annual Salary Scale" in body
+    assert "label it as the Exhibit C baseline, not as the 2023-24 or current minimum" in body
+    assert "Cite Article VII 6(b)(3)(i)" in body
+    assert "Use missing_inputs only when no general answer exists" in body
+    assert "end the last claim by asking for that input by name" in body
+    assert "When one section answers the question" in body
+    assert "Mid-Level Salary Exception for Room Teams (three seasons)" in body
 
 
 def test_format_passages_clips_a_huge_chunk_and_keeps_the_id() -> None:

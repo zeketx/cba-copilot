@@ -16,7 +16,7 @@ from app.retrieval.queries import (
     neighbor_batch_sql,
     vector_search_sql,
 )
-from app.retrieval.store import MemoryChunkStore, PostgresChunkStore
+from app.retrieval.store import MemoryChunkStore, PostgresChunkStore, driver_sql
 from app.retrieval.types import DocumentMeta
 
 
@@ -56,7 +56,8 @@ def test_sql_uses_vector_and_full_text() -> None:
     vector_sql = vector_search_sql()
     keyword_sql = keyword_search_sql()
     assert "<=>" in vector_sql
-    assert "vector" in vector_sql
+    assert ":query_vec" in vector_sql
+    assert "CAST(:query_vec" not in vector_sql
     assert "search_vector" in keyword_sql
     assert "plainto_tsquery" in keyword_sql
     assert "@@" in keyword_sql
@@ -509,12 +510,22 @@ def test_context_sql_is_fixed() -> None:
         assert "cba_chunks" in statement or "source_documents" in statement
         assert "{" not in statement
         assert "%s" not in statement
-    assert "ANY(string_to_array(:hit_ids" in neighbor_batch_sql()
+    assert "ANY(CAST(string_to_array(:hit_ids" in neighbor_batch_sql()
+    assert "AS uuid[]" in neighbor_batch_sql()
     assert "article_number" in neighbor_batch_sql()
     assert "chunk_index" in neighbor_batch_sql()
     assert "source_documents" in context_batch_sql()
     assert ":articles" in context_batch_sql()
-    assert "ANY(string_to_array(:hit_ids" in context_batch_sql()
+    assert ":sections" in context_batch_sql()
+    assert "ANY(CAST(string_to_array(:hit_ids" in context_batch_sql()
+    assert "AS uuid[]" in context_batch_sql()
+    assert "CAST(NULL AS text) AS body" in context_batch_sql()
+    assert "c.text AS body" not in context_batch_sql()
+    assert "CAST(NULL AS text) AS body" in neighbor_batch_sql()
+    assert "p.text AS body" not in neighbor_batch_sql()
+    assert "n.text AS body" not in neighbor_batch_sql()
+    assert "AS uuid[]" in chunks_by_ids_sql()
+    assert "IS NOT NULL" not in vector_search_sql()
 
 
 def test_postgres_store_loads_neighbors_sections_and_metadata() -> None:
@@ -580,6 +591,60 @@ def test_postgres_get_many_uses_one_statement_for_missing_ids() -> None:
     assert session.sql == [chunks_by_ids_sql()]
 
 
+def test_label_only_article_rows_are_not_cached() -> None:
+    class EmptyBodySession(_Session):
+        def execute(self, statement: object, params: dict[str, object] | None = None) -> _Rows:
+            sql = str(statement)
+            if sql == context_batch_sql():
+                self.sql.append(sql)
+                row = _chunk_row("exact", "6(j) Exceptions")
+                row.body = None
+                return _Rows([row])
+            return super().execute(statement, params)
+
+    session = EmptyBodySession(["exact"])
+    store = PostgresChunkStore(session)
+    hit = _chunk("hit", "See Section 6(j) of this Article.", "2 Middle")
+    loaded = store.load_context([hit], [7])
+    assert loaded.articles[7][0].id == "exact"
+    assert loaded.articles[7][0].text == ""
+    assert "exact" not in store._chunks
+    found = store.get_many(["exact"])
+    assert found["exact"].text == "exact zebra quota. See Section 6(j) of this Article."
+
+
+def test_hybrid_hydrates_selected_empty_labels_in_one_query() -> None:
+    class EmptyBodySession(_Session):
+        def execute(self, statement: object, params: dict[str, object] | None = None) -> _Rows:
+            sql = str(statement)
+            if sql == context_batch_sql():
+                self.sql.append(sql)
+                row = _chunk_row("exact", "6(j) Exceptions")
+                row.body = None
+                return _Rows([row])
+            if sql == chunks_by_ids_sql():
+                original = self.search_ids
+                self.search_ids = list({*original, "exact"})
+                try:
+                    return super().execute(statement, params)
+                finally:
+                    self.search_ids = original
+            return super().execute(statement, params)
+
+    session = EmptyBodySession(["h1"])
+    store = PostgresChunkStore(session)
+    result = hybrid_retrieve(
+        store,
+        "zebra quota",
+        HashEmbedder(dimensions=64),
+        top_k=1,
+        candidate_k=1,
+    )
+    assert session.sql.count(chunks_by_ids_sql()) == 2
+    assert any(chunk.id == "exact" for chunk in result.context)
+    assert all(chunk.text for chunk in result.context)
+
+
 def test_hybrid_fetches_uncached_candidates_in_one_query() -> None:
     ids = ["h1", "h2", "h3"]
     session = _Session(ids)
@@ -602,3 +667,84 @@ def test_hybrid_fetches_uncached_candidates_in_one_query() -> None:
     assert "db_ms" in result.timings
     assert "fusion_ms" in result.timings
     assert "retrieval_excluding_embed_ms" in result.timings
+    assert "vector_execute_ms" in result.timings
+    assert "vector_fetch_ms" in result.timings
+    assert "vector_encode_ms" in result.timings
+
+
+def test_sqlalchemy_vector_stringifies_native_vector_does_not() -> None:
+    from app.retrieval.store import NativeVector, as_pgvector
+    from pgvector import Vector as PgVector
+    from pgvector.sqlalchemy import Vector as SqlVector
+
+    sample = [0.1, 0.2, 0.3]
+    sql_bound = SqlVector().bind_processor(None)(sample)
+    assert isinstance(sql_bound, str)
+    assert sql_bound.startswith("[")
+    native_bound = NativeVector().bind_processor(None)(sample)
+    assert isinstance(native_bound, PgVector)
+    wrapped = as_pgvector(sample)
+    assert isinstance(wrapped, PgVector)
+    vector_sql = driver_sql(vector_search_sql())
+    assert "%(query_vec)s" in vector_sql
+    assert ":query_vec" not in vector_sql
+    assert driver_sql("x::uuid[]") == "x::uuid[]"
+    assert "CAST(:query_vec" not in vector_search_sql()
+
+
+def _psycopg_format(sql: str, params: dict[str, object]) -> bytes:
+    """Parse pyformat SQL the same way Cursor.execute does."""
+    from psycopg._queries import PostgresQuery
+    from psycopg.adapt import Transformer
+
+    query = PostgresQuery(Transformer())
+    query.convert(sql, params)
+    return query.query
+
+
+def test_driver_sql_escapes_literal_percent_before_named_binds() -> None:
+    converted = driver_sql("SELECT ('%' || :needle || '%')")
+    assert converted == "SELECT ('%%' || %(needle)s || '%%')"
+    formatted = _psycopg_format(converted, {"needle": "6(e)"})
+    assert b"('%' || $1 || '%')" in formatted
+
+
+def test_driver_path_sql_is_valid_psycopg_pyformat() -> None:
+    import re
+
+    from psycopg import ProgrammingError
+
+    hit_ids = "00000000-0000-0000-0000-000000000001"
+    # Every statement PostgresChunkStore sends on the raw psycopg path.
+    queries = [
+        (vector_search_sql(), {"query_vec": [0.1, 0.2], "limit": 8}),
+        (neighbor_batch_sql(), {"hit_ids": hit_ids}),
+        (
+            context_batch_sql(),
+            {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)|||6(g)"},
+        ),
+    ]
+    for sql, params in queries:
+        formatted = _psycopg_format(driver_sql(sql), params)
+        assert formatted
+        assert b"$" in formatted
+
+    context = context_batch_sql()
+    assert "('%' || trim(both FROM needle) || '%')" in context
+    escaped = driver_sql(context)
+    assert "('%%' || trim(both FROM needle) || '%%')" in escaped
+    assert "%(sections)s" in escaped
+    assert "%(articles)s" in escaped
+    assert "%(hit_ids)s" in escaped
+    postgres = _psycopg_format(
+        escaped,
+        {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)|||6(g)"},
+    )
+    assert b"('%' || trim(both FROM needle) || '%')" in postgres
+
+    buggy = re.sub(r"(?<!:):([A-Za-z_][A-Za-z0-9_]*)", r"%(\1)s", context)
+    with pytest.raises(ProgrammingError, match="only '%s', '%b', '%t'"):
+        _psycopg_format(
+            buggy,
+            {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)"},
+        )

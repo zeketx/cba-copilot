@@ -29,7 +29,12 @@ from app.retrieval.embed import (
 from app.retrieval.fusion import reciprocal_rank_fusion
 from app.retrieval.hybrid import hybrid_retrieve
 from app.retrieval.phrases import phrase_ranks
-from app.retrieval.store import ChunkStore, MemoryChunkStore, PostgresChunkStore
+from app.retrieval.store import (
+    ChunkStore,
+    MemoryChunkStore,
+    PostgresChunkStore,
+    postgres_session_factory,
+)
 from ingest.cba_text import chunk_cba_text, read_pdf_layout
 
 from evals.metrics import (
@@ -132,6 +137,7 @@ class ModelReport:
     query_latency_cached_p95_ms: float | None = None
     query_uncached_count: int = 0
     query_cached_count: int = 0
+    query_path: dict[str, str] = field(default_factory=dict)
     embed_p50_ms: float | None = None
     embed_p95_ms: float | None = None
     db_p50_ms: float | None = None
@@ -140,8 +146,32 @@ class ModelReport:
     phrase_p95_ms: float | None = None
     fusion_p50_ms: float | None = None
     fusion_p95_ms: float | None = None
+    vector_p50_ms: float | None = None
+    vector_p95_ms: float | None = None
+    keyword_p50_ms: float | None = None
+    keyword_p95_ms: float | None = None
+    fetch_p50_ms: float | None = None
+    fetch_p95_ms: float | None = None
+    context_p50_ms: float | None = None
+    context_p95_ms: float | None = None
     retrieval_excluding_embed_p50_ms: float | None = None
     retrieval_excluding_embed_p95_ms: float | None = None
+    vector_acquire_p50_ms: float | None = None
+    vector_acquire_p95_ms: float | None = None
+    vector_encode_p50_ms: float | None = None
+    vector_encode_p95_ms: float | None = None
+    vector_execute_p50_ms: float | None = None
+    vector_execute_p95_ms: float | None = None
+    vector_fetch_p50_ms: float | None = None
+    vector_fetch_p95_ms: float | None = None
+    context_neighbor_execute_p50_ms: float | None = None
+    context_neighbor_execute_p95_ms: float | None = None
+    context_neighbor_fetch_p50_ms: float | None = None
+    context_neighbor_fetch_p95_ms: float | None = None
+    context_label_execute_p50_ms: float | None = None
+    context_label_execute_p95_ms: float | None = None
+    context_label_fetch_p50_ms: float | None = None
+    context_label_fetch_p95_ms: float | None = None
 
 
 def load_bench_questions(paths: list[Path]) -> tuple[list[BenchQuestion], list[str]]:
@@ -944,7 +974,19 @@ def _breakdown_fields(timings: list[dict[str, float]]) -> dict[str, float | None
     db_p50, db_p95 = pair("db_ms")
     phrase_p50, phrase_p95 = pair("phrase_ms")
     fusion_p50, fusion_p95 = pair("fusion_ms")
+    vector_p50, vector_p95 = pair("vector_ms")
+    keyword_p50, keyword_p95 = pair("keyword_ms")
+    fetch_p50, fetch_p95 = pair("fetch_ms")
+    context_p50, context_p95 = pair("context_ms")
     rest_p50, rest_p95 = pair("retrieval_excluding_embed_ms")
+    vector_acquire_p50, vector_acquire_p95 = pair("vector_acquire_ms")
+    vector_encode_p50, vector_encode_p95 = pair("vector_encode_ms")
+    vector_execute_p50, vector_execute_p95 = pair("vector_execute_ms")
+    vector_fetch_p50, vector_fetch_p95 = pair("vector_fetch_ms")
+    neighbor_execute_p50, neighbor_execute_p95 = pair("context_neighbor_execute_ms")
+    neighbor_fetch_p50, neighbor_fetch_p95 = pair("context_neighbor_fetch_ms")
+    label_execute_p50, label_execute_p95 = pair("context_label_execute_ms")
+    label_fetch_p50, label_fetch_p95 = pair("context_label_fetch_ms")
     return {
         "embed_p50_ms": embed_p50,
         "embed_p95_ms": embed_p95,
@@ -954,8 +996,32 @@ def _breakdown_fields(timings: list[dict[str, float]]) -> dict[str, float | None
         "phrase_p95_ms": phrase_p95,
         "fusion_p50_ms": fusion_p50,
         "fusion_p95_ms": fusion_p95,
+        "vector_p50_ms": vector_p50,
+        "vector_p95_ms": vector_p95,
+        "keyword_p50_ms": keyword_p50,
+        "keyword_p95_ms": keyword_p95,
+        "fetch_p50_ms": fetch_p50,
+        "fetch_p95_ms": fetch_p95,
+        "context_p50_ms": context_p50,
+        "context_p95_ms": context_p95,
         "retrieval_excluding_embed_p50_ms": rest_p50,
         "retrieval_excluding_embed_p95_ms": rest_p95,
+        "vector_acquire_p50_ms": vector_acquire_p50,
+        "vector_acquire_p95_ms": vector_acquire_p95,
+        "vector_encode_p50_ms": vector_encode_p50,
+        "vector_encode_p95_ms": vector_encode_p95,
+        "vector_execute_p50_ms": vector_execute_p50,
+        "vector_execute_p95_ms": vector_execute_p95,
+        "vector_fetch_p50_ms": vector_fetch_p50,
+        "vector_fetch_p95_ms": vector_fetch_p95,
+        "context_neighbor_execute_p50_ms": neighbor_execute_p50,
+        "context_neighbor_execute_p95_ms": neighbor_execute_p95,
+        "context_neighbor_fetch_p50_ms": neighbor_fetch_p50,
+        "context_neighbor_fetch_p95_ms": neighbor_fetch_p95,
+        "context_label_execute_p50_ms": label_execute_p50,
+        "context_label_execute_p95_ms": label_execute_p95,
+        "context_label_fetch_p50_ms": label_fetch_p50,
+        "context_label_fetch_p95_ms": label_fetch_p95,
     }
 
 
@@ -995,11 +1061,10 @@ def rank_with_hybrid(
 
 def open_database(settings: Settings):
     from app.database.models import CbaChunk, SourceDocument
-    from sqlalchemy import create_engine, select
-    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import select
 
-    engine = create_engine(settings.sqlalchemy_database_url)
-    session = sessionmaker(bind=engine)()
+    session = postgres_session_factory(settings.sqlalchemy_database_url)()
+    engine = session.get_bind()
     try:
         documents = session.execute(select(SourceDocument.id, SourceDocument.source_url)).all()
         document_id = pick_source_document(
@@ -1007,10 +1072,19 @@ def open_database(settings: Settings):
             known_source_urls(),
         )
         rows = session.execute(
-            select(CbaChunk)
+            select(
+                CbaChunk.id,
+                CbaChunk.article_number,
+                CbaChunk.article_title,
+                CbaChunk.section,
+                CbaChunk.page_start,
+                CbaChunk.page_end,
+                CbaChunk.text,
+                CbaChunk.source_url,
+            )
             .where(CbaChunk.document_id == document_id)
             .order_by(CbaChunk.chunk_index)
-        ).scalars()
+        ).all()
         chunks = [chunk_from_row(row) for row in rows]
         store = PostgresChunkStore(session, {chunk.id: chunk for chunk in chunks})
         return session, store, chunks, engine
@@ -1107,11 +1181,44 @@ def _print_database_summary(report: ModelReport) -> None:
         print("query p95 cached n/a (0 hits)")
     print(
         f"breakdown p95 embed {_ms(report.embed_p95_ms)} ms, "
-        f"db {_ms(report.db_p95_ms)} ms, "
+        f"db {_ms(report.db_p95_ms)} ms "
+        f"(vector {_ms(report.vector_p95_ms)}, "
+        f"keyword {_ms(report.keyword_p95_ms)}, "
+        f"fetch {_ms(report.fetch_p95_ms)}, "
+        f"context {_ms(report.context_p95_ms)}), "
         f"keyword/phrase {_ms(report.phrase_p95_ms)} ms, "
         f"fusion {_ms(report.fusion_p95_ms)} ms, "
         f"retrieval excluding embed {_ms(report.retrieval_excluding_embed_p95_ms)} ms"
     )
+    print(
+        "app-path vector split p95 "
+        f"acquire {_ms(report.vector_acquire_p95_ms)} ms, "
+        f"encode {_ms(report.vector_encode_p95_ms)} ms, "
+        f"execute {_ms(report.vector_execute_p95_ms)} ms, "
+        f"fetch {_ms(report.vector_fetch_p95_ms)} ms"
+    )
+    print(
+        "app-path context split p95 "
+        f"neighbor execute {_ms(report.context_neighbor_execute_p95_ms)} ms, "
+        f"neighbor fetch {_ms(report.context_neighbor_fetch_p95_ms)} ms, "
+        f"label execute {_ms(report.context_label_execute_p95_ms)} ms, "
+        f"label fetch {_ms(report.context_label_fetch_p95_ms)} ms"
+    )
+    if report.query_path:
+        print("app-path query probes:")
+        for key in (
+            "vector_path",
+            "vector_param_python_type",
+            "vector_param_dbapi_type",
+            "vector_sql",
+            "neighbor_path",
+            "neighbor_sql",
+            "context_path",
+            "context_sql",
+        ):
+            value = report.query_path.get(key)
+            if value:
+                print(f"- {key}: {value}")
     if report.lenient_flips:
         print("lenient flips:")
         for line in report.lenient_flips:
@@ -1166,6 +1273,9 @@ def _run_database(
             query_tokens,
             timings,
         )
+        evidence = getattr(store, "query_path_evidence", None)
+        if callable(evidence):
+            report.query_path = evidence()
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
