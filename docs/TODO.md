@@ -167,7 +167,7 @@ Open: after an expired token, the app returns to the access screen without sayin
 
 ## 10. Prove the corpus
 
-**Story:** As the owner, I want one live run that tests every grounding rule, so I can show the copilot only says what the CBA says, answers a general rule before it asks for inputs, and names Exhibit C as the 2023-24 minimum.
+**Story:** As the owner, I want one live run that tests every grounding rule, so I can show the copilot only says what the CBA says, answers a general rule before it asks for inputs, and names Exhibit C as a baseline that 1(jj) adjusts.
 
 `backend/evals/questions.yaml` is a fixture list. Do not check a box from that file. Run these against the ingested PDF and record the result under `docs/phase10/runs/<timestamp>/`.
 
@@ -187,10 +187,10 @@ The grader then accepted a `missing_inputs` date question for season-or-date and
 - [x] The quote states an operation and the question supplies every input. Pass when the number is the operation in the quote applied to those inputs, and the quote is cited
 - [ ] The quote states an operation and one input is missing. Pass when the turn is a cited answer that states the 6(b)(3)(i) rule in the CBA's wording before any follow-up. Policy change: this is no longer a `missing_inputs` clarification. Live prove has not been re-run.
 - [ ] The question asks how much a team can pay an Early Qualifying Veteran and names no prior salary. Pass when the turn cites 6(b)(3)(i), then asks for the prior salary, and gives no invented dollar figure
-- [ ] The question asks for the 0-year minimum salary. Pass when the turn cites Exhibit C and 1(jj), names 1,017,781 as the 2023-24 figure for 0 years of service, says later seasons adjust with the cap, and does not call that amount the current minimum
+- [ ] The question asks for the 0-year minimum salary. Pass when the turn cites Exhibit C and 1(jj), labels 1,017,781 as the Exhibit C baseline for 0 years of service, states the 1(jj) 2022-23 to 2023-24 cap-increase mechanism, and does not compute a 2023-24 dollar or call the baseline the current minimum. Withdrawn: treating 1,017,781 as the 2023-24 figure.
 - [x] The question asks what a term means. Pass when the answer quotes the definition and does not add a number the quote does not contain
 - [x] The corpus has no passage for the question. Pass when the turn is `no_evidence` and has no factual claim
-- [x] Two passages match and neither says it controls. Pass when the turn is `ambiguous`, cites both, and does not pick a winner
+- [ ] Mid-level exception term length. Pass when the turn cites 6(e) (Non-Taxpayer, four seasons) and 6(g) (Room Teams, three seasons), labels each branch, and does not treat them as `ambiguous`. Product retarget after the PDF confirmed those term lengths. Live prove has not been re-run.
 - [x] A draft claim cites a passage that does not contain the claim. Pass when that claim is dropped, and the turn refuses if no valid claim remains
 
 **Exit:** each question either cites a retrieved passage that contains the claim, or refuses. No uncited factual claim.
@@ -242,3 +242,4 @@ These are open after the work merged on the evening of 2026-11-10. They are not 
 - [x] The chunker stores Article VII 6(b)(3)(i), the Early Qualifying Veteran Free Agent rule, inside the 6(b)(2) chunk, and labels 6(b)(3)(ii) as `6(b)(2)(ii)`. Root cause: `pdftotext -layout` emits `(3) (i)` on one line, and `_wrapped_numeric_citation` treated the `)` of `(i)` as a wrapped citation. Nested same-line markers are now applied, and a rest that starts with `(` is not a wrapped citation. Markdown ingest (`chunker.py`) already labeled `(b)(3)(i)` correctly; the live 915-row store is the old ingest and still needs reload. Layout chunks 2020 → 2030. Regression tests use `backend/tests/fixtures/article_vii_6b_layout.txt` plus the official PDF when present.
 - [x] Reload and re-embed after the hyphen fix in `ingest/pdf.py`. The stored text put a space beside a joined hyphen, such as `Mid -Level`, `Two- Way`, `sixty -two`, and `2023 -24`. On 2026-11-12 the reload changed 330 of 915 chunks, left none with the spaced hyphen, and `ingest embed --live` refilled all 330 at 1024 dimensions
 - [x] `cap-inclusions` in `backend/evals/questions.yaml` names `4 Determination of Team Salary`, which matches only the heading chunk on the live store. That may explain part of its miss. The live key has been `4(a)` since [#31](https://github.com/zeketx/cba-copilot/pull/31). This change keeps `4(a)` (Computation, printed 211–217). The Section 4 heading chunk is still heading-only.
+- [ ] prove `--live` two-passages still misses Article I `1(lll)` (Railway run on `ca1950e` answered Article VII inclusions only). Retrieval follow-up next to `cap-inclusions`: the Salary definition chunk is not in the retrieved set often enough. Does not block PR 54.

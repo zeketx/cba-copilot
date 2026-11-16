@@ -56,7 +56,8 @@ def test_sql_uses_vector_and_full_text() -> None:
     vector_sql = vector_search_sql()
     keyword_sql = keyword_search_sql()
     assert "<=>" in vector_sql
-    assert "vector" in vector_sql
+    assert ":query_vec" in vector_sql
+    assert "CAST(:query_vec" not in vector_sql
     assert "search_vector" in keyword_sql
     assert "plainto_tsquery" in keyword_sql
     assert "@@" in keyword_sql
@@ -515,6 +516,7 @@ def test_context_sql_is_fixed() -> None:
     assert "chunk_index" in neighbor_batch_sql()
     assert "source_documents" in context_batch_sql()
     assert ":articles" in context_batch_sql()
+    assert ":sections" in context_batch_sql()
     assert "ANY(CAST(string_to_array(:hit_ids" in context_batch_sql()
     assert "AS uuid[]" in context_batch_sql()
     assert "CAST(NULL AS text) AS body" in context_batch_sql()

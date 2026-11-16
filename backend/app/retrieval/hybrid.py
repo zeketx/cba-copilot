@@ -70,9 +70,9 @@ def hybrid_retrieve(
     hit_ids = [passage_id for passage_id, _score in fused[:top_k]]
     hits = _ordered_chunks(store, hit_ids)
     fusion_ms = _elapsed_ms(started)
-    articles = _cited_articles(hits)
+    articles, sections = _citation_scope(hits)
     started = time.perf_counter()
-    loaded = store.load_context(hits, articles)
+    loaded = store.load_context(hits, articles, sections)
     selected = _context_chunks(
         hits,
         loaded,
@@ -101,16 +101,20 @@ def hybrid_retrieve(
         },
     )
 
-def _cited_articles(hits: list[Chunk]) -> list[int]:
+def _citation_scope(hits: list[Chunk]) -> tuple[list[int], list[str]]:
     articles: list[int] = []
-    seen: set[int] = set()
+    sections: list[str] = []
+    seen_articles: set[int] = set()
+    seen_sections: set[str] = set()
     for hit in hits:
-        for article, _section in citation_targets(hit.text, hit.article_number, hit.section):
-            if article in seen:
-                continue
-            seen.add(article)
-            articles.append(article)
-    return articles
+        for article, section in citation_targets(hit.text, hit.article_number, hit.section):
+            if article not in seen_articles:
+                seen_articles.add(article)
+                articles.append(article)
+            if section not in seen_sections:
+                seen_sections.add(section)
+                sections.append(section)
+    return articles, sections
 
 def _context_chunks(
     hits: list[Chunk],

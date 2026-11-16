@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from sqlalchemy import create_engine, text
+from pgvector.psycopg import register_vector
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import bindparam, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain import Chunk
@@ -28,7 +30,12 @@ class ChunkStore(Protocol):
 
     def get_many(self, passage_ids: list[str]) -> dict[str, Chunk]: ...
 
-    def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext: ...
+    def load_context(
+        self,
+        hits: list[Chunk],
+        articles: list[int],
+        sections: list[str] | None = None,
+    ) -> LoadedContext: ...
 
 def _cosine(left: list[float], right: list[float]) -> float:
     if len(left) != len(right) or not left:
@@ -115,7 +122,13 @@ class MemoryChunkStore:
             if passage_id in self._chunks
         }
 
-    def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext:
+    def load_context(
+        self,
+        hits: list[Chunk],
+        articles: list[int],
+        sections: list[str] | None = None,
+    ) -> LoadedContext:
+        del sections
         if not hits:
             return LoadedContext()
         neighbors: dict[str, tuple[Chunk | None, Chunk | None]] = {}
@@ -133,8 +146,6 @@ class MemoryChunkStore:
                 grouped[chunk.article_number].append(chunk)
         return LoadedContext(neighbors=neighbors, articles=grouped, documents=list(self._documents))
 
-def _vector_literal(values: list[float]) -> str:
-    return "[" + ",".join(str(value) for value in values) + "]"
 
 def _chunk_from_row(row: object) -> Chunk:
     mapping = getattr(row, "_mapping", None)
@@ -170,6 +181,11 @@ def _document_from_row(row: object) -> DocumentMeta:
 
 def postgres_session_factory(database_url: str) -> Callable[[], Session]:
     engine = create_engine(database_url, pool_pre_ping=True)
+
+    @event.listens_for(engine, "connect")
+    def _register_pgvector(dbapi_connection, _connection_record) -> None:
+        register_vector(dbapi_connection)
+
     return sessionmaker(bind=engine)
 
 
@@ -180,9 +196,12 @@ class PostgresChunkStore:
         self._chunks = chunks_by_id or {}
 
     def vector_search(self, vector: list[float], limit: int) -> list[str]:
+        statement = text(vector_search_sql()).bindparams(
+            bindparam("query_vec", type_=Vector())
+        )
         rows = self._session.execute(
-            text(vector_search_sql()),
-            {"query_vec": _vector_literal(vector), "limit": limit},
+            statement,
+            {"query_vec": vector, "limit": limit},
         ).all()
         return [str(row.id) for row in rows]
 
@@ -232,18 +251,28 @@ class PostgresChunkStore:
             found[chunk.id] = chunk
         return found
 
-    def load_context(self, hits: list[Chunk], articles: list[int]) -> LoadedContext:
+    def load_context(
+        self,
+        hits: list[Chunk],
+        articles: list[int],
+        sections: list[str] | None = None,
+    ) -> LoadedContext:
         if not hits:
             return LoadedContext()
         hit_ids = ",".join(hit.id for hit in hits)
         article_ids = ",".join(str(article) for article in articles)
+        section_needles = "|||".join(sections or [])
         neighbor_rows = self._session.execute(
             text(neighbor_batch_sql()),
             {"hit_ids": hit_ids},
         ).all()
         context_rows = self._session.execute(
             text(context_batch_sql()),
-            {"hit_ids": hit_ids, "articles": article_ids},
+            {
+                "hit_ids": hit_ids,
+                "articles": article_ids,
+                "sections": section_needles,
+            },
         ).all()
         neighbors: dict[str, list[Chunk | None]] = {hit.id: [None, None] for hit in hits}
         for row in neighbor_rows:

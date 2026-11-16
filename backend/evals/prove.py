@@ -57,7 +57,7 @@ CaseKind = Literal[
     "minimum_salary",
     "definition",
     "no_evidence",
-    "ambiguous",
+    "mle_terms",
     "bad_citation",
 ]
 
@@ -159,6 +159,15 @@ _AS_CURRENT_MINIMUM = re.compile(
     r"\$?1,?017,?781 is the current\b",
     re.I,
 )
+_AS_2023_FIGURE = re.compile(
+    r"1,?017,?781.{0,80}(?:is|as) the 2023-24|"
+    r"2023-24.{0,40}(?:figure|minimum|amount).{0,40}1,?017,?781|"
+    r"(?:is|as) the 2023-24 figure",
+    re.I | re.S,
+)
+_BASELINE_LABEL = re.compile(r"\bbaseline\b", re.I)
+_CAP_INCREASE = re.compile(r"percentage increase", re.I)
+_FROM_2022 = re.compile(r"2022-23", re.I)
 _ZERO_YOS = re.compile(
     r"\b(?:0|zero) years? of service\b|\b0 yos\b",
     re.I,
@@ -241,6 +250,7 @@ class CorpusCase(BaseModel):
             "exception",
             "missing_inputs",
             "ask_after_rule",
+            "mle_terms",
         }
         if needs_phrases and not self.required_phrases:
             raise ValueError(f"{self.kind} cases need required_phrases")
@@ -560,17 +570,23 @@ def _grade_minimum_salary(
     claim_text = response_blob(response)
     if not has_number(claim_text, _BASELINE_MINIMUM):
         return _fail("claim text lacks 1017781")
-    if "2023-24" not in claim_text.lower():
-        return _fail("missing 2023-24")
-    if _ZERO_YOS.search(claim_text) is None:
-        return _fail("missing 0 years of service")
-    if _LATER_ADJUST.search(claim_text) is None:
-        return _fail("missing later-season cap adjustment")
-    if _AS_CURRENT_MINIMUM.search(claim_text):
-        return _fail("presented 1017781 as the current minimum")
+    if _AS_2023_FIGURE.search(claim_text) or _AS_CURRENT_MINIMUM.search(claim_text):
+        return _fail("presented 1017781 as the 2023-24 or current minimum")
     invented = _invented_salaries(claim_text)
     if invented:
         return _fail("response adds a later-year dollar amount")
+    if _BASELINE_LABEL.search(claim_text) is None:
+        return _fail("did not label 1017781 as the Exhibit C baseline")
+    if _ZERO_YOS.search(claim_text) is None:
+        return _fail("missing 0 years of service")
+    if "2023-24" not in claim_text.lower():
+        return _fail("missing 2023-24")
+    if _FROM_2022.search(claim_text) is None:
+        return _fail("missing 2022-23")
+    if _CAP_INCREASE.search(claim_text) is None:
+        return _fail("missing percentage increase")
+    if _LATER_ADJUST.search(claim_text) is None:
+        return _fail("missing later-season cap adjustment")
     return _ok()
 
 
@@ -598,12 +614,21 @@ def _grade_no_evidence(case: CorpusCase, response: CopilotResponse, ctx: GradeCo
     return _ok()
 
 
-def _grade_ambiguous(case: CorpusCase, response: CopilotResponse, ctx: GradeContext) -> Verdict:
-    if response.kind != "clarification" or response.reason != "ambiguous":
-        return _fail("expected ambiguous")
+def _grade_mle_terms(case: CorpusCase, response: CopilotResponse, ctx: GradeContext) -> Verdict:
+    if response.kind != "answer":
+        if response.kind == "clarification":
+            return _fail("opened with a clarifying question")
+        return _fail(f"expected answer, got {response.kind}")
     missing = missing_sections(response, ctx, case.expected_sections)
     if missing:
         return _fail(*missing)
+    unsupported = _unsupported(response, ctx)
+    if unsupported:
+        return _fail(unsupported)
+    blob = _response_and_quotes(response)
+    absent = [phrase for phrase in case.required_phrases if not phrase_in_blob(phrase, blob)]
+    if absent:
+        return _fail(f"missing required phrases: {', '.join(absent)}")
     return _ok()
 
 
@@ -627,7 +652,7 @@ GRADERS: dict[CaseKind, Grader] = {
     "minimum_salary": _grade_minimum_salary,
     "definition": _grade_definition,
     "no_evidence": _grade_no_evidence,
-    "ambiguous": _grade_ambiguous,
+    "mle_terms": _grade_mle_terms,
     "bad_citation": _grade_bad_citation,
 }
 

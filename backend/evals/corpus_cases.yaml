@@ -157,15 +157,16 @@
       section_contains: "Exhibit C"
       note: >
         Exhibit C Baseline Minimum Annual Salary Scale. 0 years of service,
-        Year 1 is 1,017,781.
+        Year 1 is 1,017,781. That cell is the baseline, not the 2023-24 amount.
     - article: 1
       section_contains: "1(jj)"
       page_start: 5
       page_end: 5
       note: >
-        Article I Section 1(jj). 2023-24 uses Exhibit C adjusted by the cap
-        increase from 2022-23. Later Salary Cap Years chain-adjust. The PDF
-        states no later-year dollar amount.
+        Article I Section 1(jj), printed page 5. 2023-24 is Exhibit C adjusted
+        by the percentage increase in the Salary Cap from 2022-23 to 2023-24.
+        Later Salary Cap Years chain-adjust. The PDF states no adjusted dollar
+        figure. Withdrawn: treating 1,017,781 as the 2023-24 minimum.
 
 - id: definition
   kind: definition
@@ -184,27 +185,30 @@
   question: How many timeouts may an NHL coach call during a playoff overtime?
   expected_sections: []
 
-- id: ambiguous
-  kind: ambiguous
-  question: >
-    How many seasons can a contract signed with the mid-level exception run for
-    a team that is over the Salary Cap?
+- id: mle-terms
+  kind: mle_terms
+  question: How many seasons can a contract signed with the mid-level exception run?
   expected_sections:
     - article: 7
       section_contains: "6(e)"
       page_start: 236
       page_end: 237
       note: >
-        Article VII Section 6(e), the Non-Taxpayer Mid-Level Salary Exception,
-        allows contracts of up to four seasons.
+        Article VII Section 6(e)(2). The Non-Taxpayer Mid-Level Salary
+        Exception may not exceed four (4) Seasons.
     - article: 7
-      section_contains: "6(f)"
-      page_start: 237
-      page_end: 238
+      section_contains: "6(g)"
+      page_start: 238
+      page_end: 239
       note: >
-        Article VII Section 6(f), the Taxpayer Mid-Level Salary Exception,
-        allows contracts of up to two seasons. The question does not say which
-        apron the team is under, so neither passage controls.
+        Article VII Section 6(g)(2). The Mid-Level Salary Exception for Room
+        Teams may not exceed three (3) Seasons. Product retarget: require both
+        branches, each labeled with its own citation. Not an ambiguous fork.
+  required_phrases:
+    - "Non-Taxpayer"
+    - "Room Teams"
+    - "four"
+    - "three"
 
 - id: bad-citation
   kind: bad_citation

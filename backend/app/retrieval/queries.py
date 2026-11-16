@@ -3,9 +3,9 @@ from __future__ import annotations
 
 VECTOR_SEARCH_SQL = """
 SELECT c.id,
-       1 - (c.embedding <=> CAST(:query_vec AS vector)) AS score
+       1 - (c.embedding <=> :query_vec) AS score
 FROM cba_chunks c
-ORDER BY c.embedding <=> CAST(:query_vec AS vector)
+ORDER BY c.embedding <=> :query_vec
 LIMIT :limit
 """.strip()
 
@@ -93,6 +93,16 @@ WHERE c.article_number = ANY(
     WHEN :articles = '' THEN CAST(ARRAY[] AS integer[])
     ELSE CAST(string_to_array(:articles, ',') AS integer[])
   END
+)
+AND (
+  :sections = ''
+  OR c.section ILIKE ANY (
+    ARRAY(
+      SELECT ('%' || trim(both FROM needle) || '%')
+      FROM unnest(string_to_array(:sections, '|||')) AS needle
+      WHERE trim(both FROM needle) <> ''
+    )
+  )
 )
 UNION ALL
 SELECT 'document' AS kind,

@@ -130,6 +130,25 @@ CAP_YEAR = _chunk(
         "Years adjust that table with the percentage increase in the Salary Cap."
     ),
 )
+NT_MLE = _chunk(
+    "nt-mle",
+    7,
+    "6(e) Non-Taxpayer Mid-Level Salary Exception",
+    (
+        "The term of a Player Contract signed pursuant to the Non-Taxpayer "
+        "Mid-Level Salary Exception may not exceed four (4) Seasons in length."
+    ),
+)
+ROOM_MLE = _chunk(
+    "room-mle",
+    7,
+    "6(g) Mid-Level Salary Exception for Room Teams",
+    (
+        "The term of a Player Contract signed pursuant to the Mid-Level "
+        "Salary Exception for Room Teams may not exceed three (3) Seasons "
+        "in length."
+    ),
+)
 _EQVFA_PHRASES = [
     "greater of",
     "175",
@@ -172,7 +191,7 @@ def test_graders_cover_every_case_kind() -> None:
         "minimum_salary",
         "definition",
         "no_evidence",
-        "ambiguous",
+        "mle_terms",
         "bad_citation",
     }
 
@@ -200,6 +219,13 @@ def test_whole_rule_grader_pass_and_fail() -> None:
     )
     assert grade_case(case, unsupported, _ctx(APRON, other)).reasons == (
         "claim quote is not in a cited passage",
+    )
+    extra = _answer(
+        paraphrase.claims[0],
+        Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]),
+    )
+    assert grade_case(case, extra, _ctx(APRON, EARLY)).reasons == (
+        "a claim did not cite the expected section",
     )
 
 
@@ -444,8 +470,10 @@ def test_minimum_salary_grader_pass_and_fail() -> None:
     )
     ctx = _ctx(EXHIBIT_C, CAP_YEAR)
     good_text = (
-        "Exhibit C sets 1,017,781 for 0 years of service in Year 1. "
-        "That is the 2023-24 figure. Later seasons adjust with the cap."
+        "Exhibit C's baseline for 0 years of service Year 1 is 1,017,781. "
+        "1(jj) sets 2023-24 as that baseline adjusted by the percentage "
+        "increase in the Salary Cap from 2022-23. Later seasons adjust "
+        "with the cap. The CBA does not state the adjusted dollar."
     )
     good = _answer(
         Claim(text=good_text, quote=EXHIBIT_C.text, passage_ids=["exhibit-c"]),
@@ -464,7 +492,21 @@ def test_minimum_salary_grader_pass_and_fail() -> None:
         Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
     )
     assert grade_case(case, as_current, ctx).reasons == (
-        "presented 1017781 as the current minimum",
+        "presented 1017781 as the 2023-24 or current minimum",
+    )
+    as_2023 = _answer(
+        Claim(
+            text=(
+                "Exhibit C sets 1,017,781 for 0 years of service in Year 1. "
+                "That is the 2023-24 figure. Later seasons adjust with the cap."
+            ),
+            quote=EXHIBIT_C.text,
+            passage_ids=["exhibit-c"],
+        ),
+        Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert grade_case(case, as_2023, ctx).reasons == (
+        "presented 1017781 as the 2023-24 or current minimum",
     )
     guessed = _answer(
         Claim(
@@ -512,26 +554,36 @@ def test_no_evidence_grader_pass_and_fail() -> None:
     assert not grade_case(case, dropped, ctx).passed
 
 
-def test_ambiguous_grader_pass_and_fail() -> None:
+def test_mle_terms_grader_pass_and_fail() -> None:
     case = _case(
-        "ambiguous",
+        "mle_terms",
         expected_sections=[
-            {"article": 1, "section_contains": "1(yy)"},
-            {"article": 1, "section_contains": "1(t)"},
+            {"article": 7, "section_contains": "6(e)"},
+            {"article": 7, "section_contains": "6(g)"},
         ],
+        required_phrases=["Non-Taxpayer", "Room Teams", "four", "three"],
     )
-    ctx = _ctx(BIRD, EARLY)
-    good = Clarification(
-        reason="ambiguous",
-        message="which one?",
-        claims=[
-            Claim(text=BIRD.text, quote=BIRD.text, passage_ids=["bird"]),
-            Claim(text=EARLY.text, quote=EARLY.text, passage_ids=["early"]),
-        ],
+    ctx = _ctx(NT_MLE, ROOM_MLE)
+    both = (
+        "Non-Taxpayer Mid-Level contracts may not exceed four seasons. "
+        "The Mid-Level Salary Exception for Room Teams may not exceed three seasons."
+    )
+    good = _answer(
+        Claim(text=both, quote=NT_MLE.text, passage_ids=["nt-mle"]),
+        Claim(text=both, quote=ROOM_MLE.text, passage_ids=["room-mle"]),
     )
     assert grade_case(case, good, ctx).passed
-    winner = _answer(Claim(text=BIRD.text, quote=BIRD.text, passage_ids=["bird"]))
-    assert not grade_case(case, winner, ctx).passed
+    asked = Clarification(
+        reason="ambiguous",
+        message="which exception?",
+        claims=[
+            Claim(text=both, quote=NT_MLE.text, passage_ids=["nt-mle"]),
+            Claim(text=both, quote=ROOM_MLE.text, passage_ids=["room-mle"]),
+        ],
+    )
+    assert grade_case(case, asked, ctx).reasons == ("opened with a clarifying question",)
+    one = _answer(Claim(text=both, quote=NT_MLE.text, passage_ids=["nt-mle"]))
+    assert grade_case(case, one, ctx).reasons == ("missing article 7 section 6(g)",)
 
 
 def test_bad_citation_grader_pass_and_fail() -> None:
