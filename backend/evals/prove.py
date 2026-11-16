@@ -53,6 +53,8 @@ CaseKind = Literal[
     "season_or_date",
     "computation",
     "missing_inputs",
+    "ask_after_rule",
+    "minimum_salary",
     "definition",
     "no_evidence",
     "ambiguous",
@@ -145,8 +147,73 @@ def phrase_in_blob(phrase: str, blob: str) -> bool:
     return False
 
 
+_ASK_CUE = re.compile(
+    r"\?|\bgive me\b|\btell me\b|\bwhich\b|\bwhat (?:is|was) the prior\b",
+    re.I,
+)
+_PRIOR_SALARY_ASK = re.compile(r"prior (regular )?salary(?!\s+cap)", re.I)
+_AS_CURRENT_MINIMUM = re.compile(
+    r"\b(?:is|as) the current minimum\b|"
+    r"\bcurrent minimum (?:is|salary|annual)\b|"
+    r"\bcurrent(?:ly)? (?:the )?minimum(?: salary| annual salary)? is\b|"
+    r"\$?1,?017,?781 is the current\b",
+    re.I,
+)
+_ZERO_YOS = re.compile(
+    r"\b(?:0|zero) years? of service\b|\b0 yos\b",
+    re.I,
+)
+_LATER_ADJUST = re.compile(
+    r"later (?:seasons|years|salary cap years).{0,80}adjust|"
+    r"adjust.{0,80}later (?:seasons|years|salary cap years)|"
+    r"percentage increase in the salary cap",
+    re.I,
+)
+_BASELINE_MINIMUM = 1_017_781.0
+
+
+def _response_and_quotes(response: CopilotResponse) -> str:
+    quotes = " ".join(claim.quote for claim in response_claims(response))
+    return f"{response_blob(response)} {normalize_space(quotes)}"
+
+
+def _first_phrase_index(blob: str, phrases: list[str]) -> int | None:
+    hay = blob.lower()
+    found: list[int] = []
+    for phrase in phrases:
+        key = phrase.lower()
+        index = hay.find(key)
+        if index >= 0:
+            found.append(index)
+            continue
+        as_int = _words_to_int(key)
+        if as_int is None:
+            continue
+        match = re.search(rf"(?<!\d){as_int}(?!\d)", hay)
+        if match:
+            found.append(match.start())
+    return min(found) if found else None
+
+
+def _first_ask_index(blob: str) -> int | None:
+    match = _ASK_CUE.search(blob)
+    return match.start() if match else None
+
+
+def _asks_prior_salary(blob: str) -> bool:
+    return _PRIOR_SALARY_ASK.search(blob) is not None
+
+
+def _invented_salaries(text: str) -> set[float]:
+    return {
+        value
+        for value in parse_numbers(text)
+        if value >= 100_000 and abs(value - _BASELINE_MINIMUM) > 0.5
+    }
+
+
 class ExpectedSectionSpec(BaseModel):
-    article: int
+    article: int | None = None
     section_contains: str
     page_start: int | None = None
     page_end: int | None = None
@@ -170,8 +237,13 @@ class CorpusCase(BaseModel):
     def kind_fields(self) -> CorpusCase:
         if self.kind == "computation" and self.expected_number is None:
             raise ValueError("computation cases need expected_number")
-        if self.kind == "exception" and not self.required_phrases:
-            raise ValueError("exception cases need required_phrases")
+        needs_phrases = self.kind in {
+            "exception",
+            "missing_inputs",
+            "ask_after_rule",
+        }
+        if needs_phrases and not self.required_phrases:
+            raise ValueError(f"{self.kind} cases need required_phrases")
         if self.kind == "bad_citation" and (
             not self.injected_text.strip() or not self.injected_quote.strip()
         ):
@@ -410,17 +482,95 @@ def _grade_computation(case: CorpusCase, response: CopilotResponse, ctx: GradeCo
     return _ok()
 
 
-def _grade_missing_inputs(
-    case: CorpusCase, response: CopilotResponse, ctx: GradeContext
+def _grade_cited_rule(
+    case: CorpusCase,
+    response: CopilotResponse,
+    ctx: GradeContext,
+    *,
+    require_prior_salary_ask: bool,
+    forbid_extra_numbers: bool,
 ) -> Verdict:
-    if response.kind != "clarification" or response.reason != "missing_inputs":
-        return _fail("expected missing_inputs")
+    if response.kind != "answer":
+        if response.kind == "clarification":
+            return _fail("opened with a clarifying question")
+        return _fail(f"expected answer, got {response.kind}")
     missing = missing_sections(response, ctx, case.expected_sections)
     if missing:
         return _fail(*missing)
-    extra = extra_numbers(response, ctx)
-    if extra:
-        return _fail("response adds a number the quote does not contain")
+    unsupported = _unsupported(response, ctx)
+    if unsupported:
+        return _fail(unsupported)
+    blob = _response_and_quotes(response)
+    absent = [phrase for phrase in case.required_phrases if not phrase_in_blob(phrase, blob)]
+    if absent:
+        return _fail(f"missing required phrases: {', '.join(absent)}")
+    rule_at = _first_phrase_index(blob, case.required_phrases)
+    ask_at = _first_ask_index(blob)
+    if rule_at is not None and ask_at is not None and ask_at < rule_at:
+        return _fail("opened with a clarifying question")
+    if require_prior_salary_ask:
+        if not _asks_prior_salary(blob) or ask_at is None:
+            return _fail("did not ask for the prior salary")
+        if rule_at is not None and ask_at < rule_at:
+            return _fail("opened with a clarifying question")
+    if forbid_extra_numbers:
+        extra = extra_numbers(response, ctx)
+        if extra:
+            return _fail("response adds a number the quote does not contain")
+    return _ok()
+
+
+def _grade_missing_inputs(
+    case: CorpusCase, response: CopilotResponse, ctx: GradeContext
+) -> Verdict:
+    return _grade_cited_rule(
+        case,
+        response,
+        ctx,
+        require_prior_salary_ask=False,
+        forbid_extra_numbers=False,
+    )
+
+
+def _grade_ask_after_rule(
+    case: CorpusCase, response: CopilotResponse, ctx: GradeContext
+) -> Verdict:
+    return _grade_cited_rule(
+        case,
+        response,
+        ctx,
+        require_prior_salary_ask=True,
+        forbid_extra_numbers=True,
+    )
+
+
+def _grade_minimum_salary(
+    case: CorpusCase, response: CopilotResponse, ctx: GradeContext
+) -> Verdict:
+    if response.kind != "answer":
+        if response.kind == "clarification":
+            return _fail("opened with a clarifying question")
+        return _fail(f"expected answer, got {response.kind}")
+    missing = missing_sections(response, ctx, case.expected_sections)
+    if missing:
+        return _fail(*missing)
+    unsupported = _unsupported(response, ctx)
+    if unsupported:
+        return _fail(unsupported)
+    claim_text = response_blob(response)
+    if not has_number(claim_text, _BASELINE_MINIMUM):
+        return _fail("claim text lacks 1017781")
+    if "2023-24" not in claim_text.lower():
+        return _fail("missing 2023-24")
+    if _ZERO_YOS.search(claim_text) is None:
+        return _fail("missing 0 years of service")
+    if _LATER_ADJUST.search(claim_text) is None:
+        return _fail("missing later-season cap adjustment")
+    if _AS_CURRENT_MINIMUM.search(claim_text):
+        return _fail("presented 1017781 as the current minimum")
+    invented = _invented_salaries(claim_text)
+    if invented:
+        return _fail("response adds a later-year dollar amount")
     return _ok()
 
 
@@ -473,6 +623,8 @@ GRADERS: dict[CaseKind, Grader] = {
     "season_or_date": _grade_season_or_date,
     "computation": _grade_computation,
     "missing_inputs": _grade_missing_inputs,
+    "ask_after_rule": _grade_ask_after_rule,
+    "minimum_salary": _grade_minimum_salary,
     "definition": _grade_definition,
     "no_evidence": _grade_no_evidence,
     "ambiguous": _grade_ambiguous,

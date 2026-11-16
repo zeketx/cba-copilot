@@ -167,11 +167,11 @@ Open: after an expired token, the app returns to the access screen without sayin
 
 ## 10. Prove the corpus
 
-**Story:** As the owner, I want one live run that tests every grounding rule, so I can show the copilot only says what the CBA says.
+**Story:** As the owner, I want one live run that tests every grounding rule, so I can show the copilot only says what the CBA says, answers a general rule before it asks for inputs, and names Exhibit C as the 2023-24 minimum.
 
 `backend/evals/questions.yaml` is a fixture list. Do not check a box from that file. Run these against the ingested PDF and record the result under `docs/phase10/runs/<timestamp>/`.
 
-The runner and the eleven cases are on `main` ([#24](https://github.com/zeketx/cba-copilot/pull/24)). On 2026-11-12 each case label was checked offline against the chunked PDF. The two-passages case named `4 Determination of Team Salary`, which matches only the heading chunk, so it now names `4(a)`. `test_every_expected_section_has_a_rule_in_the_official_pdf` repeats that check whenever the PDF is on disk. The owner runs `uv run python -m evals.prove --live` from `backend/`, because it calls OpenRouter.
+The runner and the eleven cases are on `main` ([#24](https://github.com/zeketx/cba-copilot/pull/24)). On 2026-11-12 each case label was checked offline against the chunked PDF. The two-passages case named `4 Determination of Team Salary`, which matches only the heading chunk, so it now names `4(a)`. `test_every_expected_section_has_a_rule_in_the_official_pdf` repeats that check whenever the PDF is on disk. The owner runs `uv run python -m evals.prove --live` from `backend/`, because it calls OpenRouter. This branch retargets `missing-inputs` to a cited 6(b)(3)(i) answer and adds `ask-after-rule` and `minimum-salary` (13 cases). That retarget is an intentional policy change.
 
 Live runs on 2026-11-12 used `deepseek/deepseek-v4.1-flash-1017`. Run `20261113T013036Z` passed 4 of 11. Five of its failures were correct answers that paraphrased, because the grader required the claim text verbatim. `Claim` now keeps the validated quote, and the grader checks the quote. Run `20261113T013506Z` passed 7 of 11. Whole-rule dropped every claim, exception paraphrased "sixty-five" as "65", computation asked for inputs it was given, and missing-inputs computed nothing but did not ask. Whole-rule, computation, and ambiguous changed result between the two runs. No box is checked until one run passes every case.
 
@@ -185,7 +185,9 @@ The grader then accepted a `missing_inputs` date question for season-or-date and
 - [x] The answer needs two passages that do not point at each other. Pass when both are cited, or the turn refuses
 - [x] The rule depends on the season or the effective date. Pass when the answer names the passage it used, or asks which date the user means
 - [x] The quote states an operation and the question supplies every input. Pass when the number is the operation in the quote applied to those inputs, and the quote is cited
-- [x] The quote states an operation and one input is missing. Pass when the turn is `missing_inputs` and contains no computed number
+- [ ] The quote states an operation and one input is missing. Pass when the turn is a cited answer that states the 6(b)(3)(i) rule in the CBA's wording before any follow-up. Policy change: this is no longer a `missing_inputs` clarification. Live prove has not been re-run.
+- [ ] The question asks how much a team can pay an Early Qualifying Veteran and names no prior salary. Pass when the turn cites 6(b)(3)(i), then asks for the prior salary, and gives no invented dollar figure
+- [ ] The question asks for the 0-year minimum salary. Pass when the turn cites Exhibit C and 1(jj), names 1,017,781 as the 2023-24 figure for 0 years of service, says later seasons adjust with the cap, and does not call that amount the current minimum
 - [x] The question asks what a term means. Pass when the answer quotes the definition and does not add a number the quote does not contain
 - [x] The corpus has no passage for the question. Pass when the turn is `no_evidence` and has no factual claim
 - [x] Two passages match and neither says it controls. Pass when the turn is `ambiguous`, cites both, and does not pick a winner

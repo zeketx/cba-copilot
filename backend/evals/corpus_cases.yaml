@@ -115,12 +115,57 @@
     under the veteran free agent exception?
   expected_sections:
     - article: 7
-      section_contains: "6(b)"
+      section_contains: "6(b)(3)(i)"
       page_start: 231
       page_end: 232
       note: >
-        The same 6(b) passage states the 175 percent / 105 percent operation,
-        and the question omits both salaries.
+        Article VII Section 6(b)(3)(i). The first-year cap is the greater of
+        175 percent of prior Regular Salary or 105 percent of prior Average
+        Player Salary. Intentional policy change: this case now expects a
+        cited answer, not a missing_inputs clarification.
+  required_phrases:
+    - "greater of"
+    - "175"
+    - "105"
+    - "Regular Salary"
+    - "Average Player Salary"
+
+- id: ask-after-rule
+  kind: ask_after_rule
+  question: What's the most we can pay our early qualifying veteran next year?
+  expected_sections:
+    - article: 7
+      section_contains: "6(b)(3)(i)"
+      page_start: 231
+      page_end: 232
+      note: >
+        Same 6(b)(3)(i) rule. The question asks for a dollar amount and names
+        no prior salary, so the turn must state the rule, then ask for that
+        salary, and must not invent a dollar figure.
+  required_phrases:
+    - "greater of"
+    - "175"
+    - "105"
+    - "Regular Salary"
+    - "Average Player Salary"
+
+- id: minimum-salary
+  kind: minimum_salary
+  question: What is the minimum salary for a player with 0 years of service?
+  expected_sections:
+    - article: null
+      section_contains: "Exhibit C"
+      note: >
+        Exhibit C Baseline Minimum Annual Salary Scale. 0 years of service,
+        Year 1 is 1,017,781.
+    - article: 1
+      section_contains: "1(jj)"
+      page_start: 5
+      page_end: 5
+      note: >
+        Article I Section 1(jj). 2023-24 uses Exhibit C adjusted by the cap
+        increase from 2022-23. Later Salary Cap Years chain-adjust. The PDF
+        states no later-year dollar amount.
 
 - id: definition
   kind: definition
