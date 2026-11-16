@@ -497,6 +497,17 @@ def test_pick_source_document_uses_the_one_row_or_the_corpus_url() -> None:
         pick_source_document([], set())
 
 
+def test_open_database_uses_the_app_session_factory() -> None:
+    import inspect
+
+    from evals.embed_bench import open_database
+
+    source = inspect.getsource(open_database)
+    assert "postgres_session_factory" in source
+    assert "create_engine" not in source
+    assert "sessionmaker" not in source
+
+
 def test_database_without_url_or_key_does_not_connect(monkeypatch, capsys) -> None:
     def boom(*_args, **_kwargs):
         raise AssertionError("database opened")

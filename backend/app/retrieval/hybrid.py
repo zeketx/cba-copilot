@@ -83,22 +83,26 @@ def hybrid_retrieve(
     context_ms = _elapsed_ms(started)
     db_ms = vector_ms + keyword_ms + fetch_ms + context_ms
     total_ms = embed_ms + db_ms + phrase_ms + fusion_ms
+    timings = {
+        "embed_ms": embed_ms,
+        "db_ms": db_ms,
+        "phrase_ms": phrase_ms,
+        "fusion_ms": fusion_ms,
+        "vector_ms": vector_ms,
+        "keyword_ms": keyword_ms,
+        "fetch_ms": fetch_ms,
+        "context_ms": context_ms,
+        "total_ms": total_ms,
+        "retrieval_excluding_embed_ms": total_ms - embed_ms,
+    }
+    extra = getattr(store, "last_query_timings", None)
+    if callable(extra):
+        timings.update(extra())
     return Retrieval(
         hits=hits,
         context=context,
         documents=documents_for(loaded.documents, [*hits, *context]),
-        timings={
-            "embed_ms": embed_ms,
-            "db_ms": db_ms,
-            "phrase_ms": phrase_ms,
-            "fusion_ms": fusion_ms,
-            "vector_ms": vector_ms,
-            "keyword_ms": keyword_ms,
-            "fetch_ms": fetch_ms,
-            "context_ms": context_ms,
-            "total_ms": total_ms,
-            "retrieval_excluding_embed_ms": total_ms - embed_ms,
-        },
+        timings=timings,
     )
 
 def _citation_scope(hits: list[Chunk]) -> tuple[list[int], list[str]]:

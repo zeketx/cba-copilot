@@ -152,6 +152,20 @@ _ASK_CUE = re.compile(
     re.I,
 )
 _PRIOR_SALARY_ASK = re.compile(r"prior (regular )?salary(?!\s+cap)", re.I)
+_LAST_CLAIM_ASK = re.compile(
+    r"\?"
+    r"|\bgive me\b"
+    r"|\btell me\b"
+    r"|\bplease (?:provide|give|tell)\b"
+    r"|\b(?:i|we) need\b"
+    r"|\bneeds? (?:the|his|her|a|an)\b"
+    r"|\bprovide\b"
+    r"|\bmissing\b"
+    r"|\bwhat (?:is|was)\b"
+    r"|\bwhich\b"
+    r"|\bprior (?:regular )?salary(?!\s+cap)",
+    re.I,
+)
 _AS_CURRENT_MINIMUM = re.compile(
     r"\b(?:is|as) the current minimum\b|"
     r"\bcurrent minimum (?:is|salary|annual)\b|"
@@ -545,18 +559,47 @@ def _grade_missing_inputs(
 def _grade_ask_after_rule(
     case: CorpusCase, response: CopilotResponse, ctx: GradeContext
 ) -> Verdict:
-    return _grade_cited_rule(
-        case,
-        response,
-        ctx,
-        require_prior_salary_ask=True,
-        forbid_extra_numbers=True,
-    )
+    if response.kind != "answer":
+        if response.kind == "clarification":
+            return _fail("opened with a clarifying question")
+        return _fail(f"expected answer, got {response.kind}")
+    missing = missing_sections(response, ctx, case.expected_sections)
+    if missing:
+        return _fail(*missing)
+    unsupported = _unsupported(response, ctx)
+    if unsupported:
+        return _fail(unsupported)
+    blob = _response_and_quotes(response)
+    absent = [phrase for phrase in case.required_phrases if not phrase_in_blob(phrase, blob)]
+    if absent:
+        return _fail(f"missing required phrases: {', '.join(absent)}")
+    claims = response_claims(response)
+    if not claims:
+        return _fail("did not ask for the prior salary")
+    last = claims[-1].text
+    ask_match = _LAST_CLAIM_ASK.search(last)
+    if ask_match is None:
+        return _fail("did not ask for the prior salary")
+    texts = [claim.text for claim in claims]
+    joined = " ".join(texts)
+    rule_at = _first_phrase_index(joined, case.required_phrases)
+    last_start = 0 if len(texts) == 1 else len(" ".join(texts[:-1])) + 1
+    ask_at = last_start + ask_match.start()
+    if rule_at is not None and ask_at < rule_at:
+        return _fail("opened with a clarifying question")
+    claim_text = " ".join(texts)
+    if "$" in claim_text or _invented_salaries(claim_text):
+        return _fail("response names a dollar figure")
+    return _ok()
 
 
 def _grade_minimum_salary(
     case: CorpusCase, response: CopilotResponse, ctx: GradeContext
 ) -> Verdict:
+    if response.kind == "refusal" and response.reason == "no_evidence":
+        if response_claims(response):
+            return _fail("no_evidence response carried a claim")
+        return _ok()
     if response.kind != "answer":
         if response.kind == "clarification":
             return _fail("opened with a clarifying question")

@@ -19,6 +19,8 @@ ALIASES: tuple[tuple[str, str], ...] = (
     ("sign and trade", "signed and traded section 8"),
     ("two-way", "two-way contract"),
     ("does salary mean", "not including unlikely bonuses"),
+    ("minimum salary", "minimum player salary minimum annual salary scale exhibit c"),
+    ("0 years of service", "exhibit c baseline minimum annual salary scale"),
     ("bird", "qualifying veteran free agent"),
     ("awards", "league honors most valuable player defensive"),
     ("award", "league honors most valuable player defensive"),

@@ -30,7 +30,7 @@ SELECT 'prev' AS slot,
        p.section,
        p.page_start,
        p.page_end,
-       p.text AS body,
+       CAST(NULL AS text) AS body,
        p.source_url
 FROM cba_chunks c
 JOIN cba_chunks p
@@ -53,7 +53,7 @@ SELECT 'next' AS slot,
        n.section,
        n.page_start,
        n.page_end,
-       n.text AS body,
+       CAST(NULL AS text) AS body,
        n.source_url
 FROM cba_chunks c
 JOIN cba_chunks n

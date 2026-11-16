@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import re
+import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Protocol
 
+from pgvector import Vector as PgVector
 from pgvector.psycopg import register_vector
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import bindparam, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.types import UserDefinedType
 
 from app.domain import Chunk
 from app.retrieval.queries import (
@@ -19,6 +23,47 @@ from app.retrieval.queries import (
 )
 from app.retrieval.text import tokens
 from app.retrieval.types import DocumentMeta, LoadedContext
+
+_NAMED_BIND = re.compile(r"(?<!:):([A-Za-z_][A-Za-z0-9_]*)")
+
+
+class NativeVector(UserDefinedType):
+    """Bind a pgvector.Vector so psycopg uses the binary dumper.
+
+    pgvector.sqlalchemy.VECTOR.bind_processor stringifies through Vector._to_db.
+    SQLAlchemy then sends text, Postgres parses 1024 floats, and HNSW timing
+    stays in the hundreds of milliseconds instead of the typed-constant 35 ms.
+    """
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw) -> str:
+        del kw
+        return "vector"
+
+    def bind_processor(self, dialect):
+        del dialect
+
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, PgVector):
+                return value
+            return PgVector(value)
+
+        return process
+
+
+@dataclass
+class QueryProbe:
+    sql: str
+    path: str = "sqlalchemy"
+    param_python_type: str = ""
+    param_dbapi_type: str = ""
+    acquire_ms: float = 0.0
+    encode_ms: float = 0.0
+    execute_ms: float = 0.0
+    fetch_ms: float = 0.0
 
 
 class ChunkStore(Protocol):
@@ -36,6 +81,7 @@ class ChunkStore(Protocol):
         articles: list[int],
         sections: list[str] | None = None,
     ) -> LoadedContext: ...
+
 
 def _cosine(left: list[float], right: list[float]) -> float:
     if len(left) != len(right) or not left:
@@ -74,6 +120,119 @@ def _memory_neighbors(
     prev_id = same[index - 1] if index else None
     next_id = same[index + 1] if index + 1 < len(same) else None
     return prev_id, next_id
+
+
+def _elapsed_ms(started: float) -> float:
+    return (time.perf_counter() - started) * 1000
+
+
+def driver_sql(sql: str) -> str:
+    """Turn SQLAlchemy :name binds into psycopg %(name)s, leaving ::casts alone."""
+    return _NAMED_BIND.sub(r"%(\1)s", sql)
+
+
+def as_pgvector(value: object) -> PgVector:
+    if isinstance(value, PgVector):
+        return value
+    if isinstance(value, list):
+        return PgVector(value)
+    raise TypeError(f"query_vec must be list[float] or Vector, got {type(value).__name__}")
+
+
+def _psycopg_connection(session: Session):
+    try:
+        sa_conn = session.connection()
+    except Exception:
+        return None
+    pool_proxied = getattr(sa_conn, "connection", None)
+    dbapi = getattr(pool_proxied, "dbapi_connection", None)
+    if dbapi is None:
+        dbapi = getattr(pool_proxied, "driver_connection", None)
+    if dbapi is None:
+        dbapi = pool_proxied
+    module = type(dbapi).__module__
+    if not str(module).startswith("psycopg"):
+        return None
+    return dbapi
+
+
+def _vector_dumper_name(raw, value: object) -> str:
+    if value is None:
+        return ""
+    try:
+        from psycopg.adapt import PyFormat
+
+        dumper = raw.adapters.get_dumper(type(value), PyFormat.BINARY)
+        kind = "binary"
+        if dumper is None:
+            dumper = raw.adapters.get_dumper(type(value), PyFormat.TEXT)
+            kind = "text"
+        if dumper is None:
+            return "unregistered"
+        return f"{type(dumper).__name__}/{kind}"
+    except Exception:
+        return "unknown"
+
+
+def _namedtuple_row():
+    from psycopg.rows import namedtuple_row
+
+    return namedtuple_row
+
+
+def _execute_probed(
+    session: Session,
+    sql: str,
+    params: dict[str, object],
+    *,
+    vector_key: str | None = None,
+) -> tuple[list[object], QueryProbe]:
+    probe = QueryProbe(sql=sql)
+    encoded: dict[str, object] = dict(params)
+    started = time.perf_counter()
+    if vector_key and encoded.get(vector_key) is not None:
+        encoded[vector_key] = as_pgvector(encoded[vector_key])
+    probe.encode_ms = _elapsed_ms(started)
+    if vector_key and vector_key in encoded and encoded[vector_key] is not None:
+        value = encoded[vector_key]
+        probe.param_python_type = f"{type(value).__module__}.{type(value).__name__}"
+
+    started = time.perf_counter()
+    raw = _psycopg_connection(session)
+    probe.acquire_ms = _elapsed_ms(started)
+    if raw is not None:
+        probe.path = "psycopg"
+        if vector_key:
+            probe.param_dbapi_type = _vector_dumper_name(raw, encoded.get(vector_key))
+        started = time.perf_counter()
+        with raw.cursor(row_factory=_namedtuple_row()) as cur:
+            cur.execute(driver_sql(sql), encoded)
+            probe.execute_ms = _elapsed_ms(started)
+            started = time.perf_counter()
+            rows = list(cur.fetchall())
+            probe.fetch_ms = _elapsed_ms(started)
+        return rows, probe
+
+    probe.path = "sqlalchemy"
+    statement = text(sql)
+    if vector_key:
+        statement = statement.bindparams(bindparam(vector_key, type_=NativeVector()))
+        if encoded.get(vector_key) is not None:
+            probe.param_dbapi_type = type(encoded[vector_key]).__name__
+    started = time.perf_counter()
+    result = session.execute(statement, encoded)
+    probe.execute_ms = _elapsed_ms(started)
+    started = time.perf_counter()
+    rows = list(result.all())
+    probe.fetch_ms = _elapsed_ms(started)
+    return rows, probe
+
+
+def _row_id(row: object) -> str:
+    if hasattr(row, "id"):
+        return str(row.id)
+    return str(row[0])  # type: ignore[index]
+
 
 class MemoryChunkStore:
     def __init__(
@@ -185,6 +344,11 @@ def postgres_session_factory(database_url: str) -> Callable[[], Session]:
     @event.listens_for(engine, "connect")
     def _register_pgvector(dbapi_connection, _connection_record) -> None:
         register_vector(dbapi_connection)
+        # Direct session host only (Settings rejects pooler.supabase.com).
+        # Prepare on first execute so a transaction-mode pooler cannot hide a
+        # per-call PARSE inside vector_ms. Session-mode connections reuse it.
+        if hasattr(dbapi_connection, "prepare_threshold"):
+            dbapi_connection.prepare_threshold = 0
 
     return sessionmaker(bind=engine)
 
@@ -194,16 +358,19 @@ class PostgresChunkStore:
     def __init__(self, session: Session, chunks_by_id: dict[str, Chunk] | None = None) -> None:
         self._session = session
         self._chunks = chunks_by_id or {}
+        self._vector_probe: QueryProbe | None = None
+        self._neighbor_probe: QueryProbe | None = None
+        self._context_probe: QueryProbe | None = None
 
     def vector_search(self, vector: list[float], limit: int) -> list[str]:
-        statement = text(vector_search_sql()).bindparams(
-            bindparam("query_vec", type_=Vector())
-        )
-        rows = self._session.execute(
-            statement,
+        rows, probe = _execute_probed(
+            self._session,
+            vector_search_sql(),
             {"query_vec": vector, "limit": limit},
-        ).all()
-        return [str(row.id) for row in rows]
+            vector_key="query_vec",
+        )
+        self._vector_probe = probe
+        return [_row_id(row) for row in rows]
 
     def keyword_search(self, query: str, limit: int) -> list[str]:
         rows = self._session.execute(
@@ -262,22 +429,27 @@ class PostgresChunkStore:
         hit_ids = ",".join(hit.id for hit in hits)
         article_ids = ",".join(str(article) for article in articles)
         section_needles = "|||".join(sections or [])
-        neighbor_rows = self._session.execute(
-            text(neighbor_batch_sql()),
+        neighbor_rows, neighbor_probe = _execute_probed(
+            self._session,
+            neighbor_batch_sql(),
             {"hit_ids": hit_ids},
-        ).all()
-        context_rows = self._session.execute(
-            text(context_batch_sql()),
+        )
+        self._neighbor_probe = neighbor_probe
+        context_rows, context_probe = _execute_probed(
+            self._session,
+            context_batch_sql(),
             {
                 "hit_ids": hit_ids,
                 "articles": article_ids,
                 "sections": section_needles,
             },
-        ).all()
+        )
+        self._context_probe = context_probe
         neighbors: dict[str, list[Chunk | None]] = {hit.id: [None, None] for hit in hits}
         for row in neighbor_rows:
             chunk = _chunk_from_row(row)
-            self._chunks[chunk.id] = chunk
+            if chunk.text:
+                self._chunks[chunk.id] = chunk
             pair = neighbors.setdefault(str(row.hit_id), [None, None])
             if row.slot == "prev":
                 pair[0] = chunk
@@ -306,3 +478,46 @@ class PostgresChunkStore:
             articles=grouped,
             documents=documents,
         )
+
+    def last_query_timings(self) -> dict[str, float]:
+        out: dict[str, float] = {}
+        if self._vector_probe is not None:
+            out["vector_acquire_ms"] = self._vector_probe.acquire_ms
+            out["vector_encode_ms"] = self._vector_probe.encode_ms
+            out["vector_execute_ms"] = self._vector_probe.execute_ms
+            out["vector_fetch_ms"] = self._vector_probe.fetch_ms
+        if self._neighbor_probe is not None:
+            out["context_neighbor_acquire_ms"] = self._neighbor_probe.acquire_ms
+            out["context_neighbor_execute_ms"] = self._neighbor_probe.execute_ms
+            out["context_neighbor_fetch_ms"] = self._neighbor_probe.fetch_ms
+        if self._context_probe is not None:
+            out["context_label_acquire_ms"] = self._context_probe.acquire_ms
+            out["context_label_execute_ms"] = self._context_probe.execute_ms
+            out["context_label_fetch_ms"] = self._context_probe.fetch_ms
+        return out
+
+    def query_path_evidence(self) -> dict[str, str]:
+        out: dict[str, str] = {}
+        if self._vector_probe is not None:
+            probe = self._vector_probe
+            out["vector_sql"] = probe.sql
+            out["vector_path"] = probe.path
+            out["vector_param_python_type"] = probe.param_python_type
+            out["vector_param_dbapi_type"] = probe.param_dbapi_type
+            out["vector_acquire_ms"] = f"{probe.acquire_ms:.3f}"
+            out["vector_encode_ms"] = f"{probe.encode_ms:.3f}"
+            out["vector_execute_ms"] = f"{probe.execute_ms:.3f}"
+            out["vector_fetch_ms"] = f"{probe.fetch_ms:.3f}"
+        if self._neighbor_probe is not None:
+            probe = self._neighbor_probe
+            out["neighbor_sql"] = probe.sql
+            out["neighbor_path"] = probe.path
+            out["neighbor_execute_ms"] = f"{probe.execute_ms:.3f}"
+            out["neighbor_fetch_ms"] = f"{probe.fetch_ms:.3f}"
+        if self._context_probe is not None:
+            probe = self._context_probe
+            out["context_sql"] = probe.sql
+            out["context_path"] = probe.path
+            out["context_execute_ms"] = f"{probe.execute_ms:.3f}"
+            out["context_fetch_ms"] = f"{probe.fetch_ms:.3f}"
+        return out

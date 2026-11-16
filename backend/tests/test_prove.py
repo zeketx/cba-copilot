@@ -458,6 +458,39 @@ def test_ask_after_rule_grader_pass_and_fail() -> None:
         claims=[Claim(text=rule, quote=EQVFA.text, passage_ids=["eqvfa"])],
     )
     assert grade_case(case, asked_first, ctx).reasons == ("opened with a clarifying question",)
+    rule_only = (
+        "The first-year cap is the greater of 175 percent of Regular Salary "
+        "or 105 percent of Average Player Salary."
+    )
+    closing_ask = _answer(
+        Claim(text=rule_only, quote=EQVFA.text, passage_ids=["eqvfa"]),
+        Claim(
+            text=(
+                "What was the Regular Salary for the final Salary Cap Year "
+                "covered by his prior Contract?"
+            ),
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        ),
+    )
+    assert grade_case(case, closing_ask, ctx).passed
+    dollar = _answer(
+        Claim(text=rule_only, quote=EQVFA.text, passage_ids=["eqvfa"]),
+        Claim(
+            text="Give me the prior salary. The maximum is $15,000,000.",
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        ),
+    )
+    assert grade_case(case, dollar, ctx).reasons == ("response names a dollar figure",)
+    invented = _answer(
+        Claim(
+            text=rule + " That is 15000000.",
+            quote=EQVFA.text,
+            passage_ids=["eqvfa"],
+        )
+    )
+    assert grade_case(case, invented, ctx).reasons == ("response names a dollar figure",)
 
 
 def test_minimum_salary_grader_pass_and_fail() -> None:
@@ -529,6 +562,17 @@ def test_minimum_salary_grader_pass_and_fail() -> None:
     assert grade_case(case, uncited, _ctx(EXHIBIT_C)).reasons == (
         "missing article 1 section 1(jj)",
     )
+    refused = Refusal(reason="no_evidence", message="no retrieved passage states the amount")
+    assert grade_case(case, refused, _ctx()).passed
+    unlabeled = _answer(
+        Claim(
+            text="The minimum is 1,017,781.",
+            quote=EXHIBIT_C.text,
+            passage_ids=["exhibit-c"],
+        ),
+        Claim(text=CAP_YEAR.text, quote=CAP_YEAR.text, passage_ids=["jj"]),
+    )
+    assert not grade_case(case, unlabeled, ctx).passed
 
 
 def test_definition_grader_pass_and_fail() -> None:

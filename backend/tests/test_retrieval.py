@@ -521,6 +521,9 @@ def test_context_sql_is_fixed() -> None:
     assert "AS uuid[]" in context_batch_sql()
     assert "CAST(NULL AS text) AS body" in context_batch_sql()
     assert "c.text AS body" not in context_batch_sql()
+    assert "CAST(NULL AS text) AS body" in neighbor_batch_sql()
+    assert "p.text AS body" not in neighbor_batch_sql()
+    assert "n.text AS body" not in neighbor_batch_sql()
     assert "AS uuid[]" in chunks_by_ids_sql()
     assert "IS NOT NULL" not in vector_search_sql()
 
@@ -664,3 +667,26 @@ def test_hybrid_fetches_uncached_candidates_in_one_query() -> None:
     assert "db_ms" in result.timings
     assert "fusion_ms" in result.timings
     assert "retrieval_excluding_embed_ms" in result.timings
+    assert "vector_execute_ms" in result.timings
+    assert "vector_fetch_ms" in result.timings
+    assert "vector_encode_ms" in result.timings
+
+
+def test_sqlalchemy_vector_stringifies_native_vector_does_not() -> None:
+    from app.retrieval.store import NativeVector, as_pgvector, driver_sql
+    from pgvector import Vector as PgVector
+    from pgvector.sqlalchemy import Vector as SqlVector
+
+    sample = [0.1, 0.2, 0.3]
+    sql_bound = SqlVector().bind_processor(None)(sample)
+    assert isinstance(sql_bound, str)
+    assert sql_bound.startswith("[")
+    native_bound = NativeVector().bind_processor(None)(sample)
+    assert isinstance(native_bound, PgVector)
+    wrapped = as_pgvector(sample)
+    assert isinstance(wrapped, PgVector)
+    vector_sql = driver_sql(vector_search_sql())
+    assert "%(query_vec)s" in vector_sql
+    assert ":query_vec" not in vector_sql
+    assert driver_sql("x::uuid[]") == "x::uuid[]"
+    assert "CAST(:query_vec" not in vector_search_sql()
