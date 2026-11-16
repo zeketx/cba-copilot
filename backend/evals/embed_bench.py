@@ -140,6 +140,14 @@ class ModelReport:
     phrase_p95_ms: float | None = None
     fusion_p50_ms: float | None = None
     fusion_p95_ms: float | None = None
+    vector_p50_ms: float | None = None
+    vector_p95_ms: float | None = None
+    keyword_p50_ms: float | None = None
+    keyword_p95_ms: float | None = None
+    fetch_p50_ms: float | None = None
+    fetch_p95_ms: float | None = None
+    context_p50_ms: float | None = None
+    context_p95_ms: float | None = None
     retrieval_excluding_embed_p50_ms: float | None = None
     retrieval_excluding_embed_p95_ms: float | None = None
 
@@ -944,6 +952,10 @@ def _breakdown_fields(timings: list[dict[str, float]]) -> dict[str, float | None
     db_p50, db_p95 = pair("db_ms")
     phrase_p50, phrase_p95 = pair("phrase_ms")
     fusion_p50, fusion_p95 = pair("fusion_ms")
+    vector_p50, vector_p95 = pair("vector_ms")
+    keyword_p50, keyword_p95 = pair("keyword_ms")
+    fetch_p50, fetch_p95 = pair("fetch_ms")
+    context_p50, context_p95 = pair("context_ms")
     rest_p50, rest_p95 = pair("retrieval_excluding_embed_ms")
     return {
         "embed_p50_ms": embed_p50,
@@ -954,6 +966,14 @@ def _breakdown_fields(timings: list[dict[str, float]]) -> dict[str, float | None
         "phrase_p95_ms": phrase_p95,
         "fusion_p50_ms": fusion_p50,
         "fusion_p95_ms": fusion_p95,
+        "vector_p50_ms": vector_p50,
+        "vector_p95_ms": vector_p95,
+        "keyword_p50_ms": keyword_p50,
+        "keyword_p95_ms": keyword_p95,
+        "fetch_p50_ms": fetch_p50,
+        "fetch_p95_ms": fetch_p95,
+        "context_p50_ms": context_p50,
+        "context_p95_ms": context_p95,
         "retrieval_excluding_embed_p50_ms": rest_p50,
         "retrieval_excluding_embed_p95_ms": rest_p95,
     }
@@ -1007,10 +1027,19 @@ def open_database(settings: Settings):
             known_source_urls(),
         )
         rows = session.execute(
-            select(CbaChunk)
+            select(
+                CbaChunk.id,
+                CbaChunk.article_number,
+                CbaChunk.article_title,
+                CbaChunk.section,
+                CbaChunk.page_start,
+                CbaChunk.page_end,
+                CbaChunk.text,
+                CbaChunk.source_url,
+            )
             .where(CbaChunk.document_id == document_id)
             .order_by(CbaChunk.chunk_index)
-        ).scalars()
+        ).all()
         chunks = [chunk_from_row(row) for row in rows]
         store = PostgresChunkStore(session, {chunk.id: chunk for chunk in chunks})
         return session, store, chunks, engine
@@ -1107,7 +1136,11 @@ def _print_database_summary(report: ModelReport) -> None:
         print("query p95 cached n/a (0 hits)")
     print(
         f"breakdown p95 embed {_ms(report.embed_p95_ms)} ms, "
-        f"db {_ms(report.db_p95_ms)} ms, "
+        f"db {_ms(report.db_p95_ms)} ms "
+        f"(vector {_ms(report.vector_p95_ms)}, "
+        f"keyword {_ms(report.keyword_p95_ms)}, "
+        f"fetch {_ms(report.fetch_p95_ms)}, "
+        f"context {_ms(report.context_p95_ms)}), "
         f"keyword/phrase {_ms(report.phrase_p95_ms)} ms, "
         f"fusion {_ms(report.fusion_p95_ms)} ms, "
         f"retrieval excluding embed {_ms(report.retrieval_excluding_embed_p95_ms)} ms"

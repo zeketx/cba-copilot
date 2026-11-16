@@ -73,12 +73,13 @@ def hybrid_retrieve(
     articles = _cited_articles(hits)
     started = time.perf_counter()
     loaded = store.load_context(hits, articles)
-    context = _context_chunks(
+    selected = _context_chunks(
         hits,
         loaded,
         per_hit=context_per_hit,
         total=context_max,
     )
+    context = _ordered_chunks(store, [chunk.id for chunk in selected])
     context_ms = _elapsed_ms(started)
     db_ms = vector_ms + keyword_ms + fetch_ms + context_ms
     total_ms = embed_ms + db_ms + phrase_ms + fusion_ms

@@ -509,12 +509,18 @@ def test_context_sql_is_fixed() -> None:
         assert "cba_chunks" in statement or "source_documents" in statement
         assert "{" not in statement
         assert "%s" not in statement
-    assert "ANY(string_to_array(:hit_ids" in neighbor_batch_sql()
+    assert "ANY(CAST(string_to_array(:hit_ids" in neighbor_batch_sql()
+    assert "AS uuid[]" in neighbor_batch_sql()
     assert "article_number" in neighbor_batch_sql()
     assert "chunk_index" in neighbor_batch_sql()
     assert "source_documents" in context_batch_sql()
     assert ":articles" in context_batch_sql()
-    assert "ANY(string_to_array(:hit_ids" in context_batch_sql()
+    assert "ANY(CAST(string_to_array(:hit_ids" in context_batch_sql()
+    assert "AS uuid[]" in context_batch_sql()
+    assert "CAST(NULL AS text) AS body" in context_batch_sql()
+    assert "c.text AS body" not in context_batch_sql()
+    assert "AS uuid[]" in chunks_by_ids_sql()
+    assert "IS NOT NULL" not in vector_search_sql()
 
 
 def test_postgres_store_loads_neighbors_sections_and_metadata() -> None:
@@ -578,6 +584,60 @@ def test_postgres_get_many_uses_one_statement_for_missing_ids() -> None:
     again = store.get_many(["loaded"])
     assert again["loaded"].text == "loaded body"
     assert session.sql == [chunks_by_ids_sql()]
+
+
+def test_label_only_article_rows_are_not_cached() -> None:
+    class EmptyBodySession(_Session):
+        def execute(self, statement: object, params: dict[str, object] | None = None) -> _Rows:
+            sql = str(statement)
+            if sql == context_batch_sql():
+                self.sql.append(sql)
+                row = _chunk_row("exact", "6(j) Exceptions")
+                row.body = None
+                return _Rows([row])
+            return super().execute(statement, params)
+
+    session = EmptyBodySession(["exact"])
+    store = PostgresChunkStore(session)
+    hit = _chunk("hit", "See Section 6(j) of this Article.", "2 Middle")
+    loaded = store.load_context([hit], [7])
+    assert loaded.articles[7][0].id == "exact"
+    assert loaded.articles[7][0].text == ""
+    assert "exact" not in store._chunks
+    found = store.get_many(["exact"])
+    assert found["exact"].text == "exact zebra quota. See Section 6(j) of this Article."
+
+
+def test_hybrid_hydrates_selected_empty_labels_in_one_query() -> None:
+    class EmptyBodySession(_Session):
+        def execute(self, statement: object, params: dict[str, object] | None = None) -> _Rows:
+            sql = str(statement)
+            if sql == context_batch_sql():
+                self.sql.append(sql)
+                row = _chunk_row("exact", "6(j) Exceptions")
+                row.body = None
+                return _Rows([row])
+            if sql == chunks_by_ids_sql():
+                original = self.search_ids
+                self.search_ids = list({*original, "exact"})
+                try:
+                    return super().execute(statement, params)
+                finally:
+                    self.search_ids = original
+            return super().execute(statement, params)
+
+    session = EmptyBodySession(["h1"])
+    store = PostgresChunkStore(session)
+    result = hybrid_retrieve(
+        store,
+        "zebra quota",
+        HashEmbedder(dimensions=64),
+        top_k=1,
+        candidate_k=1,
+    )
+    assert session.sql.count(chunks_by_ids_sql()) == 2
+    assert any(chunk.id == "exact" for chunk in result.context)
+    assert all(chunk.text for chunk in result.context)
 
 
 def test_hybrid_fetches_uncached_candidates_in_one_query() -> None:

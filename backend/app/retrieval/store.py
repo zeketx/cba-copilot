@@ -137,9 +137,13 @@ def _vector_literal(values: list[float]) -> str:
     return "[" + ",".join(str(value) for value in values) + "]"
 
 def _chunk_from_row(row: object) -> Chunk:
-    body = getattr(row, "body", None)
-    if body is None:
-        body = row.text
+    mapping = getattr(row, "_mapping", None)
+    if mapping is not None:
+        raw = mapping["body"] if "body" in mapping else mapping.get("text")
+    elif hasattr(row, "body"):
+        raw = row.body
+    else:
+        raw = getattr(row, "text", None)
     return Chunk(
         id=str(row.id),
         article_number=row.article_number,
@@ -147,7 +151,7 @@ def _chunk_from_row(row: object) -> Chunk:
         section=row.section or "",
         page_start=row.page_start,
         page_end=row.page_end,
-        text=body or "",
+        text=raw or "",
         source_url=row.source_url or "",
     )
 
@@ -165,7 +169,7 @@ def _document_from_row(row: object) -> DocumentMeta:
     )
 
 def postgres_session_factory(database_url: str) -> Callable[[], Session]:
-    engine = create_engine(database_url)
+    engine = create_engine(database_url, pool_pre_ping=True)
     return sessionmaker(bind=engine)
 
 
@@ -256,7 +260,8 @@ class PostgresChunkStore:
         for row in context_rows:
             if row.kind == "chunk":
                 chunk = _chunk_from_row(row)
-                self._chunks[chunk.id] = chunk
+                if chunk.text:
+                    self._chunks[chunk.id] = chunk
                 if chunk.article_number in grouped:
                     grouped[chunk.article_number].append(chunk)
                 continue
