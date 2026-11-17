@@ -51,7 +51,7 @@ export const COURT_LAYERS: readonly CourtLayer[] = [
     height: 855,
     zIndex: 3,
     inFlow: false,
-    mobile: { right: "-2%", bottom: "14%", height: "400px", width: "auto" },
+    mobile: { right: "-2%", bottom: "14%", height: "min(400px, 42vh)", width: "auto" },
     desktop: {
       right: "6%",
       bottom: "20%",
@@ -67,7 +67,7 @@ export const COURT_LAYERS: readonly CourtLayer[] = [
     height: 855,
     zIndex: 5,
     inFlow: false,
-    mobile: { right: "-2%", bottom: "14%", height: "400px", width: "auto" },
+    mobile: { right: "-2%", bottom: "14%", height: "min(400px, 42vh)", width: "auto" },
     desktop: {
       right: "6%",
       bottom: "20%",

@@ -6,21 +6,25 @@ import "./landing.css";
 import { Sources } from "./Sources";
 
 type LandingPageProps = {
-  onGetAccess: () => void;
+  onRequestAccess: () => void;
+  onSignIn: () => void;
 };
 
-export function LandingPage({ onGetAccess }: LandingPageProps) {
+export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
   return (
     <div id="top" className="landing-page">
       <a className="landing-skip" href="#how">
         Skip to how it works
       </a>
-      <Hero onGetAccess={onGetAccess} />
-      <HowItWorks />
+      <Hero onRequestAccess={onRequestAccess} onSignIn={onSignIn} />
       <Example />
+      <HowItWorks />
       <Sources />
-      <Faq />
-      <p className="landing-footer">Cited answers from the 2023 CBA. Not legal advice.</p>
+      <Faq onSignIn={onSignIn} />
+      <p className="landing-footer">
+        Cited answers from the 2023 NBA–NBPA Collective Bargaining Agreement. Not legal advice. Not
+        affiliated with the NBA or NBPA.
+      </p>
     </div>
   );
 }

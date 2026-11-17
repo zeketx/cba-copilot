@@ -6,9 +6,9 @@ export function Sources() {
       <div className="landing-section-inner">
         <h2>Sources</h2>
         <p>
-          One corpus: the official 2023 Collective Bargaining Agreement PDF. Each citation names the
-          article, the section, and the printed page, and opens that page in the file. Unofficial
-          FAQs and rumor sites are not sources.
+          One corpus: the official 2023 NBA–NBPA Collective Bargaining Agreement PDF. Each citation
+          names the article, the section, and the printed page, and opens that page in the file.
+          Only the official agreement is a source.
         </p>
         <p className="mt-4">
           <a
@@ -17,7 +17,7 @@ export function Sources() {
             rel="noopener noreferrer"
             className="text-landing-olive underline decoration-landing-line underline-offset-4 hover:text-landing-olive-hover"
           >
-            Official 2023 CBA PDF
+            Official 2023 NBA–NBPA CBA PDF
           </a>
         </p>
       </div>

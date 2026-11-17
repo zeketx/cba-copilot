@@ -4,7 +4,7 @@ export function HowItWorks() {
       <div className="landing-section-inner">
         <h2>How it works</h2>
         <ol>
-          <li>Ask a question about the 2023 Collective Bargaining Agreement.</li>
+          <li>Ask a question about the 2023 NBA–NBPA Collective Bargaining Agreement.</li>
           <li>
             The copilot retrieves whole article and section passages from the official PDF — not
             snippets split across a page break.

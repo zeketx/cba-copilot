@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import { GET_ACCESS_HREF } from "./access";
+import { REQUEST_ACCESS_HREF, SIGN_IN_HREF } from "./access";
 import { CourtScene } from "./CourtScene";
 
 const NAV = [
@@ -9,13 +9,19 @@ const NAV = [
 ] as const;
 
 type HeroProps = {
-  onGetAccess: () => void;
+  onRequestAccess: () => void;
+  onSignIn: () => void;
 };
 
-export function Hero({ onGetAccess }: HeroProps) {
+export function Hero({ onRequestAccess, onSignIn }: HeroProps) {
+  function goToRequest(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    onRequestAccess();
+  }
+
   function goToSignIn(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    onGetAccess();
+    onSignIn();
   }
 
   return (
@@ -41,17 +47,23 @@ export function Hero({ onGetAccess }: HeroProps) {
             </a>
           ))}
         </nav>
-        <a href={GET_ACCESS_HREF} className="landing-btn" onClick={goToSignIn}>
-          Get access
+        <a
+          href={SIGN_IN_HREF}
+          className="text-[0.95rem] text-landing-muted no-underline hover:text-landing-ink"
+          onClick={goToSignIn}
+        >
+          Sign in
         </a>
       </header>
 
       <div className="landing-copy">
         <h1 className="landing-headline">The CBA, answered.</h1>
-        <p className="landing-sub">Every answer cited to the page.</p>
+        <p className="landing-sub">
+          Plain-language answers to the 2023 NBA CBA, every claim cited to the printed page.
+        </p>
         <div className="landing-actions">
-          <a href={GET_ACCESS_HREF} className="landing-btn" onClick={goToSignIn}>
-            Get access
+          <a href={REQUEST_ACCESS_HREF} className="landing-btn" onClick={goToRequest}>
+            Request access
           </a>
           <a href="#example" className="landing-btn-ghost">
             See an example

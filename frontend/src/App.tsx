@@ -5,7 +5,11 @@ import { StreamText } from "@/components/beautifui/StreamText";
 import ThinkingState from "@/components/beautifui/ThinkingState";
 import { CitedAnswer } from "@/components/chat/CitedAnswer";
 import { SourcePanel } from "@/components/chat/SourcePanel";
-import { GET_ACCESS_HREF } from "@/components/landing/access";
+import {
+  REQUEST_ACCESS_HREF,
+  SIGN_IN_HREF,
+  gateViewFromHash,
+} from "@/components/landing/access";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
 import {
@@ -95,14 +99,24 @@ export function App() {
     signInRedirect === "failed" ? "That sign-in link expired or was already used. Send a new one." : null,
   );
   const [notAllowed, setNotAllowed] = useState(false);
-  const [gateView, setGateView] = useState<"request" | "login">(() =>
-    signInRedirect === "failed" ? "login" : "request",
-  );
-  const [signInOpen, setSignInOpen] = useState(
-    () =>
-      signInRedirect === "failed" ||
-      (typeof window !== "undefined" && window.location.hash === GET_ACCESS_HREF),
-  );
+  const [gateView, setGateView] = useState<"request" | "login">(() => {
+    if (signInRedirect === "failed") {
+      return "login";
+    }
+    if (typeof window === "undefined") {
+      return "request";
+    }
+    return gateViewFromHash(window.location.hash) ?? "request";
+  });
+  const [signInOpen, setSignInOpen] = useState(() => {
+    if (signInRedirect === "failed") {
+      return true;
+    }
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return gateViewFromHash(window.location.hash) !== null;
+  });
   const [fixtureMode, setFixtureMode] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -140,13 +154,20 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (sessionToken !== null) {
-      return;
-    }
-    if (window.location.hash === GET_ACCESS_HREF) {
-      setGateView("login");
+    function syncHash() {
+      if (sessionToken !== null) {
+        return;
+      }
+      const view = gateViewFromHash(window.location.hash);
+      if (view === null) {
+        return;
+      }
+      setGateView(view);
       setSignInOpen(true);
     }
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
   }, [sessionToken]);
 
   useEffect(() => {
@@ -299,14 +320,33 @@ export function App() {
     }
   }
 
-  function openSignIn() {
-    setGateView("login");
+  function openGate(view: "request" | "login") {
+    setGateView(view);
     setSignInOpen(true);
+    const hash = view === "login" ? SIGN_IN_HREF : REQUEST_ACCESS_HREF;
+    if (window.location.hash !== hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${hash}`,
+      );
+    }
+  }
+
+  function openRequestAccess() {
+    openGate("request");
+  }
+
+  function openSignIn() {
+    openGate("login");
   }
 
   function onSignInOpenChange(open: boolean) {
     setSignInOpen(open);
-    if (!open && window.location.hash === GET_ACCESS_HREF) {
+    if (
+      !open &&
+      (window.location.hash === SIGN_IN_HREF || window.location.hash === REQUEST_ACCESS_HREF)
+    ) {
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     }
   }
@@ -612,7 +652,7 @@ export function App() {
         </DialogContent>
       </Dialog>
       {sessionToken === null ? (
-        <LandingPage onGetAccess={openSignIn} />
+        <LandingPage onRequestAccess={openRequestAccess} onSignIn={openSignIn} />
       ) : (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-page">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
