@@ -5,6 +5,12 @@ import { StreamText } from "@/components/beautifui/StreamText";
 import ThinkingState from "@/components/beautifui/ThinkingState";
 import { CitedAnswer } from "@/components/chat/CitedAnswer";
 import { SourcePanel } from "@/components/chat/SourcePanel";
+import {
+  REQUEST_ACCESS_HREF,
+  SIGN_IN_HREF,
+  gateViewFromHash,
+} from "@/components/landing/access";
+import { LandingPage } from "@/components/landing/LandingPage";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
 import {
   Dialog,
@@ -93,9 +99,24 @@ export function App() {
     signInRedirect === "failed" ? "That sign-in link expired or was already used. Send a new one." : null,
   );
   const [notAllowed, setNotAllowed] = useState(false);
-  const [gateView, setGateView] = useState<"request" | "login">(() =>
-    signInRedirect === "failed" ? "login" : "request",
-  );
+  const [gateView, setGateView] = useState<"request" | "login">(() => {
+    if (signInRedirect === "failed") {
+      return "login";
+    }
+    if (typeof window === "undefined") {
+      return "request";
+    }
+    return gateViewFromHash(window.location.hash) ?? "request";
+  });
+  const [signInOpen, setSignInOpen] = useState(() => {
+    if (signInRedirect === "failed") {
+      return true;
+    }
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return gateViewFromHash(window.location.hash) !== null;
+  });
   const [fixtureMode, setFixtureMode] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -131,6 +152,23 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    function syncHash() {
+      if (sessionToken !== null) {
+        return;
+      }
+      const view = gateViewFromHash(window.location.hash);
+      if (view === null) {
+        return;
+      }
+      setGateView(view);
+      setSignInOpen(true);
+    }
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, [sessionToken]);
 
   useEffect(() => {
     if (sessionToken === null) {
@@ -276,6 +314,40 @@ export function App() {
     setNotAllowed(false);
     if (reason === "session_ended") {
       setGateView("login");
+      setSignInOpen(true);
+    } else {
+      setSignInOpen(false);
+    }
+  }
+
+  function openGate(view: "request" | "login") {
+    setGateView(view);
+    setSignInOpen(true);
+    const hash = view === "login" ? SIGN_IN_HREF : REQUEST_ACCESS_HREF;
+    if (window.location.hash !== hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${hash}`,
+      );
+    }
+  }
+
+  function openRequestAccess() {
+    openGate("request");
+  }
+
+  function openSignIn() {
+    openGate("login");
+  }
+
+  function onSignInOpenChange(open: boolean) {
+    setSignInOpen(open);
+    if (
+      !open &&
+      (window.location.hash === SIGN_IN_HREF || window.location.hash === REQUEST_ACCESS_HREF)
+    ) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     }
   }
 
@@ -569,12 +641,8 @@ export function App() {
 
   return (
     <>
-      <Dialog open={sessionToken === null} onOpenChange={() => {}}>
-        <DialogContent
-          showCloseButton={false}
-          onEscapeKeyDown={(event) => event.preventDefault()}
-          onPointerDownOutside={(event) => event.preventDefault()}
-        >
+      <Dialog open={sessionToken === null && signInOpen} onOpenChange={onSignInOpenChange}>
+        <DialogContent showCloseButton>
           <div
             key={gateView}
             style={{ animation: "fade-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
@@ -584,7 +652,7 @@ export function App() {
         </DialogContent>
       </Dialog>
       {sessionToken === null ? (
-        <div className="h-dvh" />
+        <LandingPage onRequestAccess={openRequestAccess} onSignIn={openSignIn} />
       ) : (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-page">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
