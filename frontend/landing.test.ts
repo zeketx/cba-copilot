@@ -49,9 +49,9 @@ test("Request access opens the request view and Sign in opens login", () => {
 test("illustrative example uses the minimum-salary case, not second-apron", () => {
   const example = readFileSync(path.join(src, "components/landing/Example.tsx"), "utf8");
   assert.match(example, /Illustrative example/);
-  assert.match(example, /2023-24, 0 YOS/);
+  assert.match(example, /0 YOS · Exhibit C baseline/);
   assert.match(example, /What is the minimum salary for a player with 0 years of service\?/);
-  assert.match(example, /1,017,781/);
+  assert.match(example, /\$1,017,781/);
   assert.match(example, /corpus_cases\.yaml/);
   assert.doesNotMatch(example, /second-apron/);
 });

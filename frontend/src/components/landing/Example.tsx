@@ -24,10 +24,10 @@ export function Example() {
         </p>
         <div className="landing-example">
           <p className="landing-example-kicker">Illustrative example</p>
-          <p className="landing-example-label">2023-24, 0 YOS</p>
+          <p className="landing-example-label">0 YOS · Exhibit C baseline</p>
           <p className="landing-example-q">Q. {QUESTION}</p>
           <p className="landing-example-a">
-            Exhibit C Baseline Minimum Annual Salary Scale. 0 years of service, Year 1 is 1,017,781.
+            Exhibit C Baseline Minimum Annual Salary Scale. 0 years of service, Year 1 is $1,017,781.
             That cell is the baseline, not the 2023-24 amount. 2023-24 is Exhibit C adjusted by the
             percentage increase in the Salary Cap from 2022-23 to 2023-24. Later Salary Cap Years
             chain-adjust. The PDF states no adjusted dollar figure.
