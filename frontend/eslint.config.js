@@ -20,7 +20,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["security-headers.test.ts"],
+    files: ["security-headers.test.ts", "landing.test.ts"],
     languageOptions: {
       globals: globals.node,
     },

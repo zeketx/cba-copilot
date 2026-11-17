@@ -5,6 +5,8 @@ import { StreamText } from "@/components/beautifui/StreamText";
 import ThinkingState from "@/components/beautifui/ThinkingState";
 import { CitedAnswer } from "@/components/chat/CitedAnswer";
 import { SourcePanel } from "@/components/chat/SourcePanel";
+import { GET_ACCESS_HREF } from "@/components/landing/access";
+import { LandingPage } from "@/components/landing/LandingPage";
 import { DefinitionsSidebar } from "@/components/reference/DefinitionsSidebar";
 import {
   Dialog,
@@ -96,6 +98,11 @@ export function App() {
   const [gateView, setGateView] = useState<"request" | "login">(() =>
     signInRedirect === "failed" ? "login" : "request",
   );
+  const [signInOpen, setSignInOpen] = useState(
+    () =>
+      signInRedirect === "failed" ||
+      (typeof window !== "undefined" && window.location.hash === GET_ACCESS_HREF),
+  );
   const [fixtureMode, setFixtureMode] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -131,6 +138,16 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (sessionToken !== null) {
+      return;
+    }
+    if (window.location.hash === GET_ACCESS_HREF) {
+      setGateView("login");
+      setSignInOpen(true);
+    }
+  }, [sessionToken]);
 
   useEffect(() => {
     if (sessionToken === null) {
@@ -276,6 +293,21 @@ export function App() {
     setNotAllowed(false);
     if (reason === "session_ended") {
       setGateView("login");
+      setSignInOpen(true);
+    } else {
+      setSignInOpen(false);
+    }
+  }
+
+  function openSignIn() {
+    setGateView("login");
+    setSignInOpen(true);
+  }
+
+  function onSignInOpenChange(open: boolean) {
+    setSignInOpen(open);
+    if (!open && window.location.hash === GET_ACCESS_HREF) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     }
   }
 
@@ -569,12 +601,8 @@ export function App() {
 
   return (
     <>
-      <Dialog open={sessionToken === null} onOpenChange={() => {}}>
-        <DialogContent
-          showCloseButton={false}
-          onEscapeKeyDown={(event) => event.preventDefault()}
-          onPointerDownOutside={(event) => event.preventDefault()}
-        >
+      <Dialog open={sessionToken === null && signInOpen} onOpenChange={onSignInOpenChange}>
+        <DialogContent showCloseButton>
           <div
             key={gateView}
             style={{ animation: "fade-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
@@ -584,7 +612,7 @@ export function App() {
         </DialogContent>
       </Dialog>
       {sessionToken === null ? (
-        <div className="h-dvh" />
+        <LandingPage onGetAccess={openSignIn} />
       ) : (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-page">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
