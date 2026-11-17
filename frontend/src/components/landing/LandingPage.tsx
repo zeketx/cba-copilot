@@ -1,4 +1,3 @@
-import { Example } from "./Example";
 import { Faq } from "./Faq";
 import { Hero } from "./Hero";
 import { HowItWorks } from "./HowItWorks";
@@ -17,7 +16,6 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
         Skip to how it works
       </a>
       <Hero onRequestAccess={onRequestAccess} onSignIn={onSignIn} />
-      <Example />
       <HowItWorks />
       <Sources />
       <Faq onSignIn={onSignIn} />

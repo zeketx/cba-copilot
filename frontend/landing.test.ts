@@ -38,6 +38,8 @@ test("Request access opens the request view and Sign in opens login", () => {
   assert.match(hero, /onRequestAccess\(\)/);
   assert.match(hero, /onSignIn\(\)/);
   assert.doesNotMatch(hero, /Get access/);
+  assert.doesNotMatch(hero, /See an example/);
+  assert.doesNotMatch(hero, /#example/);
 
   const app = readFileSync(path.join(src, "App.tsx"), "utf8");
   assert.match(app, /function openRequestAccess\(\) \{/);
@@ -46,14 +48,14 @@ test("Request access opens the request view and Sign in opens login", () => {
   assert.match(app, /openGate\("login"\)/);
 });
 
-test("illustrative example uses the minimum-salary case, not second-apron", () => {
-  const example = readFileSync(path.join(src, "components/landing/Example.tsx"), "utf8");
-  assert.match(example, /Illustrative example/);
-  assert.match(example, /0 YOS · Exhibit C baseline/);
-  assert.match(example, /What is the minimum salary for a player with 0 years of service\?/);
-  assert.match(example, /\$1,017,781/);
-  assert.match(example, /corpus_cases\.yaml/);
-  assert.doesNotMatch(example, /second-apron/);
+test("homepage has no example section, component, or styles", () => {
+  assert.equal(existsSync(path.join(src, "components/landing/Example.tsx")), false);
+  const page = readFileSync(path.join(src, "components/landing/LandingPage.tsx"), "utf8");
+  assert.doesNotMatch(page, /Example/);
+  const css = readFileSync(path.join(src, "components/landing/landing.css"), "utf8");
+  assert.doesNotMatch(css, /landing-example/);
+  assert.doesNotMatch(css, /landing-chip/);
+  assert.doesNotMatch(css, /landing-btn-ghost/);
 });
 
 test("court layers list only the pieces the page uses, with sizes", () => {

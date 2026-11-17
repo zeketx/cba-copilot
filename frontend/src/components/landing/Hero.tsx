@@ -65,9 +65,6 @@ export function Hero({ onRequestAccess, onSignIn }: HeroProps) {
           <a href={REQUEST_ACCESS_HREF} className="landing-btn" onClick={goToRequest}>
             Request access
           </a>
-          <a href="#example" className="landing-btn-ghost">
-            See an example
-          </a>
         </div>
       </div>
 

@@ -63,37 +63,23 @@ body:has(.landing-page) {
   font-family: var(--landing-serif);
 }
 
-.landing-btn,
-.landing-btn-ghost {
+.landing-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 0;
   border-radius: 999px;
   padding: 0.55rem 1.15rem;
+  background: var(--landing-olive);
+  color: var(--landing-cream);
   font-size: 0.9rem;
   font-weight: 500;
   line-height: 1.2;
   text-decoration: none;
 }
 
-.landing-btn {
-  border: 0;
-  background: var(--landing-olive);
-  color: var(--landing-cream);
-}
-
 .landing-btn:hover {
   background: var(--landing-olive-hover);
-}
-
-.landing-btn-ghost {
-  border: 1px solid var(--landing-line);
-  background: transparent;
-  color: var(--landing-ink);
-}
-
-.landing-btn-ghost:hover {
-  background: color-mix(in srgb, var(--landing-ink) 4%, transparent);
 }
 
 .landing-hero {
@@ -374,51 +360,6 @@ body:has(.landing-page) {
 
 .landing-faq p {
   margin: 0;
-}
-
-.landing-example {
-  margin-top: 1.25rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--landing-line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--landing-cream) 88%, white);
-}
-
-.landing-example-kicker {
-  margin: 0 0 0.2rem;
-  color: var(--landing-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.landing-example-label {
-  margin: 0 0 0.7rem;
-  font-family: ui-monospace, "SF Mono", monospace;
-  font-size: 0.82rem;
-}
-
-.landing-example-q {
-  margin: 0 0 0.65rem;
-  color: var(--landing-muted);
-  font-size: 0.92rem;
-}
-
-.landing-example-a {
-  margin: 0;
-}
-
-.landing-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.1rem 0.4rem;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--landing-ink) 6%, var(--landing-cream));
-  font-family: ui-monospace, "SF Mono", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0;
-  vertical-align: 0.05em;
 }
 
 .landing-footer {
