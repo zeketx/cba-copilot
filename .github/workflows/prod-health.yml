@@ -1,0 +1,62 @@
+name: prod-health
+
+on:
+  schedule:
+    - cron: "0 14 * * *" # 8 AM CT
+    - cron: "0 23 * * *" # 5 PM CT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Frontend returns HTTP 200
+        run: |
+          set -euo pipefail
+          url="https://cba-copilot.up.railway.app/"
+          code=$(curl --silent --show-error --max-time 20 --retry 2 \
+            --output /dev/null --write-out "%{http_code}" "$url") \
+            || { echo "frontend: request failed (timeout or network)"; exit 1; }
+          if [ "$code" != "200" ]; then
+            echo "frontend: expected HTTP 200 from $url, got $code"
+            exit 1
+          fi
+
+      - name: API health is live
+        run: |
+          set -euo pipefail
+          url="https://cba-copilot-api.up.railway.app/api/health"
+          body="$(mktemp)"
+          code=$(curl --silent --show-error --max-time 20 --retry 2 \
+            --output "$body" --write-out "%{http_code}" "$url") \
+            || { echo "api: request failed (timeout or network)"; exit 1; }
+          if [ "$code" != "200" ]; then
+            echo "api: expected HTTP 200 from $url, got $code"
+            exit 1
+          fi
+          python3 - "$body" <<'PY'
+          import json
+          import sys
+
+          path = sys.argv[1]
+          try:
+              payload = json.load(open(path, encoding="utf-8"))
+          except (OSError, json.JSONDecodeError):
+              print("api: health body is not JSON")
+              sys.exit(1)
+          if not isinstance(payload, dict):
+              print("api: health body is not a JSON object")
+              sys.exit(1)
+          mode = payload.get("mode")
+          ok = payload.get("ok")
+          if mode != "live":
+              print(f"api: expected mode='live', got {mode!r}")
+              sys.exit(1)
+          if ok is not True and ok != "true":
+              print(f"api: expected ok true, got {ok!r}")
+              sys.exit(1)
+          PY
