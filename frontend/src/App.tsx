@@ -171,6 +171,15 @@ export function App() {
   }, [sessionToken]);
 
   useEffect(() => {
+    const signedIn = sessionToken !== null;
+    document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>("[data-landing-kit]").forEach((el) => {
+      if ("disabled" in el) {
+        el.disabled = signedIn;
+      }
+    });
+  }, [sessionToken]);
+
+  useEffect(() => {
     if (sessionToken === null) {
       return;
     }
@@ -535,7 +544,7 @@ export function App() {
           <DialogDescription>Leave an email. This does not create an account.</DialogDescription>
         </DialogHeader>
         {sessionEndedNotice}
-        <label className="sr-only" htmlFor="access-email">
+        <label className="mt-4 block text-[13px] font-medium text-ink" htmlFor="access-email">
           Email
         </label>
         <Input
@@ -545,13 +554,13 @@ export function App() {
           value={requestEmail}
           onChange={(event) => setRequestEmail(event.target.value)}
           placeholder="you@example.com"
-          className="mt-4"
+          className="mt-1.5"
         />
         <Button
           type="submit"
           variant="primary"
           size="md"
-          className="mt-4 w-full"
+          className="mt-4 w-full bg-[var(--p-action,#1f2124)] text-[var(--p-action-ink,#ffffff)]"
           disabled={requestState === "sending"}
         >
           Request access
@@ -606,7 +615,7 @@ export function App() {
           </DialogDescription>
         </DialogHeader>
         {sessionEndedNotice}
-        <label className="sr-only" htmlFor="sign-in-email">
+        <label className="mt-4 block text-[13px] font-medium text-ink" htmlFor="sign-in-email">
           Sign-in email
         </label>
         <Input
@@ -619,9 +628,14 @@ export function App() {
             setSignInEmail(event.target.value);
           }}
           placeholder="you@example.com"
-          className="mt-4"
+          className="mt-1.5"
         />
-        <Button type="submit" variant="primary" size="md" className="mt-4 w-full">
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          className="mt-4 w-full bg-[var(--p-action,#1f2124)] text-[var(--p-action-ink,#ffffff)]"
+        >
           Send sign-in link
         </Button>
         {signInNotice ? <p className="mt-3 text-[13px] text-ink-3">{signInNotice}</p> : null}

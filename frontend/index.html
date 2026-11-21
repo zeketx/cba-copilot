@@ -1,9 +1,97 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type="software" data-radius="soft" data-ground="sage" data-buttons="pill" data-motion>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-    <title>CBA Copilot</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <title>CBA Copilot: 2023 NBA CBA research for front offices</title>
+    <meta
+      name="description"
+      content="Ask plain-language questions across all 676 pages of the 2023 NBA-NBPA Collective Bargaining Agreement, with every claim cited to its article, section, and printed page."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CBA Copilot: 2023 NBA CBA research for front offices" />
+    <meta
+      property="og:description"
+      content="Plain-language answers across all 676 pages of the 2023 NBA-NBPA CBA, every claim verified against the official PDF."
+    />
+    <meta property="og:image" content="/share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#ecebe7" />
+    <!-- <link rel="canonical" href="https://[domain]/"> -->
+    <meta name="site-kind" content="software" />
+    <meta name="page-type" content="software" />
+    <link data-landing-kit rel="stylesheet" href="/assets/system.css" />
+    <link data-landing-kit rel="stylesheet" href="/assets/ui/cards.css" />
+    <link data-landing-kit rel="stylesheet" href="/assets/motion/motion.css" />
+    <link data-landing-kit rel="stylesheet" href="/assets/backgrounds/backgrounds.css" />
+    <link data-landing-kit rel="stylesheet" href="/assets/layout/layout.css" />
+    <link data-landing-kit rel="stylesheet" href="/assets/ui/base.css" />
+    <link data-landing-kit rel="stylesheet" href="/assets/ui/doc/fragment.css" />
+    <style data-landing-kit>
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("/fonts/instrument-serif-latin-normal.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("/fonts/instrument-serif-latin-italic.woff2") format("woff2");
+        font-weight: 400;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        src: url("/fonts/instrument-sans-latin-wght.woff2") format("woff2");
+        font-weight: 400 600;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("/fonts/jetbrains-mono-latin-wght.woff2") format("woff2");
+        font-weight: 400 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      :root {
+        --p-bg: #ecebe7;
+        --p-surface: #e1dfd9;
+        --p-ink: #1e240d;
+        --p-muted: #515b31;
+        --p-accent: #38450f;
+        --p-accent-ink: #ecebe7;
+        --p-action: #38450f;
+        --p-action-ink: #ecebe7;
+        --p-inv-bg: #14170e;
+        --p-inv-surface: #1f2416;
+        --p-inv-ink: #ecebe7;
+        --p-inv-muted: #b7bca9;
+        --p-inv-accent: #ecebe7;
+        --p-inv-accent-ink: #14170e;
+        --p-inv-action: #ecebe7;
+        --p-inv-action-ink: #14170e;
+        --font-display: "Instrument Serif", Georgia, serif;
+        --font-text: "Instrument Sans", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        --display-weight: 400;
+        --display-tracking: -0.015em;
+        --display-tracking-xl: -0.022em;
+        --ly-scale: 1.14;
+      }
+    </style>
+    <script>
+      document.documentElement.classList.add("m-enter", "mo-js");
+      setTimeout(() => document.documentElement.classList.add("m-enter-done"), 700);
+      setTimeout(() => document.documentElement.classList.add("mo-safe"), 2500);
+    </script>
+    <script src="/assets/backgrounds/backgrounds.js"></script>
   </head>
   <body>
     <div id="root"></div>

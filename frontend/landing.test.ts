@@ -8,20 +8,32 @@ import {
   SIGN_IN_HREF,
   gateViewFromHash,
 } from "./src/components/landing/access.ts";
-import { BALL_LAYER, COURT_LAYERS } from "./src/components/landing/layers.ts";
+import { CBA_THREAD_EXAMPLES } from "./src/components/landing/cba-examples.ts";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const assets = path.join(root, "src/assets/landing");
 const src = path.join(root, "src");
+const assets = path.join(src, "assets/landing");
+const fonts = path.join(root, "public/fonts");
 
-test("logged-out visitors get the landing page", () => {
+test("logged-out visitors get the redesigned landing page", () => {
   const app = readFileSync(path.join(src, "App.tsx"), "utf8");
   assert.match(app, /sessionToken === null \? \(/);
   assert.match(app, /<LandingPage onRequestAccess=\{openRequestAccess\} onSignIn=\{openSignIn\} \/>/);
-  assert.doesNotMatch(app, /sessionToken === null \? \(\s*<div className="h-dvh"/);
-  const hero = readFileSync(path.join(src, "components/landing/Hero.tsx"), "utf8");
-  assert.match(hero, /The CBA, answered/);
-  assert.match(hero, /<h1 className="landing-headline">The CBA, answered\.<\/h1>/);
+
+  const page = readFileSync(path.join(src, "components/landing/LandingPage.tsx"), "utf8");
+  assert.match(page, /2023 NBA CBA research for/);
+  assert.match(page, /Citation checks/);
+  assert.match(page, /cba-manifesto/);
+  assert.match(page, /refuses instead of/);
+  assert.doesNotMatch(page, /data-moment="letters-assemble"/);
+  assert.doesNotMatch(page, /cba-hero-emblem|cba-court-lines/);
+  assert.doesNotMatch(page, /cba-hero-bust-peek|cba-cutout-hand|hand-cutout/);
+  assert.doesNotMatch(
+    page,
+    /Approved emails sign in with a magic link\. No passwords, and no shared team accounts\./,
+  );
+  assert.match(page, /nav__wordmark/);
+  assert.match(page, /Sign in with a magic link/);
 });
 
 test("Request access opens the request view and Sign in opens login", () => {
@@ -31,15 +43,12 @@ test("Request access opens the request view and Sign in opens login", () => {
   assert.equal(gateViewFromHash("#sign-in"), "login");
   assert.equal(gateViewFromHash(""), null);
 
-  const hero = readFileSync(path.join(src, "components/landing/Hero.tsx"), "utf8");
-  assert.match(hero, /href=\{REQUEST_ACCESS_HREF\}/);
-  assert.match(hero, /Request access/);
-  assert.match(hero, /href=\{SIGN_IN_HREF\}/);
-  assert.match(hero, /onRequestAccess\(\)/);
-  assert.match(hero, /onSignIn\(\)/);
-  assert.doesNotMatch(hero, /Get access/);
-  assert.doesNotMatch(hero, /See an example/);
-  assert.doesNotMatch(hero, /#example/);
+  const page = readFileSync(path.join(src, "components/landing/LandingPage.tsx"), "utf8");
+  assert.match(page, /href=\{REQUEST_ACCESS_HREF\}/);
+  assert.match(page, /Request access/);
+  assert.match(page, /href=\{SIGN_IN_HREF\}/);
+  assert.match(page, /onRequestAccess\(\)/);
+  assert.match(page, /onSignIn\(\)/);
 
   const app = readFileSync(path.join(src, "App.tsx"), "utf8");
   assert.match(app, /function openRequestAccess\(\) \{/);
@@ -48,29 +57,45 @@ test("Request access opens the request view and Sign in opens login", () => {
   assert.match(app, /openGate\("login"\)/);
 });
 
-test("homepage has no example section, component, or styles", () => {
-  assert.equal(existsSync(path.join(src, "components/landing/Example.tsx")), false);
-  const page = readFileSync(path.join(src, "components/landing/LandingPage.tsx"), "utf8");
-  assert.doesNotMatch(page, /Example/);
-  const css = readFileSync(path.join(src, "components/landing/landing.css"), "utf8");
-  assert.doesNotMatch(css, /landing-example/);
-  assert.doesNotMatch(css, /landing-chip/);
-  assert.doesNotMatch(css, /landing-btn-ghost/);
+test("workspace examples include verified 2023 CBA citations with PDF page offsets", () => {
+  assert.ok(CBA_THREAD_EXAMPLES.length >= 3);
+  for (const example of CBA_THREAD_EXAMPLES) {
+    assert.ok(example.question.length > 10);
+    assert.ok(example.claims.length >= 2);
+    assert.ok(example.citations.length >= 1);
+    for (const citation of example.citations) {
+      assert.ok(citation.pdfPage > 24);
+      assert.ok(citation.passage.length > 80);
+    }
+  }
 });
 
-test("court layers list only the pieces the page uses, with sizes", () => {
-  assert.deepEqual(
-    COURT_LAYERS.map((layer) => layer.id),
-    ["stands", "court", "hoop-back", "hoop-front"],
-  );
-  for (const layer of COURT_LAYERS) {
-    assert.ok(layer.width > 0);
-    assert.ok(layer.height > 0);
-    assert.equal(existsSync(path.join(assets, layer.file)), true, layer.file);
+test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with SOURCES.md", () => {
+  const html = readFileSync(path.join(root, "index.html"), "utf8");
+  assert.doesNotMatch(html, /fonts\.googleapis\.com/);
+  assert.doesNotMatch(html, /fonts\.gstatic\.com/);
+
+  for (const fontFile of [
+    "instrument-serif-latin-normal.woff2",
+    "instrument-serif-latin-italic.woff2",
+    "instrument-sans-latin-wght.woff2",
+    "jetbrains-mono-latin-wght.woff2",
+  ]) {
+    assert.equal(existsSync(path.join(fonts, fontFile)), true, fontFile);
   }
-  const hoop = COURT_LAYERS.find((layer) => layer.id === "hoop-back");
-  assert.equal(hoop?.mobile.height, "min(400px, 42vh)");
-  assert.equal(existsSync(path.join(assets, BALL_LAYER.file)), true);
-  assert.equal(existsSync(path.join(assets, "court-angle.webp")), false);
-  assert.equal(existsSync(path.join(assets, "ball-sheet-source.webp")), false);
+
+  assert.equal(existsSync(path.join(assets, "bust-cutout.webp")), true);
+  assert.equal(existsSync(path.join(assets, "hand-cutout.webp")), false);
+  assert.equal(existsSync(path.join(assets, "sandal-cutout.webp")), false);
+
+  for (const retired of ["court.webp", "stands.webp", "hoop-back.webp", "hoop-front.webp", "ball-sheet.webp"]) {
+    assert.equal(existsSync(path.join(assets, retired)), false, retired);
+  }
+
+  const sources = readFileSync(path.join(assets, "SOURCES.md"), "utf8");
+  assert.match(sources, /AI-generated/);
+
+  const css = readFileSync(path.join(src, "components/landing/landing.css"), "utf8");
+  assert.doesNotMatch(css, /#c44d2d/i);
+  assert.doesNotMatch(css, /cba-hero-emblem|cba-court-lines|cba-hero-bust-peek|cba-cutout-hand/);
 });

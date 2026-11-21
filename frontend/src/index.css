@@ -15,6 +15,13 @@ body,
   min-width: 0;
 }
 
+html:has(.cba-landing),
+body:has(.cba-landing),
+#root:has(.cba-landing) {
+  height: auto;
+  overflow-x: clip;
+}
+
 body {
   overflow-x: hidden;
 }
