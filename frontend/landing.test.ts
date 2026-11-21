@@ -76,9 +76,11 @@ test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with S
     assert.equal(existsSync(path.join(fonts, fontFile)), true, fontFile);
   }
 
-  for (const cutout of ["bust-cutout.webp", "hand-cutout.webp", "sandal-cutout.webp"]) {
+  for (const cutout of ["bust-cutout.webp", "hand-cutout.webp"]) {
     assert.equal(existsSync(path.join(assets, cutout)), true, cutout);
   }
+
+  assert.equal(existsSync(path.join(assets, "sandal-cutout.webp")), false);
 
   for (const retired of ["court.webp", "stands.webp", "hoop-back.webp", "hoop-front.webp", "ball-sheet.webp"]) {
     assert.equal(existsSync(path.join(assets, retired)), false, retired);

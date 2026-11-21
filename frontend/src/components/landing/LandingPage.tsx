@@ -1,7 +1,6 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import bustCutout from "@/assets/landing/bust-cutout.webp";
 import handCutout from "@/assets/landing/hand-cutout.webp";
-import sandalCutout from "@/assets/landing/sandal-cutout.webp";
 import corpus from "../../../../data/corpus.json";
 import { REQUEST_ACCESS_HREF, SIGN_IN_HREF } from "./access";
 import { CBA_THREAD_EXAMPLES } from "./cba-examples";
@@ -168,15 +167,10 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                 </div>
                 <p className="hero__proof">
                   Grounded in the{" "}
-                  <a
-                    className="link"
-                    href={corpus.pdf_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    official 2023 NBA-NBPA CBA PDF
+                  <a href={corpus.pdf_url} target="_blank" rel="noopener noreferrer">
+                    official 2023 NBA-NBPA CBA
                   </a>{" "}
-                  (676 printed pages).
+                  (676 pages).
                 </p>
                 <div className="cba-hero-emblem" aria-hidden="true">
                   <svg className="cba-court-lines" viewBox="0 0 280 96" fill="none">
@@ -185,14 +179,6 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                     <rect x="78" y="34" width="80" height="61" stroke="currentColor" strokeWidth="1" />
                     <circle cx="118" cy="34" r="22" stroke="currentColor" strokeWidth="1" />
                   </svg>
-                  <img
-                    className="cba-cutout-sandal"
-                    src={sandalCutout}
-                    alt=""
-                    width={440}
-                    height={312}
-                    decoding="async"
-                  />
                 </div>
               </div>
 

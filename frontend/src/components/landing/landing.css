@@ -106,15 +106,27 @@ body:has(.cba-landing) {
   font-size: var(--t-small);
   color: var(--ink);
   margin: 0;
+  text-wrap: pretty;
 }
 
-/* Subtle neoclassical basketball emblem tucked in hero left column */
+.cba-landing .hero__proof a {
+  display: inline;
+  font-weight: 500;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklab, var(--ink) 42%, transparent);
+}
+
+.cba-landing .hero__proof a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Court hairlines under the proof line — no cutout slot */
 .cba-hero-emblem {
   position: relative;
-  margin-top: var(--s-5);
-  height: 112px;
-  display: flex;
-  align-items: flex-end;
+  margin-top: var(--s-4);
+  height: 56px;
   pointer-events: none;
   user-select: none;
 }
@@ -123,20 +135,10 @@ body:has(.cba-landing) {
   position: absolute;
   left: 0;
   bottom: 0;
-  width: 280px;
-  height: 96px;
+  width: 200px;
+  height: 56px;
   color: var(--ink);
   opacity: 0.14;
-}
-
-.cba-cutout-sandal {
-  position: relative;
-  z-index: 1;
-  margin-left: 34px;
-  height: 102px;
-  width: auto;
-  object-fit: contain;
-  filter: contrast(1.06) drop-shadow(0 10px 16px rgb(28 27 24 / 0.14));
 }
 
 /* Hero product window — crisp floating card with subtle torn-paper left edge accent */
@@ -235,6 +237,7 @@ body:has(.cba-landing) {
   font-size: 13px;
   line-height: 1.5;
   color: #242c13;
+  overflow-wrap: break-word;
 }
 
 .cba-win__ans p {
@@ -749,6 +752,12 @@ body:has(.cba-landing) {
 }
 
 @media (max-width: 639px) {
+  .cba-landing .hero__proof {
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: none;
+  }
+
   .cba-win__body {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;
@@ -759,7 +768,7 @@ body:has(.cba-landing) {
   }
 
   .cba-win__main {
-    padding: 12px 14px;
+    padding: 12px calc(var(--ly-cut-room, 48px) + 4px) 14px 14px;
   }
 
   .cba-win__ans p:nth-of-type(2) {
