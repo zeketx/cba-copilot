@@ -85,8 +85,22 @@ body:has(.cba-landing) {
   z-index: 2;
 }
 
-.hero__art > .ly-piece--note {
+/* In front of the product window; the grounding card stays above this. */
+.cba-hero-bust-front {
+  position: absolute;
+  left: 0;
+  bottom: 56px;
+  width: 240px;
+  height: auto;
   z-index: 3;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+  filter: contrast(1.06) drop-shadow(0 14px 22px rgb(28 27 24 / 0.16));
+}
+
+.hero__art > .ly-piece--note {
+  z-index: 4;
 }
 
 .hero__proof {
@@ -235,7 +249,7 @@ body:has(.cba-landing) {
   left: var(--s-6);
   bottom: var(--s-6);
   width: 312px;
-  z-index: 2;
+  z-index: 4;
 }
 
 .cba-note {
@@ -679,6 +693,10 @@ body:has(.cba-landing) {
 
 /* Responsive rules */
 @media (max-width: 1023px) {
+  .cba-hero-bust-front {
+    display: none;
+  }
+
   .hero__art > .ly-piece--note {
     left: var(--s-4);
     bottom: var(--s-4);

@@ -2,11 +2,12 @@
 
 ## Monochrome Marble Cutouts
 
-The decorative monochrome cutout in this directory was **AI-generated** during a T3 Code design session on this branch (`feat/landing-page-design`), knocked out from a pure white background to transparent WebP:
+The decorative monochrome cutouts in this directory were **AI-generated** during T3 Code design sessions, knocked out from a pure white background to transparent WebP:
 
 - `bust-cutout.webp` (341×480) — Isolated monochrome Greco-Roman marble bust cutout. AI-generated in T3 session.
+- `bust-thinking-cutout.webp` (520×694) — AI-generated thinking-pose marble bust, hand to chin, transparent WebP. No logos or likenesses. Decorative.
 
-This asset does not contain NBA or team logos, player likenesses, or third-party trademarks. It is decorative (`alt=""`, `aria-hidden="true"`).
+These assets do not contain NBA or team logos, player likenesses, or third-party trademarks. They are decorative (`alt=""`, `aria-hidden="true"`).
 
 ## Self-Hosted Typography (`frontend/public/fonts/`)
 
