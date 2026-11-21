@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
-import bustCutout from "@/assets/landing/bust-cutout.png";
-import handCutout from "@/assets/landing/hand-cutout.png";
-import sandalCutout from "@/assets/landing/sandal-cutout.png";
+import bustCutout from "@/assets/landing/bust-cutout.webp";
+import handCutout from "@/assets/landing/hand-cutout.webp";
+import sandalCutout from "@/assets/landing/sandal-cutout.webp";
 import corpus from "../../../../data/corpus.json";
 import { REQUEST_ACCESS_HREF, SIGN_IN_HREF } from "./access";
 import { CBA_THREAD_EXAMPLES } from "./cba-examples";
@@ -167,7 +167,16 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                   </a>
                 </div>
                 <p className="hero__proof">
-                  One corpus: the official 2023 NBA-NBPA CBA PDF, effective 2023 to 2030.
+                  Grounded in the{" "}
+                  <a
+                    className="link"
+                    href={corpus.pdf_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    official 2023 NBA-NBPA CBA PDF
+                  </a>{" "}
+                  (676 printed pages).
                 </p>
                 <div className="cba-hero-emblem" aria-hidden="true">
                   <svg className="cba-court-lines" viewBox="0 0 280 96" fill="none">
@@ -181,7 +190,7 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                     src={sandalCutout}
                     alt=""
                     width={440}
-                    height={316}
+                    height={312}
                     decoding="async"
                   />
                 </div>
@@ -194,6 +203,15 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                 role="img"
                 aria-label="CBA Copilot answering a second-apron trade question with inline citations to Article VII, Section 2(e)(4), printed page 190, and a grounding verification card"
               >
+                <img
+                  className="cba-hero-bust-peek"
+                  src={bustCutout}
+                  alt=""
+                  aria-hidden="true"
+                  width={341}
+                  height={480}
+                  decoding="async"
+                />
                 <div className="ly-piece ly-piece--main cba-win" aria-hidden="true">
                   <div className="cba-win__bar">
                     <span className="cba-win__dots">
@@ -503,15 +521,25 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                 <h2 id="corpus-h" className="mo-la__type">
                   One CBA corpus
                 </h2>
-                <p className="mo-la__sub">
-                  One document powers every answer: the official 2023 NBA-NBPA Collective Bargaining
-                  Agreement, indexed on article and section boundaries.
+                <p className="mo-la__sub cba-manifesto">
+                  <span className="cba-manifesto__strong">
+                    Plain-language answers from the 2023 NBA-NBPA Collective Bargaining Agreement,
+                    cited to the printed page.
+                  </span>{" "}
+                  <span className="cba-manifesto__mid">
+                    Uncited claims are dropped before an answer prints,
+                  </span>{" "}
+                  <span className="cba-manifesto__soft">
+                    and when the agreement does not cover a question, CBA Copilot refuses instead of
+                    guessing.
+                  </span>
                 </p>
               </div>
               <img
                 className="cba-cutout-hand"
                 src={handCutout}
-                alt="Monochrome classical marble sculptural hand pointing toward the CBA corpus heading"
+                alt=""
+                aria-hidden="true"
                 width={215}
                 height={480}
                 loading="lazy"
@@ -579,7 +607,8 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                 <img
                   className="cba-cutout-bust"
                   src={bustCutout}
-                  alt="Monochrome classical marble bust cutout"
+                  alt=""
+                  aria-hidden="true"
                   width={341}
                   height={480}
                   loading="lazy"

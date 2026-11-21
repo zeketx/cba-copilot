@@ -15,7 +15,6 @@ body:has(.cba-landing) {
   min-height: 100%;
   --accent: var(--p-accent);
   --line: color-mix(in oklab, var(--p-ink) 14%, transparent);
-  --cba-pop: #c44d2d;
 }
 
 /* Subtle archival print paper grain across the page */
@@ -49,11 +48,23 @@ body:has(.cba-landing) {
   border: 1px solid color-mix(in oklab, var(--ink) 42%, transparent);
 }
 
-/* Editorial serif emphasis (Every.to print accent) */
+/* Editorial serif emphasis — larger, higher-contrast hero headline */
+.cba-landing .hero--collage h1 {
+  font-size: clamp(46px, 5.2vw, 76px);
+  line-height: 0.97;
+  letter-spacing: -0.024em;
+  color: #161b08;
+}
+
 .cba-landing h1 em,
 .cba-landing h2 em {
   font-style: italic;
   font-weight: 400;
+  color: var(--p-accent);
+}
+
+.cba-landing footer.ground-inverse h2 em {
+  color: var(--p-inv-ink);
 }
 
 .cba-landing .nav__logo {
@@ -62,12 +73,33 @@ body:has(.cba-landing) {
   letter-spacing: -0.01em;
 }
 
-/* Hero collage frame (lit sage ground + fluted-glass) */
+/* Hero collage frame (lit sage ground + fluted-glass + subtle marble bust piece behind floating UI) */
 .hero__art {
   background:
     radial-gradient(70% 60% at 18% 12%, color-mix(in oklab, var(--ground-surface) 80%, white), transparent 70%),
     radial-gradient(60% 50% at 90% 100%, color-mix(in oklab, var(--ground-bg) 80%, var(--ground-accent)), transparent 70%),
     var(--ground-bg);
+}
+
+.cba-hero-bust-peek {
+  position: absolute;
+  right: -26px;
+  bottom: -14px;
+  width: 230px;
+  height: auto;
+  z-index: 1;
+  opacity: 0.92;
+  filter: contrast(1.08) drop-shadow(0 16px 24px rgb(20 23 14 / 0.22));
+  pointer-events: none;
+  user-select: none;
+}
+
+.hero__art > .ly-piece--main {
+  z-index: 2;
+}
+
+.hero__art > .ly-piece--note {
+  z-index: 3;
 }
 
 .hero__proof {
@@ -107,14 +139,16 @@ body:has(.cba-landing) {
   filter: contrast(1.06) drop-shadow(0 10px 16px rgb(28 27 24 / 0.14));
 }
 
-/* Hero product window */
+/* Hero product window — crisp floating card with subtle torn-paper left edge accent */
 .cba-win {
   background: #ffffff;
   color: #1a210c;
   border-radius: 12px;
   overflow: hidden;
   font: 400 13.5px/1.45 var(--font-text);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08), 0 24px 60px -28px rgb(0 0 0 / 0.38);
+  box-shadow:
+    0 0 0 1px rgb(20 23 14 / 0.1),
+    0 28px 64px -26px rgb(20 23 14 / 0.42);
   text-align: left;
 }
 
@@ -575,9 +609,23 @@ body:has(.cba-landing) {
 }
 
 #corpus .mo-la__sub {
-  max-width: 58ch;
+  max-width: 56ch;
   margin-top: var(--s-4);
+  font-size: clamp(19px, 1.8vw, 24px);
+  line-height: 1.42;
   color: var(--ink);
+}
+
+.cba-manifesto__strong {
+  color: #161b08;
+}
+
+.cba-manifesto__mid {
+  color: #343d19;
+}
+
+.cba-manifesto__soft {
+  color: #464e2b;
 }
 
 #corpus .cba-corpus-rows {
@@ -621,7 +669,7 @@ body:has(.cba-landing) {
   width: 28px;
   height: 3px;
   border-radius: 999px;
-  background: var(--cba-pop);
+  background: var(--p-accent);
   display: block;
 }
 
@@ -785,21 +833,23 @@ body:has(.cba-landing) {
   }
 
   .cba-hero-emblem,
+  .cba-hero-bust-peek,
   .cba-corpus-court,
   .cba-cutout-hand {
     display: none;
   }
 
   .cba-faq-panel {
-    grid-template-columns: minmax(0, 1fr) 88px;
-    align-items: end;
-    padding: 12px 12px 0 14px;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    padding: 16px 18px;
+    gap: 8px;
+    background-size: 160px 160px;
   }
 
   .cba-faq-panel__body {
-    padding: 0 0 10px;
-    gap: 2px;
+    padding: 0;
+    gap: 4px;
   }
 
   .cba-faq-panel p {
@@ -811,7 +861,7 @@ body:has(.cba-landing) {
   }
 
   .cba-cutout-bust {
-    width: 88px;
+    display: none;
   }
 
   #faq .faq__item {

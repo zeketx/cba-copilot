@@ -24,12 +24,6 @@
     <!-- <link rel="canonical" href="https://[domain]/"> -->
     <meta name="site-kind" content="software" />
     <meta name="page-type" content="software" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wdth,wght@75..100,400..600&family=JetBrains+Mono:wght@400..500&display=swap"
-      rel="stylesheet"
-    />
     <link data-landing-kit rel="stylesheet" href="/assets/system.css" />
     <link data-landing-kit rel="stylesheet" href="/assets/ui/cards.css" />
     <link data-landing-kit rel="stylesheet" href="/assets/motion/motion.css" />
@@ -38,30 +32,58 @@
     <link data-landing-kit rel="stylesheet" href="/assets/ui/base.css" />
     <link data-landing-kit rel="stylesheet" href="/assets/ui/doc/fragment.css" />
     <style data-landing-kit>
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("/fonts/instrument-serif-latin-normal.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("/fonts/instrument-serif-latin-italic.woff2") format("woff2");
+        font-weight: 400;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        src: url("/fonts/instrument-sans-latin-wght.woff2") format("woff2");
+        font-weight: 400 600;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("/fonts/jetbrains-mono-latin-wght.woff2") format("woff2");
+        font-weight: 400 500;
+        font-style: normal;
+        font-display: swap;
+      }
       :root {
         --p-bg: #ecebe7;
         --p-surface: #e1dfd9;
-        --p-ink: #38450f;
-        --p-muted: #5a6537;
+        --p-ink: #1e240d;
+        --p-muted: #515b31;
         --p-accent: #38450f;
         --p-accent-ink: #ecebe7;
         --p-action: #38450f;
         --p-action-ink: #ecebe7;
-        --p-inv-bg: #38450f;
-        --p-inv-surface: #435020;
+        --p-inv-bg: #14170e;
+        --p-inv-surface: #1f2416;
         --p-inv-ink: #ecebe7;
-        --p-inv-muted: #bbbfaf;
+        --p-inv-muted: #b7bca9;
         --p-inv-accent: #ecebe7;
-        --p-inv-accent-ink: #38450f;
+        --p-inv-accent-ink: #14170e;
         --p-inv-action: #ecebe7;
-        --p-inv-action-ink: #38450f;
+        --p-inv-action-ink: #14170e;
         --font-display: "Instrument Serif", Georgia, serif;
         --font-text: "Instrument Sans", system-ui, sans-serif;
         --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
         --display-weight: 400;
-        --display-tracking: -0.012em;
-        --display-tracking-xl: -0.016em;
-        --ly-scale: 1.12;
+        --display-tracking: -0.015em;
+        --display-tracking-xl: -0.022em;
+        --ly-scale: 1.14;
       }
     </style>
     <script>
