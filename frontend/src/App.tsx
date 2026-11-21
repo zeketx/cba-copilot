@@ -64,6 +64,35 @@ type VisibleError = ChatRequestError & { retryText: string | null };
 
 type SignOutReason = "user" | "session_ended" | "not_allowed";
 
+const GATE_PRIMARY =
+  "btn btn--primary mt-4 w-full bg-[var(--p-action,#38450f)] text-[var(--p-action-ink,#ecebe7)]";
+const SESSION_ENDED_COPY = "Your session ended. Sign in again.";
+const REQUEST_SAVE_FAILED = "That email could not be saved.";
+
+function gateNoticeKind(notice: string): "success" | "error" {
+  if (notice === SIGN_IN_COPY.linkSent || notice === SIGN_IN_COPY.requestSent) {
+    return "success";
+  }
+  return "error";
+}
+
+function GateNotice({ notice, fading = false }: { notice: string; fading?: boolean }) {
+  const error = gateNoticeKind(notice) === "error";
+  return (
+    <p
+      role={error ? "alert" : "status"}
+      className={
+        error
+          ? "mt-3 rounded-control bg-red-tint px-3 py-2 text-[14px] leading-relaxed text-ink"
+          : "mt-3 rounded-control bg-green-tint px-3 py-2 text-[14px] leading-relaxed text-ink"
+      }
+      style={fading ? { opacity: 0, transition: "opacity 1200ms" } : undefined}
+    >
+      {notice}
+    </p>
+  );
+}
+
 function replyText(response: PublicResponse): string {
   switch (response.kind) {
     case "refusal":
@@ -565,9 +594,7 @@ export function App() {
   }
 
   const sessionEndedNotice =
-    signOutReason === "session_ended" ? (
-      <p className="mt-3 text-[13px] text-ink-3">Your session ended. Sign in again.</p>
-    ) : null;
+    signOutReason === "session_ended" ? <GateNotice notice={SESSION_ENDED_COPY} /> : null;
 
   const gatePanel =
     gateView === "request" ? (
@@ -598,35 +625,18 @@ export function App() {
           type="submit"
           variant="primary"
           size="md"
-          className="mt-4 w-full bg-[var(--p-action,#1f2124)] text-[var(--p-action-ink,#ffffff)]"
+          className={GATE_PRIMARY}
           disabled={requestState === "sending"}
         >
           Request access
         </Button>
-        <div className="mt-3 h-5 overflow-hidden" aria-live="polite">
+        <div className="mt-3" aria-live="polite">
           {requestState === "sent" || requestState === "leaving" ? (
-            <p
-              className="flex items-center gap-1.5 text-[13px] text-green transition-opacity duration-[1200ms]"
-              style={{ opacity: requestState === "leaving" ? 0 : 1 }}
-            >
-              <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
-                <path
-                  d="M3.5 8.5 6.5 11.5 12.5 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {SIGN_IN_COPY.requestSent}
-            </p>
+            <GateNotice notice={SIGN_IN_COPY.requestSent} fading={requestState === "leaving"} />
           ) : null}
-          {requestState === "failed" ? (
-            <p className="text-[13px] text-ink-3">That email could not be saved.</p>
-          ) : null}
+          {requestState === "failed" ? <GateNotice notice={REQUEST_SAVE_FAILED} /> : null}
           {requestState === "rate_limited" ? (
-            <p className="text-[13px] text-ink-3">{SIGN_IN_COPY.rateLimited}</p>
+            <GateNotice notice={SIGN_IN_COPY.rateLimited} />
           ) : null}
         </div>
         <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
@@ -675,7 +685,7 @@ export function App() {
           type="submit"
           variant="primary"
           size="md"
-          className="mt-4 w-full bg-[var(--p-action,#1f2124)] text-[var(--p-action-ink,#ffffff)]"
+          className={GATE_PRIMARY}
         >
           {signInRedirect === "wrong_browser" ||
           signInRedirect === "expired" ||
@@ -683,7 +693,7 @@ export function App() {
             ? SIGN_IN_COPY.sendNewLink
             : "Send sign-in link"}
         </Button>
-        {signInNotice ? <p className="mt-3 text-[13px] text-ink-3">{signInNotice}</p> : null}
+        {signInNotice ? <GateNotice notice={signInNotice} /> : null}
         <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
           <Button
             type="button"
