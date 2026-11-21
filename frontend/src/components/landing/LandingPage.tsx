@@ -1,6 +1,5 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import bustCutout from "@/assets/landing/bust-cutout.webp";
-import handCutout from "@/assets/landing/hand-cutout.webp";
 import corpus from "../../../../data/corpus.json";
 import { REQUEST_ACCESS_HREF, SIGN_IN_HREF } from "./access";
 import { CBA_THREAD_EXAMPLES } from "./cba-examples";
@@ -82,16 +81,15 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
   return (
     <div className="cba-landing">
       {/* type: software
-          deal: hero collage, nav nav-centre (re-dealt from nav-cards: no photographs), close close-type, footer footer-dark, rhythm space, buttons pill, mark stack, ground sage, effect fluted-glass
-          moments: letters-assemble (#corpus) */}
+          deal: hero collage, nav nav-centre (re-dealt from nav-cards: no photographs), close close-type, footer footer-dark, rhythm space, buttons pill, mark stack, ground sage, effect fluted-glass */}
       <header className="nav nav--centre">
         <div className="wrap nav__bar">
           <a className="skip-link" href="#top">
             Skip to content
           </a>
-          <a className="nav__logo" href="#top">
+          <a className="nav__logo" href="#top" aria-label="CBA Copilot">
             <span className="mark" data-mark="stack" aria-hidden="true" />
-            CBA Copilot
+            <span className="nav__wordmark">CBA Copilot</span>
           </a>
           <nav className="nav__links" aria-label="Main">
             <div className="nav__item">
@@ -172,14 +170,6 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                   </a>{" "}
                   (676 pages).
                 </p>
-                <div className="cba-hero-emblem" aria-hidden="true">
-                  <svg className="cba-court-lines" viewBox="0 0 280 96" fill="none">
-                    <path d="M0 95H280" stroke="currentColor" strokeWidth="1" />
-                    <path d="M18 95C18 42 62 4 118 4C174 4 218 42 218 95" stroke="currentColor" strokeWidth="1" />
-                    <rect x="78" y="34" width="80" height="61" stroke="currentColor" strokeWidth="1" />
-                    <circle cx="118" cy="34" r="22" stroke="currentColor" strokeWidth="1" />
-                  </svg>
-                </div>
               </div>
 
               <div
@@ -189,15 +179,6 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                 role="img"
                 aria-label="CBA Copilot answering a second-apron trade question with inline citations to Article VII, Section 2(e)(4), printed page 190, and a grounding verification card"
               >
-                <img
-                  className="cba-hero-bust-peek"
-                  src={bustCutout}
-                  alt=""
-                  aria-hidden="true"
-                  width={341}
-                  height={480}
-                  decoding="async"
-                />
                 <div className="ly-piece ly-piece--main cba-win" aria-hidden="true">
                   <div className="cba-win__bar">
                     <span className="cba-win__dots">
@@ -350,12 +331,7 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
           </div>
         </section>
 
-        <section
-          className="section"
-          id="checks"
-          style={{ "--hm": 2 } as CSSProperties}
-          aria-labelledby="checks-h"
-        >
+        <section className="section" id="checks" aria-labelledby="checks-h">
           <div className="wrap">
             <div className="section-head">
               <h2 id="checks-h">
@@ -494,43 +470,25 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
           </div>
         </section>
 
-        <section
-          className="section"
-          id="corpus"
-          data-moment="letters-assemble"
-          data-moment-opts='{"spread": 1}'
-          aria-labelledby="corpus-h"
-        >
+        <section className="section" id="corpus" aria-labelledby="corpus-h">
           <div className="wrap cba-corpus-wrap">
             <div className="cba-corpus-head">
-              <div>
-                <h2 id="corpus-h" className="mo-la__type">
-                  One CBA corpus
-                </h2>
-                <p className="mo-la__sub cba-manifesto">
-                  <span className="cba-manifesto__strong">
-                    Plain-language answers from the 2023 NBA-NBPA Collective Bargaining Agreement,
-                    cited to the printed page.
-                  </span>{" "}
-                  <span className="cba-manifesto__mid">
-                    Uncited claims are dropped before an answer prints,
-                  </span>{" "}
-                  <span className="cba-manifesto__soft">
-                    and when the agreement does not cover a question, CBA Copilot refuses instead of
-                    guessing.
-                  </span>
-                </p>
-              </div>
-              <img
-                className="cba-cutout-hand"
-                src={handCutout}
-                alt=""
-                aria-hidden="true"
-                width={215}
-                height={480}
-                loading="lazy"
-                decoding="async"
-              />
+              <h2 id="corpus-h" className="mo-la__type">
+                One CBA corpus
+              </h2>
+              <p className="mo-la__sub cba-manifesto">
+                <span className="cba-manifesto__strong">
+                  Plain-language answers from the 2023 NBA-NBPA Collective Bargaining Agreement,
+                  cited to the printed page.
+                </span>{" "}
+                <span className="cba-manifesto__mid">
+                  Uncited claims are dropped before an answer prints,
+                </span>{" "}
+                <span className="cba-manifesto__soft">
+                  and when the agreement does not cover a question, CBA Copilot refuses instead of
+                  guessing.
+                </span>
+              </p>
             </div>
             <ul className="rows cba-corpus-rows">
               <li>
@@ -579,17 +537,6 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                 data-visual=""
                 aria-label="Invite-only access"
               >
-                <div className="cba-faq-panel__body">
-                  <span className="cba-folio-dot" aria-hidden="true" />
-                  <h3>Invite-only CBA Copilot access</h3>
-                  <p>
-                    Approved emails sign in with a magic link. No passwords, and no shared team
-                    accounts.
-                  </p>
-                  <a className="link" href={SIGN_IN_HREF} onClick={handleSignIn}>
-                    Sign in with a magic link
-                  </a>
-                </div>
                 <img
                   className="cba-cutout-bust"
                   src={bustCutout}
@@ -600,6 +547,13 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                   loading="lazy"
                   decoding="async"
                 />
+                <div className="cba-faq-panel__body">
+                  <span className="cba-folio-dot" aria-hidden="true" />
+                  <h3>Invite-only CBA Copilot access</h3>
+                  <a className="link" href={SIGN_IN_HREF} onClick={handleSignIn}>
+                    Sign in with a magic link
+                  </a>
+                </div>
               </aside>
             </div>
           </div>

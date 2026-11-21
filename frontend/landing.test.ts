@@ -22,10 +22,18 @@ test("logged-out visitors get the redesigned landing page", () => {
 
   const page = readFileSync(path.join(src, "components/landing/LandingPage.tsx"), "utf8");
   assert.match(page, /2023 NBA CBA research for/);
-  assert.match(page, /data-moment="letters-assemble"/);
   assert.match(page, /Citation checks/);
   assert.match(page, /cba-manifesto/);
   assert.match(page, /refuses instead of/);
+  assert.doesNotMatch(page, /data-moment="letters-assemble"/);
+  assert.doesNotMatch(page, /cba-hero-emblem|cba-court-lines/);
+  assert.doesNotMatch(page, /cba-hero-bust-peek|cba-cutout-hand|hand-cutout/);
+  assert.doesNotMatch(
+    page,
+    /Approved emails sign in with a magic link\. No passwords, and no shared team accounts\./,
+  );
+  assert.match(page, /nav__wordmark/);
+  assert.match(page, /Sign in with a magic link/);
 });
 
 test("Request access opens the request view and Sign in opens login", () => {
@@ -76,10 +84,8 @@ test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with S
     assert.equal(existsSync(path.join(fonts, fontFile)), true, fontFile);
   }
 
-  for (const cutout of ["bust-cutout.webp", "hand-cutout.webp"]) {
-    assert.equal(existsSync(path.join(assets, cutout)), true, cutout);
-  }
-
+  assert.equal(existsSync(path.join(assets, "bust-cutout.webp")), true);
+  assert.equal(existsSync(path.join(assets, "hand-cutout.webp")), false);
   assert.equal(existsSync(path.join(assets, "sandal-cutout.webp")), false);
 
   for (const retired of ["court.webp", "stands.webp", "hoop-back.webp", "hoop-front.webp", "ball-sheet.webp"]) {
@@ -91,4 +97,5 @@ test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with S
 
   const css = readFileSync(path.join(src, "components/landing/landing.css"), "utf8");
   assert.doesNotMatch(css, /#c44d2d/i);
+  assert.doesNotMatch(css, /cba-hero-emblem|cba-court-lines|cba-hero-bust-peek|cba-cutout-hand/);
 });
