@@ -2,6 +2,7 @@ from pathlib import Path
 
 from app.database.models import (
     AccessRequestRecord,
+    AllowedEmail,
     Base,
     CbaChunk,
     ChatMessage,
@@ -22,6 +23,9 @@ ACCESS_MIGRATION = (
 )
 POLICY_MIGRATION = (
     ROOT / "backend" / "alembic" / "versions" / "c0a2023b0008_chat_row_policies.py"
+)
+ALLOW_MIGRATION = (
+    ROOT / "backend" / "alembic" / "versions" / "c0a2023b0009_allowed_emails.py"
 )
 ENV_PY = ROOT / "backend" / "alembic" / "env.py"
 
@@ -172,6 +176,7 @@ def test_env_registers_chat_models() -> None:
         "ChatMessage",
         "MessageCitation",
         "AccessRequestRecord",
+        "AllowedEmail",
     ):
         assert f"{name}.__tablename__" in text
     assert "RuntimeError" in text
@@ -224,3 +229,40 @@ def test_chat_row_policies_revise_0007_and_are_reversible() -> None:
     assert "GRANT" not in text
     assert "access_requests" not in text
     assert "CREATE POLICY" not in CHAT_MIGRATION.read_text(encoding="utf-8")
+
+
+def test_allowed_emails_migration_is_default_deny_and_seeds_from_a_marked_section() -> None:
+    text = ALLOW_MIGRATION.read_text(encoding="utf-8")
+    assert 'down_revision: Union[str, Sequence[str], None] = "c0a2023b0008"' in text
+    assert "SEED_ALLOWED_EMAILS" in text
+    assert "allowed_emails" in text
+    assert "email = lower(email)" in text
+    assert "ENABLE ROW LEVEL SECURITY" in text
+    assert "REVOKE ALL" in text
+    assert "CREATE POLICY" not in text
+    assert "rolname = 'anon'" in text
+    assert "rolname = 'authenticated'" in text
+    assert "admit_allowed_email" in text
+    assert "notify_allowed_email_approval" in text
+    assert "approval_mail_url" in text
+    assert "You're approved for CBA Copilot" in text
+    assert "auth.users" in text
+    assert "CREATE POLICY" not in text
+    downgrade = text.split("def downgrade", 1)[1]
+    assert "DROP POLICY" not in downgrade
+    assert downgrade.index("rolname = 'anon'") < downgrade.index("GRANT ALL ON TABLE")
+    assert downgrade.index("GRANT ALL ON TABLE") < downgrade.index(
+        "DISABLE ROW LEVEL SECURITY"
+    )
+    assert downgrade.index("DISABLE ROW LEVEL SECURITY") < downgrade.index(
+        "op.drop_table(TABLE)"
+    )
+
+
+def test_allowed_email_model_exposes_locked_columns() -> None:
+    assert "allowed_emails" in Base.metadata.tables
+    table = AllowedEmail.__table__
+    assert {column.name for column in table.columns} == {"email", "created_at"}
+    assert list(table.foreign_keys) == []
+    assert table.c.email.primary_key
+    assert table.c.created_at.nullable is False

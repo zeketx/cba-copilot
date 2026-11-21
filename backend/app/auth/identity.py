@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Protocol
 from uuid import UUID
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -30,9 +31,16 @@ class AuthUserId:
         return AuthUserId(UUID(raw))
 
 
+class EmailDirectory(Protocol):
+    def contains(self, email: Email) -> bool: ...
+
+
 @dataclass(frozen=True, slots=True)
 class EmailAllowList:
     emails: frozenset[Email]
+
+    def contains(self, email: Email) -> bool:
+        return email in self.emails
 
     @staticmethod
     def parse(raw: str) -> EmailAllowList:
