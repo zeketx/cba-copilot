@@ -57,6 +57,23 @@ test("Request access opens the request view and Sign in opens login", () => {
   assert.match(app, /openGate\("login"\)/);
 });
 
+test("sign-in copy is neutral and recovery states are reachable without a live link", () => {
+  const session = readFileSync(path.join(src, "lib/session.ts"), "utf8");
+  const app = readFileSync(path.join(src, "App.tsx"), "utf8");
+  const html = readFileSync(path.join(root, "index.html"), "utf8");
+  assert.match(session, /create_user: false/);
+  assert.doesNotMatch(session, /create_user: true/);
+  assert.match(session, /AUTH_PREVIEW_PARAM/);
+  assert.match(app, /SIGN_IN_COPY\.linkSent/);
+  assert.match(app, /SIGN_IN_COPY\.sendNewLink/);
+  assert.match(app, /SIGN_IN_COPY\.requestSent/);
+  assert.match(app, /signOut\("not_allowed"\)/);
+  assert.doesNotMatch(app, /This address cannot sign in/);
+  assert.doesNotMatch(app, /This email is signed in and is not on the allow-list/);
+  assert.doesNotMatch(html, /<script>\s*document\.documentElement/);
+  assert.match(html, /src="\/motion-enter\.js"/);
+});
+
 test("workspace examples include verified 2023 CBA citations with PDF page offsets", () => {
   assert.ok(CBA_THREAD_EXAMPLES.length >= 3);
   for (const example of CBA_THREAD_EXAMPLES) {

@@ -34,10 +34,15 @@ import { loadDefinitions } from "@/lib/definitions";
 import { ApiError, apiRequest } from "@/lib/http";
 import { chatRequestError, isAbortError, type ChatRequestError } from "@/lib/request-error";
 import {
+  SIGN_IN_COPY,
   clearAccessToken,
   consumeSignInRedirect,
   getAccessToken,
+  hasAuthCallback,
+  noticeForRedirect,
+  rememberedSignInEmail,
   requestSignInLink,
+  type SignInRedirectKind,
 } from "@/lib/session";
 import {
   SAMPLE_QUESTIONS,
@@ -57,7 +62,7 @@ type AskTurn =
 
 type VisibleError = ChatRequestError & { retryText: string | null };
 
-type SignOutReason = "user" | "session_ended";
+type SignOutReason = "user" | "session_ended" | "not_allowed";
 
 function replyText(response: PublicResponse): string {
   switch (response.kind) {
@@ -86,34 +91,33 @@ export function App() {
   const [error, setError] = useState<VisibleError | null>(null);
   const [active, setActive] = useState<PublicCitation | null>(null);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
-  const [signInRedirect] = useState(() => consumeSignInRedirect());
-  const [sessionToken, setSessionToken] = useState<string | null>(() => getAccessToken());
+  const [sessionToken, setSessionToken] = useState<string | null>(() =>
+    hasAuthCallback(window.location.search, window.location.hash) ? null : getAccessToken(),
+  );
+  const [signInRedirect, setSignInRedirect] = useState<SignInRedirectKind>("none");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [signOutReason, setSignOutReason] = useState<SignOutReason | null>(null);
   const [requestEmail, setRequestEmail] = useState("");
   const [requestState, setRequestState] = useState<
-    "idle" | "sending" | "sent" | "leaving" | "failed"
+    "idle" | "sending" | "sent" | "leaving" | "failed" | "rate_limited"
   >("idle");
   const [signInEmail, setSignInEmail] = useState("");
-  const [signInNotice, setSignInNotice] = useState<string | null>(() =>
-    signInRedirect === "failed" ? "That sign-in link expired or was already used. Send a new one." : null,
-  );
-  const [notAllowed, setNotAllowed] = useState(false);
+  const [signInNotice, setSignInNotice] = useState<string | null>(null);
   const [gateView, setGateView] = useState<"request" | "login">(() => {
-    if (signInRedirect === "failed") {
-      return "login";
-    }
     if (typeof window === "undefined") {
       return "request";
+    }
+    if (hasAuthCallback(window.location.search, window.location.hash)) {
+      return "login";
     }
     return gateViewFromHash(window.location.hash) ?? "request";
   });
   const [signInOpen, setSignInOpen] = useState(() => {
-    if (signInRedirect === "failed") {
-      return true;
-    }
     if (typeof window === "undefined") {
       return false;
+    }
+    if (hasAuthCallback(window.location.search, window.location.hash)) {
+      return true;
     }
     return gateViewFromHash(window.location.hash) !== null;
   });
@@ -148,6 +152,33 @@ export function App() {
           setFixtureMode(true);
         }
       });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void consumeSignInRedirect().then((kind) => {
+      if (cancelled) {
+        return;
+      }
+      setSignInRedirect(kind);
+      if (kind === "signed_in") {
+        setSessionToken(getAccessToken());
+        return;
+      }
+      const notice = noticeForRedirect(kind);
+      if (notice === null) {
+        return;
+      }
+      clearAccessToken();
+      setSessionToken(null);
+      setSignInEmail(rememberedSignInEmail());
+      setSignInNotice(notice);
+      setGateView("login");
+      setSignInOpen(true);
+    });
     return () => {
       cancelled = true;
     };
@@ -236,6 +267,10 @@ export function App() {
       }
       throw caught;
     }
+    if (response.status === 429) {
+      setRequestState("rate_limited");
+      return;
+    }
     if (!response.ok) {
       setRequestState("failed");
       return;
@@ -249,13 +284,13 @@ export function App() {
       return;
     }
     setSignOutReason(null);
-    setSignInNotice(null);
     try {
-      await requestSignInLink(email);
-      setSignInNotice("Check your email and click the sign-in link.");
+      const result = await requestSignInLink(email);
+      setSignInNotice(result === "rate_limited" ? SIGN_IN_COPY.rateLimited : SIGN_IN_COPY.linkSent);
     } catch {
-      setSignInNotice("This address cannot sign in.");
+      setSignInNotice(SIGN_IN_COPY.linkSent);
     }
+    setSignInRedirect("none");
   }
 
   function abandonAsk() {
@@ -280,7 +315,7 @@ export function App() {
       caught.status === 403 &&
       (caught.code === "not_allowed" || caught.message === "not_allowed")
     ) {
-      setNotAllowed(true);
+      signOut("not_allowed");
       return true;
     }
     if (mapped.refreshThreads) {
@@ -320,10 +355,13 @@ export function App() {
     setMessages([]);
     setError(null);
     setGlossaryOpen(false);
-    setNotAllowed(false);
     if (reason === "session_ended") {
       setGateView("login");
       setSignInOpen(true);
+    } else if (reason === "not_allowed") {
+      setGateView("login");
+      setSignInOpen(true);
+      setSignInNotice(SIGN_IN_COPY.linkSent);
     } else {
       setSignInOpen(false);
     }
@@ -581,11 +619,14 @@ export function App() {
                   strokeLinejoin="round"
                 />
               </svg>
-              Request sent
+              {SIGN_IN_COPY.requestSent}
             </p>
           ) : null}
           {requestState === "failed" ? (
             <p className="text-[13px] text-ink-3">That email could not be saved.</p>
+          ) : null}
+          {requestState === "rate_limited" ? (
+            <p className="text-[13px] text-ink-3">{SIGN_IN_COPY.rateLimited}</p>
           ) : null}
         </div>
         <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
@@ -636,7 +677,11 @@ export function App() {
           size="md"
           className="mt-4 w-full bg-[var(--p-action,#1f2124)] text-[var(--p-action-ink,#ffffff)]"
         >
-          Send sign-in link
+          {signInRedirect === "wrong_browser" ||
+          signInRedirect === "expired" ||
+          signInRedirect === "out_of_date"
+            ? SIGN_IN_COPY.sendNewLink
+            : "Send sign-in link"}
         </Button>
         {signInNotice ? <p className="mt-3 text-[13px] text-ink-3">{signInNotice}</p> : null}
         <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
@@ -722,11 +767,6 @@ export function App() {
             ))}
           </div>
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-6">
-            {notAllowed ? (
-              <p className="mx-auto max-w-3xl text-[13px] text-red">
-                This email is signed in and is not on the allow-list.
-              </p>
-            ) : null}
                 {messages.length === 0 && askTurn.phase === "idle" ? (
                   <div className="mx-auto max-w-3xl px-1 py-10">
                     <p className="text-[15px] font-medium text-ink">Ask about the 2023 CBA</p>
