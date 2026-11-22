@@ -11,12 +11,16 @@ Both images build from the repository root, because the app reads `data/corpus.j
 
 ## Ship a commit
 
-Merges to `main` auto-deploy `frontend` and `backend` on Railway (trigger branch: `main`).
+As of 22 Nov 2026, merges to `main` do **not** auto-deploy `frontend` or `backend`. Both services are linked to `zeketx/cba-copilot`, but Railway's visible source has no trigger branch (`branch` is unset). Reconnecting with `branch=main` deploys the current tip once; it has not restored push auto-deploy (PR 62, `87f8a95`, needed a manual deploy).
 
-- `frontend` watch paths: `frontend/**`, `data/corpus.json`
-- `backend` watch paths: `backend/**`, `data/corpus.json`, `definitions/**`
+Watch paths, if a GitHub trigger is later restored:
 
-If a trigger misses, reconnect the service with the Railway MCP `connect-service-source` using repo `zeketx/cba-copilot` and branch `main`, and do not pass `commitSha`. Roll back from the service's Deployments tab.
+- `frontend`: `frontend/**`, `data/corpus.json`
+- `backend`: `backend/**`, `data/corpus.json`, `definitions/**`
+
+To ship today, reconnect the service with the Railway MCP `connect-service-source` using repo `zeketx/cba-copilot` and branch `main`. Do not pass `commitSha`. That starts a production deploy immediately. Roll back from the service's Deployments tab.
+
+Do not treat `connect-service-source` as a way to turn auto-deploy back on. If a push trigger is restored, it has to show a trigger branch of `main` and Automatic deployments enabled in Railway Service Settings (and the Railway GitHub App must have access to this repo). Until a later merge auto-deploys without a manual reconnect, assume the trigger is still off.
 
 `retrieval-bench` stays pinned to a commit and must never be reconnected without `commitSha`, because it is a paid bench.
 
