@@ -10,11 +10,13 @@ from app.auth.gate import (
     Ledger,
     MemoryLedger,
     RejectVerifier,
+    SqlEmailDirectory,
     SqlLedger,
     ThreadDirectory,
+    UnionEmailDirectory,
     Verifier,
 )
-from app.auth.identity import AppUser, AuthError, EmailAllowList
+from app.auth.identity import AppUser, AuthError, EmailAllowList, EmailDirectory
 from app.chat.log import MemoryChatLog, SqlChatLog
 from app.config import Settings
 
@@ -45,7 +47,15 @@ def gate_from_settings(
     settings: Settings,
     threads: ThreadDirectory | None = None,
 ) -> AccessGate:
-    allow = EmailAllowList.parse(",".join(settings.allowed_emails))
+    static = EmailAllowList.parse(",".join(settings.allowed_emails))
+    allow: EmailDirectory
+    if settings.database_url:
+        allow = UnionEmailDirectory(
+            SqlEmailDirectory(settings.sqlalchemy_database_url),
+            static,
+        )
+    else:
+        allow = static
     verifier: Verifier
     if settings.supabase_url and settings.supabase_anon_key:
         verifier = GoTrueVerifier(url=settings.supabase_url, anon_key=settings.supabase_anon_key)

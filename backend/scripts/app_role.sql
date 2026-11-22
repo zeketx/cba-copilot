@@ -26,7 +26,7 @@ ALTER ROLE cba_copilot_app WITH
 GRANT CONNECT ON DATABASE postgres TO cba_copilot_app;
 GRANT USAGE ON SCHEMA public TO cba_copilot_app;
 
-GRANT SELECT ON TABLE source_documents, cba_chunks TO cba_copilot_app;
+GRANT SELECT ON TABLE source_documents, cba_chunks, allowed_emails TO cba_copilot_app;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   users,

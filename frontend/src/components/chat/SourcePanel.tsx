@@ -1,6 +1,7 @@
 import { useRef, useState, type PointerEvent } from "react";
 import { Button } from "@/components/beautifui/Button";
 import { FilingViewer } from "@/components/chat/FilingViewer";
+import { PDF_IFRAME_SANDBOX, allowedSourceUrl } from "@/lib/source-url";
 import type { PublicCitation } from "@/lib/types";
 
 type SourceView = "pdf" | "passage";
@@ -19,6 +20,7 @@ export function SourcePanel({
     return null;
   }
   const view: SourceView = passageViewFor === citation.passageId ? "passage" : "pdf";
+  const pdfHref = allowedSourceUrl(citation.sourceUrl);
   const setView = (next: SourceView) =>
     setPassageViewFor(next === "passage" ? citation.passageId : null);
 
@@ -81,12 +83,17 @@ export function SourcePanel({
         </div>
       </div>
       {view === "pdf" ? (
-        <iframe
-          key={citation.sourceUrl}
-          aria-label={pdfFrameTitle(citation)}
-          src={citation.sourceUrl}
-          className="h-full min-h-0 w-full flex-1 border-0 bg-white"
-        />
+        pdfHref ? (
+          <iframe
+            key={pdfHref}
+            aria-label={pdfFrameTitle(citation)}
+            sandbox={PDF_IFRAME_SANDBOX}
+            src={pdfHref}
+            className="h-full min-h-0 w-full flex-1 border-0 bg-white"
+          />
+        ) : (
+          <p className="px-4 py-6 text-[13px] text-ink-3">Source is unavailable.</p>
+        )
       ) : (
         <FilingViewer
           html={wrapDocument(citation.sourceHtml)}
@@ -94,14 +101,16 @@ export function SourcePanel({
           jumpNonce={0}
         />
       )}
-      <a
-        href={citation.sourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="border-t border-line px-4 py-2 text-[12px] text-ink-2 underline"
-      >
-        Open the official PDF page
-      </a>
+      {pdfHref ? (
+        <a
+          href={pdfHref}
+          target="_blank"
+          rel="noreferrer"
+          className="border-t border-line px-4 py-2 text-[12px] text-ink-2 underline"
+        >
+          Open the official PDF page
+        </a>
+      ) : null}
       </div>
     </aside>
   );

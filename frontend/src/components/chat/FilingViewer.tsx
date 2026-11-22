@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { FilingPlacement } from "@/lib/citation";
+import { FILING_IFRAME_SANDBOX } from "@/lib/source-url";
 
 const DOCUMENT_STYLE = `
 html { scroll-behavior: auto; }
@@ -50,45 +51,53 @@ export function FilingViewer({
     if (frame === null) {
       return;
     }
-    const paint = () => {
-      const doc = frame.contentDocument;
-      if (doc === null || doc.body === null) {
-        return;
-      }
-      paintFiling(doc, placement);
+    const built = highlightedDocument(html, placement);
+    const blob = new Blob([built.html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    frame.src = built.anchorId === null ? url : `${url}#${built.anchorId}`;
+    return () => {
+      URL.revokeObjectURL(url);
+      frame.removeAttribute("src");
     };
-    frame.addEventListener("load", paint);
-    paint();
-    return () => frame.removeEventListener("load", paint);
   }, [html, placement, jumpNonce]);
 
   return (
     <iframe
       ref={frameRef}
       aria-label="CBA source"
-      sandbox="allow-same-origin"
-      srcDoc={html}
+      sandbox={FILING_IFRAME_SANDBOX}
       className="h-full min-h-0 w-full flex-1 border-0 bg-white"
     />
   );
 }
 
-function paintFiling(doc: Document, placement: FilingPlacement) {
+function highlightedDocument(
+  html: string,
+  placement: FilingPlacement,
+): { html: string; anchorId: string | null } {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const located = paintFiling(doc, placement);
+  const anchorId = located?.anchor.id ? located.anchor.id : null;
+  return { html: `<!doctype html>${doc.documentElement.outerHTML}`, anchorId };
+}
+
+function paintFiling(
+  doc: Document,
+  placement: FilingPlacement,
+): { range: Range; anchor: Element } | null {
   ensureStyle(doc);
   clearHighlight(doc);
   const located = placement.kind === "miss" ? null : locate(doc, placement);
   const root = doc.documentElement;
   if (located === null) {
     root.classList.remove("filing-anchored");
-    return;
+    return null;
   }
   const block = passageOf(located.range);
   block?.classList.add("filing-passage");
   markRange(doc, located.range);
-  root.classList.remove("filing-anchored");
-  void root.offsetWidth;
   root.classList.add("filing-anchored");
-  scrollToUpperThird(doc, located.anchor);
+  return located;
 }
 
 function ensureStyle(doc: Document) {
@@ -175,14 +184,4 @@ function markRange(doc: Document, range: Range) {
     mark.className = "filing-cite";
     slice.surroundContents(mark);
   }
-}
-
-function scrollToUpperThird(doc: Document, anchor: Element) {
-  const view = doc.defaultView;
-  const scroller = doc.scrollingElement;
-  if (view === null || scroller === null) {
-    return;
-  }
-  const rect = anchor.getBoundingClientRect();
-  scroller.scrollTop = Math.max(0, scroller.scrollTop + rect.top - view.innerHeight / 3);
 }

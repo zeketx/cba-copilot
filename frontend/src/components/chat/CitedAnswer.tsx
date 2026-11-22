@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { compactCitationLabel } from "@/lib/citation";
+import { allowedSourceUrl } from "@/lib/source-url";
 import type { PublicCitation, PublicClaim } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -222,6 +223,7 @@ export function CitedAnswer({ claims, active, onOpen, markdown = false }: CitedA
               >
                 {sources.map((citation) => {
                   const selected = active?.passageId === citation.passageId;
+                  const pdfHref = allowedSourceUrl(citation.sourceUrl);
                   return (
                     <li key={citation.passageId} className="flex items-center gap-1">
                       <button
@@ -241,15 +243,17 @@ export function CitedAnswer({ claims, active, onOpen, markdown = false }: CitedA
                           {pagesLabel(citation)}
                         </span>
                       </button>
-                      <a
-                        href={citation.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Open the official PDF at ${compactCitationLabel(citation)}`}
-                        className="shrink-0 rounded-[6px] px-1.5 py-1 font-mono text-[10.5px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
-                      >
-                        PDF ↗
-                      </a>
+                      {pdfHref ? (
+                        <a
+                          href={pdfHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open the official PDF at ${compactCitationLabel(citation)}`}
+                          className="shrink-0 rounded-[6px] px-1.5 py-1 font-mono text-[10.5px] text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
+                        >
+                          PDF ↗
+                        </a>
+                      ) : null}
                     </li>
                   );
                 })}

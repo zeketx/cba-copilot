@@ -10,7 +10,9 @@ from app.auth.gate import (
     MemoryLedger,
     MemoryThreads,
     RejectVerifier,
+    UnionEmailDirectory,
     access_request_insert,
+    allowed_email_lookup,
     user_insert,
 )
 from app.auth.identity import (
@@ -18,6 +20,7 @@ from app.auth.identity import (
     AuthUserId,
     Email,
     EmailAllowList,
+    NotAllowed,
     NotThreadOwner,
     ThreadGrant,
     Unauthenticated,
@@ -320,3 +323,90 @@ def test_access_request_insert_conflicts_on_email() -> None:
 def test_allowed_emails_reject_a_bad_address() -> None:
     with pytest.raises(ValidationError):
         Settings(allowed_emails="not-an-email", _env_file=None)
+
+
+class _TableDirectory:
+    def __init__(self, emails: set[str]) -> None:
+        self._emails = emails
+
+    def contains(self, email: Email) -> bool:
+        return email.value in self._emails
+
+
+def test_database_allow_list_admits_when_env_list_is_empty() -> None:
+    identity = VerifiedIdentity(
+        id=AuthUserId.parse("11111111-1111-1111-1111-111111111111"),
+        email=Email.parse("fan@example.com"),
+    )
+    ledger = MemoryLedger()
+    gate = AccessGate(
+        allow=UnionEmailDirectory(
+            _TableDirectory({"fan@example.com"}),
+            EmailAllowList.parse(""),
+        ),
+        verifier=StaticVerifier({"ok": identity}),
+        ledger=ledger,
+    )
+    user = gate.admit("Bearer ok")
+    assert user.email.value == "fan@example.com"
+    assert identity.id in ledger.user_ids
+
+
+def test_emergency_env_list_cannot_block_a_database_email() -> None:
+    identity = VerifiedIdentity(
+        id=AuthUserId.parse("11111111-1111-1111-1111-111111111111"),
+        email=Email.parse("fan@example.com"),
+    )
+    gate = AccessGate(
+        allow=UnionEmailDirectory(
+            _TableDirectory({"fan@example.com"}),
+            EmailAllowList.parse("other@example.com"),
+        ),
+        verifier=StaticVerifier({"ok": identity}),
+        ledger=MemoryLedger(),
+    )
+    assert gate.admit("Bearer ok").email.value == "fan@example.com"
+
+
+def test_emergency_env_list_admits_when_the_table_misses() -> None:
+    identity = VerifiedIdentity(
+        id=AuthUserId.parse("11111111-1111-1111-1111-111111111111"),
+        email=Email.parse("fan@example.com"),
+    )
+    gate = AccessGate(
+        allow=UnionEmailDirectory(
+            _TableDirectory(set()),
+            EmailAllowList.parse("fan@example.com"),
+        ),
+        verifier=StaticVerifier({"ok": identity}),
+        ledger=MemoryLedger(),
+    )
+    assert gate.admit("Bearer ok").email.value == "fan@example.com"
+
+
+def test_union_directory_rejects_when_table_and_env_miss() -> None:
+    identity = VerifiedIdentity(
+        id=AuthUserId.parse("22222222-2222-2222-2222-222222222222"),
+        email=Email.parse("other@example.com"),
+    )
+    ledger = MemoryLedger()
+    gate = AccessGate(
+        allow=UnionEmailDirectory(
+            _TableDirectory({"fan@example.com"}),
+            EmailAllowList.parse(""),
+        ),
+        verifier=StaticVerifier({"other": identity}),
+        ledger=ledger,
+    )
+    with pytest.raises(NotAllowed):
+        gate.admit("Bearer other")
+    assert ledger.user_ids == set()
+
+
+def test_allowed_email_lookup_is_by_email() -> None:
+    statement = allowed_email_lookup(Email.parse("fan@example.com"))
+    sql = str(
+        statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    assert "allowed_emails" in sql
+    assert "fan@example.com" in sql
