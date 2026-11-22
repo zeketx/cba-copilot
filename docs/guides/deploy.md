@@ -11,7 +11,14 @@ Both images build from the repository root, because the app reads `data/corpus.j
 
 ## Ship a commit
 
-Both services are pinned to one `main` commit. A push to `main` does not deploy. To ship, reconnect each service to `zeketx/cba-copilot` at the new commit in the Railway dashboard (Settings, Source), or with the Railway MCP `connect-service-source` and `commitSha`. Roll back from the service's Deployments tab.
+Merges to `main` auto-deploy `frontend` and `backend` on Railway (trigger branch: `main`).
+
+- `frontend` watch paths: `frontend/**`, `data/corpus.json`
+- `backend` watch paths: `backend/**`, `data/corpus.json`, `definitions/**`
+
+If a trigger misses, reconnect the service with the Railway MCP `connect-service-source` using repo `zeketx/cba-copilot` and branch `main`, and do not pass `commitSha`. Roll back from the service's Deployments tab.
+
+`retrieval-bench` stays pinned to a commit and must never be reconnected without `commitSha`, because it is a paid bench.
 
 ## Variables
 
