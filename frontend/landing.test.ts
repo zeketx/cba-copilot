@@ -34,6 +34,8 @@ test("logged-out visitors get the redesigned landing page", () => {
   );
   assert.match(page, /nav__wordmark/);
   assert.match(page, /Sign in with a magic link/);
+  assert.match(page, /cba-hero-bust-front/);
+  assert.match(page, /bust-thinking-cutout/);
 });
 
 test("Request access opens the request view and Sign in opens login", () => {
@@ -108,6 +110,7 @@ test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with S
   }
 
   assert.equal(existsSync(path.join(assets, "bust-cutout.webp")), true);
+  assert.equal(existsSync(path.join(assets, "bust-thinking-cutout.webp")), true);
   assert.equal(existsSync(path.join(assets, "hand-cutout.webp")), false);
   assert.equal(existsSync(path.join(assets, "sandal-cutout.webp")), false);
 
@@ -117,8 +120,10 @@ test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with S
 
   const sources = readFileSync(path.join(assets, "SOURCES.md"), "utf8");
   assert.match(sources, /AI-generated/);
+  assert.match(sources, /bust-thinking-cutout/);
 
   const css = readFileSync(path.join(src, "components/landing/landing.css"), "utf8");
+  assert.match(css, /cba-hero-bust-front/);
   assert.doesNotMatch(css, /#c44d2d/i);
   assert.doesNotMatch(css, /cba-hero-emblem|cba-court-lines|cba-hero-bust-peek|cba-cutout-hand/);
 });

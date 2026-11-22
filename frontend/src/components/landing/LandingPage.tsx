@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import bustCutout from "@/assets/landing/bust-cutout.webp";
+import bustThinkingCutout from "@/assets/landing/bust-thinking-cutout.webp";
 import corpus from "../../../../data/corpus.json";
 import { REQUEST_ACCESS_HREF, SIGN_IN_HREF } from "./access";
 import { CBA_THREAD_EXAMPLES } from "./cba-examples";
@@ -217,6 +218,16 @@ export function LandingPage({ onRequestAccess, onSignIn }: LandingPageProps) {
                     </div>
                   </div>
                 </div>
+
+                <img
+                  className="cba-hero-bust-front"
+                  src={bustThinkingCutout}
+                  alt=""
+                  aria-hidden="true"
+                  width={520}
+                  height={694}
+                  decoding="async"
+                />
 
                 <div
                   className="ly-piece ly-piece--note cba-note"
