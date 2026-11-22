@@ -112,6 +112,17 @@ class AccessRequestRecord(Base):
     )
 
 
+class AllowedEmail(Base):
+    __tablename__ = "allowed_emails"
+
+    email: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class ChatThread(Base):
     __tablename__ = "chat_threads"
     __table_args__ = (Index("ix_chat_threads_user_id", "user_id"),)

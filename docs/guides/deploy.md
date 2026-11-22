@@ -19,15 +19,19 @@ Backend: `PORT`, `ENVIRONMENT=production`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, 
 
 - `DATABASE_URL` uses the direct host `db.wxfscyrhpqnbimjdqvyf.supabase.co:5432` as `cba_copilot_app` (see `database-role.md`). That host is IPv6-only, so the backend has Railway outbound IPv6 turned on.
 - `SUPABASE_SERVICE_ROLE_KEY` is not set. No backend code reads it.
-- `ALLOWED_EMAILS` is the list of people who may use the app. Add an email there, then redeploy.
+- Admission reads `public.allowed_emails`. Approve someone by inserting a row in the Supabase table editor. That insert should create the auth user if missing. It does not send a login link.
+- `ALLOWED_EMAILS` is an emergency add-only override. It cannot block a database-approved email. It is not required after the table is seeded.
 
 Frontend: `PORT`, `VITE_API_BASE`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. The `VITE_` values are public and baked in at build time. `vite preview` answers only `RAILWAY_PUBLIC_DOMAIN`, any host in `PREVIEW_ALLOWED_HOSTS`, and Railway's healthcheck host.
 
 ## Supabase Auth settings (dashboard only)
 
 1. Authentication, URL Configuration: Site URL `https://cba-copilot.up.railway.app`. Redirect URLs: add `https://cba-copilot.up.railway.app/**`.
-2. Authentication, Emails, Templates: the dialog asks for a code. Put `{{ .Token }}` in both **Confirm signup** and **Magic Link**, for example `<p>Your CBA Copilot code: <strong>{{ .Token }}</strong></p>`.
-3. Optional: Authentication, Emails, SMTP Settings. Use a custom sender such as Resend. The default sender has a low hourly limit.
+2. Authentication, Providers, Email: turn off public signup (`disable_signup`).
+3. Authentication, Emails, Templates: Magic Link must use the PKCE confirmation URL, for example `<p><a href="{{ .ConfirmationURL }}">Sign in to CBA Copilot</a></p>`. Do not put a raw `{{ .TokenHash }}` or `#access_token` link in the template.
+4. Set OTP and magic-link expiry to 3600 seconds.
+5. Optional: Authentication, Emails, SMTP Settings. Use a custom sender such as Resend. The default sender has a low hourly limit.
+6. Optional heads-up mail on allow-list insert: store the mailer webhook URL as Vault secret `approval_mail_url`. The webhook must send the heads-up copy, never a login link. The key lives in Supabase Vault, not Railway `backend/.env`.
 
 ## Check a deploy
 

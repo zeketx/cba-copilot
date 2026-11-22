@@ -17,6 +17,7 @@ from app.auth.identity import (
     AuthUserId,
     Email,
     EmailAllowList,
+    EmailDirectory,
     MissingThread,
     NotAllowed,
     ThreadGrant,
@@ -68,11 +69,35 @@ class SqlThreads:
         return AuthUserId(value=row.user_id)
 
 
+class UnionEmailDirectory:
+    def __init__(self, table: EmailDirectory, emergency: EmailAllowList) -> None:
+        self._table = table
+        self._emergency = emergency
+
+    def contains(self, email: Email) -> bool:
+        return self._table.contains(email) or self._emergency.contains(email)
+
+
+class SqlEmailDirectory:
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+        self._engine: Engine | None = None
+
+    def contains(self, email: Email) -> bool:
+        engine = self._engine
+        if engine is None:
+            engine = create_engine(self._database_url)
+            self._engine = engine
+        with engine.connect() as connection:
+            row = connection.execute(allowed_email_lookup(email)).first()
+        return row is not None
+
+
 class AccessGate:
     def __init__(
         self,
         *,
-        allow: EmailAllowList,
+        allow: EmailDirectory,
         verifier: Verifier,
         ledger: Ledger,
         threads: ThreadDirectory | None = None,
@@ -94,7 +119,7 @@ class AccessGate:
     def admit(self, authorization: str | None) -> AppUser:
         token = parse_bearer(authorization)
         identity = self._verifier.verify(token)
-        if identity.email not in self._allow.emails:
+        if not self._allow.contains(identity.email):
             raise NotAllowed
         self._ledger.ensure_user(identity.id)
         return AppUser(id=identity.id, email=identity.email)
@@ -241,3 +266,9 @@ def access_request_insert(email: Email):
         .values(email=email.value)
         .on_conflict_do_nothing(index_elements=["email"])
     )
+
+
+def allowed_email_lookup(email: Email):
+    from app.database.models import AllowedEmail
+
+    return select(AllowedEmail.email).where(AllowedEmail.email == email.value).limit(1)

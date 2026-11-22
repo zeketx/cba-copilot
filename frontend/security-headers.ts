@@ -49,6 +49,9 @@ export function securityHeaders(sources: HeaderSources): Record<string, string> 
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": REFERRER,
     "Strict-Transport-Security": HSTS,
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
   };
 }
 

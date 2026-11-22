@@ -227,6 +227,18 @@ These wait until phase 11's exit passes.
 
 **Exit:** a person can use the hosted app for a working session, ask one question, and verify the citation.
 
+## 13. PKCE sign-in and a database allow-list
+
+**Story:** As an approved analyst, I want a same-browser sign-in link that cannot be replayed from a hash token, so a forwarded inbox cannot sign someone else in. As the owner, I want to admit an email by editing a table, so approval does not wait on a Railway redeploy.
+
+- [ ] SPA requests a PKCE magic link with `create_user: false`, exchanges `?code=`, and rejects `#access_token`
+- [ ] One neutral sign-in message. Wrong-browser, expired, and pre-ship hash links recover with "Send a new link here"
+- [ ] `public.allowed_emails` is the admission gate. `ALLOWED_EMAILS` is add-only. Seed from the live env list before apply
+- [ ] Source URLs are https plus the official PDF origin. The PDF iframe is sandboxed. Filing viewer drops `allow-same-origin`
+- [ ] The landing motion script is a module so `script-src 'self'` allows it
+
+**Exit:** frontend tests and build pass. Backend auth and schema tests pass. Live apply, dashboard signup, and 1-hour OTP expiry stay ship steps.
+
 ## Follow-ups
 
 These are open after the work merged on the evening of 2026-11-10. They are not a new phase.

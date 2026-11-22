@@ -49,6 +49,9 @@ test("the policy allows the supabase, api, and pdf origins only", () => {
   assert.equal(headers["X-Content-Type-Options"], "nosniff");
   assert.equal(headers["Referrer-Policy"], "strict-origin-when-cross-origin");
   assert.equal(headers["Strict-Transport-Security"], "max-age=31536000; includeSubDomains");
+  assert.equal(headers["Permissions-Policy"], "camera=(), microphone=(), geolocation=()");
+  assert.equal(headers["Cross-Origin-Opener-Policy"], "same-origin");
+  assert.equal(headers["Cross-Origin-Resource-Policy"], "same-origin");
 });
 
 test("hosted preview sends the headers and the dev server does not", { timeout: 120_000 }, async () => {

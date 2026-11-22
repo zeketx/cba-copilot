@@ -2,7 +2,7 @@ from pathlib import Path
 
 SQL = Path(__file__).resolve().parents[1] / "scripts" / "app_role.sql"
 
-CORPUS_TABLES = ("source_documents", "cba_chunks")
+CORPUS_TABLES = ("source_documents", "cba_chunks", "allowed_emails")
 CHAT_TABLES = (
     "users",
     "chat_threads",

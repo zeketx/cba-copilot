@@ -85,12 +85,9 @@
         --display-tracking-xl: -0.022em;
         --ly-scale: 1.14;
       }
+      button.btn--primary { color: var(--p-action-ink, #ecebe7); }
     </style>
-    <script>
-      document.documentElement.classList.add("m-enter", "mo-js");
-      setTimeout(() => document.documentElement.classList.add("m-enter-done"), 700);
-      setTimeout(() => document.documentElement.classList.add("mo-safe"), 2500);
-    </script>
+    <script type="module" src="/motion-enter.js"></script>
     <script src="/assets/backgrounds/backgrounds.js"></script>
   </head>
   <body>
