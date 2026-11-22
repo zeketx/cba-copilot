@@ -97,6 +97,7 @@
         padding: 48px 24px;
       }
       .not-found-card {
+        box-sizing: border-box;
         width: 100%;
         max-width: 560px;
         padding: clamp(28px, 5vw, 44px);
@@ -146,6 +147,9 @@
         background: var(--p-action);
         color: var(--p-action-ink);
       }
+      .not-found-actions .btn--primary::after {
+        content: none;
+      }
       .not-found-actions .btn--secondary {
         border: 1px solid color-mix(in oklab, var(--p-ink) 42%, transparent);
         color: var(--p-ink);
@@ -175,7 +179,7 @@
     </header>
 
     <main class="not-found-main">
-      <section class="not-found-card" aria-labelledby="not-found-heading">
+      <article class="not-found-card" aria-labelledby="not-found-heading">
         <div class="not-found-code">404 · Page not found</div>
         <h1 id="not-found-heading">That page is not in the <em>record</em>.</h1>
         <p>
@@ -186,7 +190,7 @@
           <a class="btn btn--primary" href="/">Back to CBA Copilot</a>
           <a class="btn btn--secondary" href="/#sign-in">Sign in</a>
         </div>
-      </section>
+      </article>
     </main>
 
     <footer class="not-found-foot">

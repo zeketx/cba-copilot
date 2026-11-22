@@ -137,6 +137,7 @@ test("unknown routes have a static 404 page matching landing tokens", () => {
   assert.match(page, /Instrument Serif/);
   assert.match(page, /not found/i);
   assert.match(page, /href="\/"/);
+  assert.doesNotMatch(page, /<main[^>]*>\s*<section\b/i);
   assert.doesNotMatch(page, /<script\b/i);
   assert.doesNotMatch(page, /nba\.com|lakers|player likeness/i);
 });
