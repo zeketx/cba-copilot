@@ -65,9 +65,9 @@ const VARIANTS: Record<
     done: "Searched the web",
     query: "best waffle cone supplier",
     rows: [
-      { primary: "Joy Cone", secondary: "joycone.com", href: "https://joycone.com/fs_products/waffle-cones/" },
-      { primary: "WebstaurantStore", secondary: "webstaurantstore.com", href: "https://www.webstaurantstore.com/ice-cream-shop-supplies.html" },
-      { primary: "The Konery", secondary: "thekonery.com", href: "https://www.thekonery.com/" },
+      { primary: "Joy Cone", secondary: "joycone.com" },
+      { primary: "WebstaurantStore", secondary: "webstaurantstore.com" },
+      { primary: "The Konery", secondary: "thekonery.com" },
     ],
   },
   Coding: {
@@ -255,17 +255,24 @@ export default function ThinkingState({
               const animation = { animation: `fade-up 320ms cubic-bezier(0.23,1,0.32,1) ${i * 120}ms both` };
 
               if (variant === "Search") {
+                if (row.href) {
+                  return (
+                    <a
+                      key={row.primary}
+                      href={row.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`${rowClass} transition-colors duration-150 hover:bg-hover`}
+                      style={animation}
+                    >
+                      {content}
+                    </a>
+                  );
+                }
                 return (
-                  <a
-                    key={row.primary}
-                    href={row.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`${rowClass} transition-colors duration-150 hover:bg-hover`}
-                    style={animation}
-                  >
+                  <div key={row.primary} className={rowClass} style={animation}>
                     {content}
-                  </a>
+                  </div>
                 );
               }
 

@@ -89,6 +89,8 @@ test("hosted preview sends the headers and the dev server does not", { timeout: 
     const address = hosted.httpServer?.address() as AddressInfo;
     const response = await fetch(`http://127.0.0.1:${address.port}/`);
     assert.equal(response.status, 200);
+    const home = await response.text();
+    assert.doesNotMatch(home, /This page was <em>not found<\/em>/);
     assert.equal(response.headers.get("x-frame-options"), "DENY");
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
     assert.equal(response.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
@@ -100,6 +102,19 @@ test("hosted preview sends the headers and the dev server does not", { timeout: 
     assert.match(policy, /frame-ancestors 'none'/);
     assert.equal(policy.includes("*"), false);
     assert.deepEqual(hosts(policy), new Set([SUPABASE, API, pdfOrigin()]));
+
+    const missing = await fetch(`http://127.0.0.1:${address.port}/does-not-exist`);
+    assert.equal(missing.status, 404);
+    const missingBody = await missing.text();
+    assert.match(missingBody, /This page was <em>not found<\/em>/);
+    assert.equal(missing.headers.get("x-frame-options"), "DENY");
+
+    const robots = await fetch(`http://127.0.0.1:${address.port}/robots.txt`);
+    assert.equal(robots.status, 200);
+    assert.match(await robots.text(), /Disallow: \//);
+
+    const asset = await fetch(`http://127.0.0.1:${address.port}/favicon.svg`);
+    assert.equal(asset.status, 200);
   } finally {
     await hosted.close();
     if (previous.supabase === undefined) {

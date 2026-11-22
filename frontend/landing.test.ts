@@ -122,3 +122,27 @@ test("fonts are self-hosted for strict CSP and cutouts are optimized WebP with S
   assert.doesNotMatch(css, /#c44d2d/i);
   assert.doesNotMatch(css, /cba-hero-emblem|cba-court-lines|cba-hero-bust-peek|cba-cutout-hand/);
 });
+
+test("invite-only robots.txt disallows crawlers", () => {
+  const robots = readFileSync(path.join(root, "public/robots.txt"), "utf8");
+  assert.match(robots, /^User-agent: \*$/m);
+  assert.match(robots, /^Disallow: \/$/m);
+});
+
+test("unknown routes have a static 404 page matching landing tokens", () => {
+  const page = readFileSync(path.join(root, "public/404.html"), "utf8");
+  assert.match(page, /--p-bg/);
+  assert.match(page, /--p-ink/);
+  assert.match(page, /--p-action/);
+  assert.match(page, /Instrument Serif/);
+  assert.match(page, /not found/i);
+  assert.doesNotMatch(page, /nba\.com|lakers|player likeness/i);
+});
+
+test("ThinkingState Search defaults are not live vendor URLs", () => {
+  const source = readFileSync(path.join(src, "components/beautifui/ThinkingState.tsx"), "utf8");
+  assert.doesNotMatch(source, /https:\/\/joycone\.com/);
+  assert.doesNotMatch(source, /https:\/\/www\.webstaurantstore\.com/);
+  assert.doesNotMatch(source, /https:\/\/www\.thekonery\.com/);
+  assert.match(source, /variant === "Search"/);
+});

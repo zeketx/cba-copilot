@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import { securityHeaders } from "./security-headers.ts";
 
 function officialPdfUrl(): string {
@@ -28,9 +28,58 @@ function previewHosts(): string[] {
   return hosts;
 }
 
+function previewNotFoundPage(): Plugin {
+  return {
+    name: "preview-not-found-page",
+    configurePreviewServer(server) {
+      return () => {
+        server.middlewares.use((req, res, next) => {
+          if (req.method !== "GET" && req.method !== "HEAD") {
+            next();
+            return;
+          }
+          let pathname = "/";
+          try {
+            pathname = new URL(req.url ?? "/", "http://vite.local").pathname;
+          } catch {
+            next();
+            return;
+          }
+          if (pathname === "/" || pathname === "/index.html") {
+            next();
+            return;
+          }
+          const notFound = path.resolve(
+            server.config.root,
+            server.config.build.outDir,
+            "404.html",
+          );
+          if (!existsSync(notFound)) {
+            next();
+            return;
+          }
+          const headers = server.config.preview.headers;
+          if (headers) {
+            for (const [name, value] of Object.entries(headers)) {
+              if (value !== undefined) {
+                res.setHeader(name, value);
+              }
+            }
+          }
+          const html = readFileSync(notFound);
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.setHeader("Content-Length", String(html.byteLength));
+          res.end(req.method === "HEAD" ? undefined : html);
+        });
+      };
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const config = {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), previewNotFoundPage()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
@@ -48,6 +97,8 @@ export default defineConfig(({ mode }) => {
   const fileEnv = loadEnv(mode, __dirname, "VITE_");
   return {
     ...config,
+    // Railway serves `vite preview`. MPA turns off the SPA index.html fallback so unknown paths 404.
+    appType: "mpa",
     preview: {
       allowedHosts: previewHosts(),
       headers: securityHeaders({
