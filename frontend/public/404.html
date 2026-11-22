@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-ground="sage" data-buttons="pill">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>404 — Page not found | CBA Copilot</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#ecebe7" />
+    <link rel="stylesheet" href="/assets/system.css" />
+    <style>
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("/fonts/instrument-serif-latin-normal.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("/fonts/instrument-serif-latin-italic.woff2") format("woff2");
+        font-weight: 400;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        src: url("/fonts/instrument-sans-latin-wght.woff2") format("woff2");
+        font-weight: 400 600;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("/fonts/jetbrains-mono-latin-wght.woff2") format("woff2");
+        font-weight: 400 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      :root {
+        --p-bg: #ecebe7;
+        --p-surface: #e1dfd9;
+        --p-ink: #1e240d;
+        --p-muted: #515b31;
+        --p-accent: #38450f;
+        --p-accent-ink: #ecebe7;
+        --p-action: #38450f;
+        --p-action-ink: #ecebe7;
+        --font-display: "Instrument Serif", Georgia, serif;
+        --font-text: "Instrument Sans", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        --display-weight: 400;
+        --display-tracking: -0.015em;
+      }
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        background: var(--p-bg);
+        color: var(--p-ink);
+        font-family: var(--font-text);
+      }
+      .not-found-nav {
+        border-bottom: 1px solid color-mix(in oklab, var(--p-ink) 12%, transparent);
+      }
+      .not-found-nav__inner {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 18px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .not-found-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--p-ink);
+        text-decoration: none;
+        font-family: var(--font-display);
+        font-size: 23px;
+        line-height: 1;
+        letter-spacing: -0.01em;
+      }
+      .not-found-brand svg {
+        width: 22px;
+        height: 22px;
+        color: var(--p-accent);
+        flex: none;
+      }
+      .not-found-main {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 48px 24px;
+      }
+      .not-found-card {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 560px;
+        padding: clamp(28px, 5vw, 44px);
+        border-radius: 16px;
+        background: var(--p-surface);
+        border: 1px solid color-mix(in oklab, var(--p-ink) 14%, transparent);
+      }
+      .not-found-code {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 16px;
+        padding: 4px 11px;
+        border-radius: 999px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--p-accent);
+        background: color-mix(in oklab, var(--p-accent) 10%, var(--p-bg));
+        border: 1px solid color-mix(in oklab, var(--p-accent) 18%, transparent);
+      }
+      .not-found-card h1 {
+        margin: 0 0 14px;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(36px, 5.4vw, 52px);
+        line-height: 1.02;
+        letter-spacing: -0.022em;
+        color: var(--p-ink);
+      }
+      .not-found-card h1 em {
+        font-style: italic;
+        color: var(--p-accent);
+      }
+      .not-found-card p {
+        margin: 0 0 28px;
+        font-size: 16px;
+        line-height: 1.55;
+        color: var(--p-muted);
+      }
+      .not-found-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .not-found-actions .btn--primary {
+        background: var(--p-action);
+        color: var(--p-action-ink);
+      }
+      .not-found-actions .btn--primary::after {
+        content: none;
+      }
+      .not-found-actions .btn--secondary {
+        border: 1px solid color-mix(in oklab, var(--p-ink) 42%, transparent);
+        color: var(--p-ink);
+      }
+      .not-found-foot {
+        max-width: 1120px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 24px 28px;
+        font-size: 13px;
+        color: var(--p-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="not-found-nav">
+      <div class="not-found-nav__inner">
+        <a class="not-found-brand" href="/" aria-label="CBA Copilot home">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="2" y="2.5" width="20" height="5.5" rx="2.75" />
+            <rect x="2" y="9.25" width="14" height="5.5" rx="2.75" />
+            <rect x="2" y="16" width="8" height="5.5" rx="2.75" />
+          </svg>
+          <span>CBA Copilot</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="not-found-main">
+      <article class="not-found-card" aria-labelledby="not-found-heading">
+        <div class="not-found-code">404 · Page not found</div>
+        <h1 id="not-found-heading">That page is not in the <em>record</em>.</h1>
+        <p>
+          The address you opened does not match a page on CBA Copilot. Return to the home page to
+          browse the 2023 NBA CBA workspace or sign in with an approved email.
+        </p>
+        <div class="not-found-actions">
+          <a class="btn btn--primary" href="/">Back to CBA Copilot</a>
+          <a class="btn btn--secondary" href="/#sign-in">Sign in</a>
+        </div>
+      </article>
+    </main>
+
+    <footer class="not-found-foot">
+      &copy; 2026 CBA Copilot &nbsp;·&nbsp; Not legal advice &nbsp;·&nbsp; Not affiliated with the
+      NBA or NBPA.
+    </footer>
+  </body>
+</html>

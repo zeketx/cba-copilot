@@ -65,9 +65,9 @@ const VARIANTS: Record<
     done: "Searched the web",
     query: "best waffle cone supplier",
     rows: [
-      { primary: "Joy Cone", secondary: "joycone.com", href: "https://joycone.com/fs_products/waffle-cones/" },
-      { primary: "WebstaurantStore", secondary: "webstaurantstore.com", href: "https://www.webstaurantstore.com/ice-cream-shop-supplies.html" },
-      { primary: "The Konery", secondary: "thekonery.com", href: "https://www.thekonery.com/" },
+      { primary: "Joy Cone", secondary: "joycone.com" },
+      { primary: "WebstaurantStore", secondary: "webstaurantstore.com" },
+      { primary: "The Konery", secondary: "thekonery.com" },
     ],
   },
   Coding: {
@@ -235,7 +235,7 @@ export default function ThinkingState({
                     <span className="size-3 shrink-0 rounded-full border-[1.5px] border-line-strong border-t-ink-2" style={{ animation: "spin 700ms linear infinite" }} />
                   )
                 )}
-                <span className={`min-w-0 truncate text-[12.5px] ${variant === "Reasoning" ? "whitespace-normal leading-relaxed text-ink-2" : "font-medium text-ink"} ${variant === "Search" ? "animated-underline" : ""}`}>
+                <span className={`min-w-0 truncate text-[12.5px] ${variant === "Reasoning" ? "whitespace-normal leading-relaxed text-ink-2" : "font-medium text-ink"} ${variant === "Search" && row.href ? "animated-underline" : ""}`}>
                   {row.primary}
                 </span>
                 {row.secondary && (
@@ -254,7 +254,7 @@ export default function ThinkingState({
               const rowClass = "flex min-h-7 w-full items-center gap-2 rounded-[6px] px-1.5 py-0.5 text-left";
               const animation = { animation: `fade-up 320ms cubic-bezier(0.23,1,0.32,1) ${i * 120}ms both` };
 
-              if (variant === "Search") {
+              if (variant === "Search" && row.href) {
                 return (
                   <a
                     key={row.primary}

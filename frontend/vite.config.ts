@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import type { OutgoingHttpHeaders } from "node:http";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Connect, type Plugin } from "vite";
 import { securityHeaders } from "./security-headers.ts";
 
 function officialPdfUrl(): string {
@@ -28,9 +29,61 @@ function previewHosts(): string[] {
   return hosts;
 }
 
+function notFoundMiddleware(
+  notFoundHtmlPath: string,
+  extraHeaders?: OutgoingHttpHeaders,
+): Connect.NextHandleFunction {
+  return (req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      return next();
+    }
+    const pathname = (req.url ?? "/").split("?")[0];
+    if (pathname === "/" || pathname === "/index.html") {
+      return next();
+    }
+    if (extraHeaders) {
+      for (const [name, value] of Object.entries(extraHeaders)) {
+        if (value !== undefined) {
+          res.setHeader(name, value);
+        }
+      }
+    }
+    res.statusCode = 404;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    if (req.method === "HEAD") {
+      res.end();
+      return;
+    }
+    const body = existsSync(notFoundHtmlPath)
+      ? readFileSync(notFoundHtmlPath, "utf8")
+      : "<!doctype html><title>404</title><h1>404 Not Found</h1>";
+    res.end(body);
+  };
+}
+
+function notFoundPagePlugin(): Plugin {
+  return {
+    name: "cba-not-found-page",
+    configureServer(server) {
+      return () => {
+        const htmlPath = path.resolve(server.config.publicDir, "404.html");
+        server.middlewares.use(notFoundMiddleware(htmlPath, server.config.server.headers));
+      };
+    },
+    configurePreviewServer(server) {
+      return () => {
+        const distDir = path.resolve(server.config.root, server.config.build.outDir);
+        const htmlPath = path.resolve(distDir, "404.html");
+        server.middlewares.use(notFoundMiddleware(htmlPath, server.config.preview.headers));
+      };
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const config = {
-    plugins: [react(), tailwindcss()],
+    appType: "mpa" as const,
+    plugins: [react(), tailwindcss(), notFoundPagePlugin()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
