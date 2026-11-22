@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -748,3 +749,55 @@ def test_driver_path_sql_is_valid_psycopg_pyformat() -> None:
             buggy,
             {"hit_ids": hit_ids, "articles": "7", "sections": "6(e)"},
         )
+
+
+def test_hybrid_overlaps_embed_with_keyword_search() -> None:
+    chunks = [
+        _chunk(
+            "apron",
+            "Second Apron Level trade aggregation cash",
+            "2(e) Transaction Restrictions",
+        ),
+        _chunk("other", "Hotel incidentals and parking stalls", "1 Hotel"),
+    ]
+    embedder = HashEmbedder(dimensions=64)
+    vectors = {chunk.id: embedder.embed_query(chunk.text) for chunk in chunks}
+    question = "second apron trade"
+    fast = hybrid_retrieve(
+        MemoryChunkStore(chunks, vectors),
+        question,
+        embedder,
+        top_k=2,
+        candidate_k=5,
+        context_per_hit=0,
+        context_max=0,
+    )
+    delay_s = 0.05
+
+    class SlowEmbedder:
+        def embed_query(self, text: str) -> list[float]:
+            time.sleep(delay_s)
+            return embedder.embed_query(text)
+
+    class SlowKeywordStore(MemoryChunkStore):
+        def keyword_search(self, query: str, limit: int) -> list[str]:
+            time.sleep(delay_s)
+            return super().keyword_search(query, limit)
+
+    started = time.perf_counter()
+    overlapped = hybrid_retrieve(
+        SlowKeywordStore(chunks, vectors),
+        question,
+        SlowEmbedder(),
+        top_k=2,
+        candidate_k=5,
+        context_per_hit=0,
+        context_max=0,
+    )
+    wall_ms = (time.perf_counter() - started) * 1000
+    sequential_ms = overlapped.timings["embed_ms"] + overlapped.timings["keyword_ms"]
+    assert [hit.id for hit in overlapped.hits] == [hit.id for hit in fast.hits]
+    assert overlapped.timings["embed_ms"] >= 40
+    assert overlapped.timings["keyword_ms"] >= 40
+    assert wall_ms < sequential_ms
+    assert overlapped.timings["total_ms"] < sequential_ms

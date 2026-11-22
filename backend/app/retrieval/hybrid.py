@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from app.domain import Chunk
 from app.retrieval.aliases import expand_query
@@ -36,15 +37,22 @@ def hybrid_retrieve(
     if context_per_hit < 0 or context_max < 0:
         raise ValueError("context caps must be zero or greater")
     expanded = expand_query(question)
-    started = time.perf_counter()
-    query_vec = embedder.embed_query(expanded)
-    embed_ms = _elapsed_ms(started)
+    wall_started = time.perf_counter()
+
+    def _embed_query() -> tuple[list[float], float]:
+        started = time.perf_counter()
+        vector = embedder.embed_query(expanded)
+        return vector, _elapsed_ms(started)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        embed_future = pool.submit(_embed_query)
+        started = time.perf_counter()
+        keyword_ids = store.keyword_search(expanded, candidate_k)
+        keyword_ms = _elapsed_ms(started)
+        query_vec, embed_ms = embed_future.result()
     started = time.perf_counter()
     vector_ids = store.vector_search(query_vec, candidate_k)
     vector_ms = _elapsed_ms(started)
-    started = time.perf_counter()
-    keyword_ids = store.keyword_search(expanded, candidate_k)
-    keyword_ms = _elapsed_ms(started)
     seen: set[str] = set()
     candidate_ids: list[str] = []
     for passage_id in [*vector_ids, *keyword_ids]:
@@ -82,7 +90,7 @@ def hybrid_retrieve(
     context = _ordered_chunks(store, [chunk.id for chunk in selected])
     context_ms = _elapsed_ms(started)
     db_ms = vector_ms + keyword_ms + fetch_ms + context_ms
-    total_ms = embed_ms + db_ms + phrase_ms + fusion_ms
+    total_ms = _elapsed_ms(wall_started)
     timings = {
         "embed_ms": embed_ms,
         "db_ms": db_ms,
